@@ -21,6 +21,7 @@
 void tracking(const std::shared_ptr<openvslam::config> &cfg,
               const std::string &vocab_file_path,
               const SR300 &camera,
+              const std::string &map_db_path,
               bool use_depth = true) {
   openvslam::system SLAM(cfg, vocab_file_path);
   SLAM.startup();
@@ -32,6 +33,9 @@ void tracking(const std::shared_ptr<openvslam::config> &cfg,
     const auto start = std::chrono::steady_clock::now();
     cv::Mat color_img, depth_img;
     while (true) {
+      if (SLAM.terminate_is_requested())
+        break;
+
       camera.get_rgbd_frame(&color_img, &depth_img);
       const auto tp = std::chrono::steady_clock::now();
       const auto timestamp = 
@@ -41,9 +45,6 @@ void tracking(const std::shared_ptr<openvslam::config> &cfg,
         SLAM.feed_RGBD_frame(color_img, depth_img, timestamp);
       else
         SLAM.feed_monocular_frame(color_img, timestamp);
-
-      if (SLAM.terminate_is_requested())
-        break;
     }
 
     while (SLAM.loop_BA_is_running()) {
@@ -52,10 +53,11 @@ void tracking(const std::shared_ptr<openvslam::config> &cfg,
   });
 
   viewer.run();
-
   t.join();
-
   SLAM.shutdown();
+
+  if (!map_db_path.empty())
+    SLAM.save_map_database(map_db_path);
 }
 
 std::shared_ptr<openvslam::config> get_config(const std::string &config_file_path,
@@ -94,6 +96,8 @@ int main(int argc, char *argv[]) {
                                                            "config file path");
   auto debug_mode = op.add<popl::Switch>("", "debug", "debug mode");
   auto depth = op.add<popl::Switch>("", "depth", "use depth information");
+  auto map_db_path = op.add<popl::Value<std::string>>("p", "map-db",
+                            "path to store the map database");
   try {
     op.parse(argc, argv);
   } catch (const std::exception &e) {
@@ -131,7 +135,8 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  tracking(cfg, vocab_file_path->value(), camera, depth->is_set());
+  tracking(cfg, 
+      vocab_file_path->value(), camera, map_db_path->value(), depth->is_set());
 
   return EXIT_SUCCESS;
 }
