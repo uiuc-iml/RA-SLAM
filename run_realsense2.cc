@@ -44,9 +44,6 @@ void tracking(const std::shared_ptr<openvslam::config> &cfg,
 
       if (SLAM.terminate_is_requested())
         break;
-      cv::imshow("rgb", color_img);
-      cv::imshow("depth", depth_img);
-      cv::waitKey(1);
     }
 
     while (SLAM.loop_BA_is_running()) {
@@ -96,6 +93,7 @@ int main(int argc, char *argv[]) {
   auto config_file_path = op.add<popl::Value<std::string>>("c", "config",
                                                            "config file path");
   auto debug_mode = op.add<popl::Switch>("", "debug", "debug mode");
+  auto depth = op.add<popl::Switch>("", "depth", "use depth information");
   try {
     op.parse(argc, argv);
   } catch (const std::exception &e) {
@@ -133,7 +131,7 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  rgbd_tracking(cfg, vocab_file_path->value(), camera);
+  tracking(cfg, vocab_file_path->value(), camera, depth->is_set());
 
   return EXIT_SUCCESS;
 }
