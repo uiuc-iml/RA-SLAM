@@ -16,47 +16,7 @@
 #include <popl.hpp>
 #include <spdlog/spdlog.h>
 
-#define RS_WIDTH  640
-#define RS_HEIGHT 480
-#define RS_FPS    60
-
-class SR300 {
- public:
-  SR300() : align_to_color_(RS2_STREAM_COLOR) {
-    cfg_.enable_stream(RS2_STREAM_DEPTH, 
-        RS_WIDTH, RS_HEIGHT, rs2_format::RS2_FORMAT_Z16, RS_FPS);
-    cfg_.enable_stream(RS2_STREAM_COLOR,
-        RS_WIDTH, RS_HEIGHT, rs2_format::RS2_FORMAT_RGB8, RS_FPS);
-    pipe_profile_ = pipe_.start(cfg_);
-  }
-
-  double get_depth_scale() const {
-    auto sensor = pipe_profile_.get_device().first<rs2::depth_sensor>();
-    return 1. / sensor.get_depth_scale();
-  }
-
-  rs2_intrinsics get_camera_intrinsics() const {
-    auto color_stream = pipe_profile_.get_stream(RS2_STREAM_COLOR)
-                                     .as<rs2::video_stream_profile>();
-    return color_stream.get_intrinsics();
-  }
-
-  void get_rgbd_frame(cv::Mat *color_img, cv::Mat *depth_img) const {
-    auto frameset = pipe_.wait_for_frames();
-    frameset = align_to_color_.process(frameset);
-
-    *color_img = cv::Mat(cv::Size(RS_WIDTH, RS_HEIGHT), CV_8UC3, 
-        (void*)frameset.get_color_frame().get_data(), cv::Mat::AUTO_STEP);
-    *depth_img = cv::Mat(cv::Size(RS_WIDTH, RS_HEIGHT), CV_16UC1,
-        (void*)frameset.get_depth_frame().get_data(), cv::Mat::AUTO_STEP);
-  }
-
- private:
-  rs2::config cfg_;
-  rs2::pipeline pipe_;
-  rs2::pipeline_profile pipe_profile_;
-  rs2::align align_to_color_;
-};
+#include "sr300.h"
 
 void rgbd_tracking(const std::shared_ptr<openvslam::config> &cfg,
                    const std::string &vocab_file_path,
@@ -78,6 +38,13 @@ void rgbd_tracking(const std::shared_ptr<openvslam::config> &cfg,
       SLAM.feed_RGBD_frame(color_img, depth_img, timestamp);
       if (SLAM.terminate_is_requested())
         break;
+      cv::imshow("rgb", color_img);
+      cv::imshow("depth", depth_img);
+      cv::waitKey(1);
+    }
+
+    while (SLAM.loop_BA_is_running()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
   });
 
@@ -93,9 +60,9 @@ std::shared_ptr<openvslam::config> get_config(const std::string &config_file_pat
   YAML::Node yaml_node = YAML::LoadFile(config_file_path);
   // modify configuration based on realsense camera data
   // pre-defined stream profile
-  yaml_node["Camera.fps"] = RS_FPS;
-  yaml_node["Camera.cols"] = RS_WIDTH;
-  yaml_node["Camera.rows"] = RS_HEIGHT;
+  yaml_node["Camera.fps"] = SR300::FPS;
+  yaml_node["Camera.cols"] = SR300::WIDTH;
+  yaml_node["Camera.rows"] = SR300::HEIGHT;
   yaml_node["Camera.color_order"] = "RGB"; 
   // camera intrinsics
   rs2_intrinsics i = camera.get_camera_intrinsics();
