@@ -16,7 +16,7 @@ class SR300 {
 
   static const int WIDTH = 640;
   static const int HEIGHT = 480;
-  static const int FPS = 60;
+  static const int FPS = 30;
 
  private:
   rs2::config cfg_;
