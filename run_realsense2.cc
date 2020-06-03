@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
   auto debug_mode = op.add<popl::Switch>("", "debug", "debug mode");
   auto depth = op.add<popl::Switch>("", "depth", "use depth information");
   auto map_db_path = op.add<popl::Value<std::string>>("p", "map-db",
-                            "path to store the map database");
+                            "path to store the map database", "");
   try {
     op.parse(argc, argv);
   } catch (const std::exception &e) {
