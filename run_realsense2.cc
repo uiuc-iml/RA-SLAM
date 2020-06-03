@@ -18,9 +18,10 @@
 
 #include "sr300.h"
 
-void rgbd_tracking(const std::shared_ptr<openvslam::config> &cfg,
-                   const std::string &vocab_file_path,
-                   const SR300 &camera) {
+void tracking(const std::shared_ptr<openvslam::config> &cfg,
+              const std::string &vocab_file_path,
+              const SR300 &camera,
+              bool use_depth = true) {
   openvslam::system SLAM(cfg, vocab_file_path);
   SLAM.startup();
 
@@ -35,7 +36,12 @@ void rgbd_tracking(const std::shared_ptr<openvslam::config> &cfg,
       const auto tp = std::chrono::steady_clock::now();
       const auto timestamp = 
         std::chrono::duration_cast<std::chrono::duration<double>>(tp - start).count();
-      SLAM.feed_RGBD_frame(color_img, depth_img, timestamp);
+
+      if (use_depth)
+        SLAM.feed_RGBD_frame(color_img, depth_img, timestamp);
+      else
+        SLAM.feed_monocular_frame(color_img, timestamp);
+
       if (SLAM.terminate_is_requested())
         break;
       cv::imshow("rgb", color_img);
