@@ -1,4 +1,5 @@
 #include "sr300.h"
+#include <spdlog/spdlog.h>
 
 const int SR300::FPS;
 const int SR300::WIDTH;
@@ -35,4 +36,24 @@ void SR300::get_rgbd_frame(cv::Mat *color_img, cv::Mat *depth_img) const {
       (void*)frameset.get_color_frame().get_data(), cv::Mat::AUTO_STEP);
   *depth_img = cv::Mat(cv::Size(WIDTH, HEIGHT), CV_16UC1,
       (void*)frameset.get_depth_frame().get_data(), cv::Mat::AUTO_STEP);
+}
+
+void SR300::set_depth_sensor_option(const rs2_option option, const float value) {
+  auto sensor = pipe_profile_.get_device().first<rs2::depth_sensor>();
+  if (!sensor.supports(option)) {
+    spdlog::error("{} not supported", sensor.get_option_description(option));
+    return ;
+  }
+  const auto option_range = sensor.get_option_range(option);
+  if (value < option_range.min || value > option_range.max) {
+    spdlog::error("value {} out of range ([{}, {}])", 
+                  value, option_range.min, option_range.max);
+    return ;
+  }
+  try {
+    sensor.set_option(option, value);
+  }
+  catch (const rs2::error &e) {
+    spdlog::error("Failed to set option: {}", e.what());
+  }
 }

@@ -14,6 +14,8 @@ class SR300 {
 
   void get_rgbd_frame(cv::Mat *color_img, cv::Mat *depth_img) const; 
 
+  void set_depth_sensor_option(const rs2_option option, const float value);
+
   static const int WIDTH = 640;
   static const int HEIGHT = 480;
   static const int FPS = 30;

@@ -60,8 +60,8 @@ void tracking(const std::shared_ptr<openvslam::config> &cfg,
     SLAM.save_map_database(map_db_path);
 }
 
-std::shared_ptr<openvslam::config> get_config(const std::string &config_file_path,
-                                              const SR300 &camera) {
+std::shared_ptr<openvslam::config> get_and_set_config(const std::string &config_file_path,
+                                                      SR300 *camera) {
   YAML::Node yaml_node = YAML::LoadFile(config_file_path);
   // modify configuration based on realsense camera data
   // pre-defined stream profile
@@ -70,7 +70,7 @@ std::shared_ptr<openvslam::config> get_config(const std::string &config_file_pat
   yaml_node["Camera.rows"] = SR300::HEIGHT;
   yaml_node["Camera.color_order"] = "RGB"; 
   // camera intrinsics
-  rs2_intrinsics i = camera.get_camera_intrinsics();
+  rs2_intrinsics i = camera->get_camera_intrinsics();
   yaml_node["Camera.fx"] = i.fx;
   yaml_node["Camera.fy"] = i.fy;
   yaml_node["Camera.cx"] = i.ppx;
@@ -82,7 +82,12 @@ std::shared_ptr<openvslam::config> get_config(const std::string &config_file_pat
   yaml_node["Camera.p2"] = 0;
   yaml_node["Camera.k3"] = 0;
   // depth factor
-  yaml_node["depthmap_factor"] = camera.get_depth_scale();
+  yaml_node["depthmap_factor"] = camera->get_depth_scale();
+  // realsense depth camera options
+  camera->set_depth_sensor_option(RS2_OPTION_FILTER_OPTION, 
+                                  yaml_node["RS.filter_option"].as<float>());
+  camera->set_depth_sensor_option(RS2_OPTION_MOTION_RANGE, 
+                                  yaml_node["RS.motion_range"].as<float>());
 
   return std::make_shared<openvslam::config>(yaml_node, config_file_path);
 }
@@ -129,7 +134,7 @@ int main(int argc, char *argv[]) {
 
   std::shared_ptr<openvslam::config> cfg;
   try {
-    cfg = get_config(config_file_path->value(), camera);
+    cfg = get_and_set_config(config_file_path->value(), &camera);
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return EXIT_FAILURE;
