@@ -8,12 +8,14 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(openvslam REQUIRED)
 find_package(Pangolin REQUIRED)
 find_package(realsense2 REQUIRED)
+find_package(OpenCV REQUIRED)
 
 add_subdirectory(third_party)
+add_subdirectory(cameras)
 
-add_executable(run_realsense2 run_realsense2.cc sr300.cc)
-target_link_libraries(run_realsense2 PRIVATE popl
+add_executable(run_sr300 run_sr300.cc)
+target_link_libraries(run_sr300 PRIVATE cameras
+    popl
     openvslam::openvslam
     openvslam::pangolin_viewer
-    ${realsense2_LIBRARY})
-target_include_directories(run_realsense2 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    realsense2::realsense2)

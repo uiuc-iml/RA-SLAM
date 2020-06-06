@@ -16,7 +16,7 @@
 #include <popl.hpp>
 #include <spdlog/spdlog.h>
 
-#include "sr300.h"
+#include "cameras/sr300.h"
 
 void tracking(const std::shared_ptr<openvslam::config> &cfg,
               const std::string &vocab_file_path,
