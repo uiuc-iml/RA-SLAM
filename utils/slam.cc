@@ -176,9 +176,9 @@ void system::save_frame_trajectory(const std::string& path,
   const auto rc_iter_end = cam_poses_cTk.end();
   auto rk_iter = reference_keyframes.begin();
   auto rc_iter = cam_poses_cTk.begin();
-  for (;rk_iter != rk_iter_end, rc_iter != rc_iter_end; ++rk_iter, ++rc_iter) {
+  for (;rk_iter != rk_iter_end && rc_iter != rc_iter_end; ++rk_iter, ++rc_iter) {
     const auto frame_id = rk_iter->first;
-    if (is_lost_frames.at(frame_id) || frame_ids_set.find(frame_id) == frame_ids_set.end());
+    if (is_lost_frames.at(frame_id) || frame_ids_set.find(frame_id) == frame_ids_set.end())
       continue;
     const auto ref_keyframe = rk_iter->second;
     const Mat44_t cam_pose_kTw = ref_keyframe->get_cam_pose();

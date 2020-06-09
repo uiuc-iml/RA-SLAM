@@ -14,6 +14,9 @@ add_library(openvslam INTERFACE)
 target_link_libraries(openvslam
     INTERFACE popl openvslam::openvslam openvslam::pangolin_viewer)
 
+# options
+option(WITH_ZED_SDK "Whether to include ZED SDK or not (disable on MacOS)" ON)
+
 add_subdirectory(cameras)
 add_subdirectory(utils)
 add_subdirectory(third_party)
@@ -21,5 +24,7 @@ add_subdirectory(third_party)
 add_executable(run_sr300 run_sr300.cc)
 target_link_libraries(run_sr300 PRIVATE sr300 openvslam)
 
-add_executable(run_zed run_zed.cc)
-target_link_libraries(run_zed PRIVATE zed openvslam utils)
+if(${WITH_ZED_SDK})
+    add_executable(run_zed run_zed.cc)
+    target_link_libraries(run_zed PRIVATE zed openvslam utils)
+endif(${WITH_ZED_SDK})
