@@ -19,17 +19,17 @@ float get_timestamp_micro_f() {
   return std::chrono::duration_cast<std::chrono::microseconds>(now - start).count();
 }
 
-uint32_t get_timestamp_sec_u() {
+unsigned int get_timestamp_sec_u() {
   const auto now = std::chrono::steady_clock::now();
   return std::chrono::duration_cast<std::chrono::seconds>(now - start).count();
 }
 
-uint32_t get_timestamp_milli_u() {
+unsigned int get_timestamp_milli_u() {
   const auto now = std::chrono::steady_clock::now();
   return std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
 }
 
-uint32_t get_timestamp_micro_u() {
+unsigned int get_timestamp_micro_u() {
   const auto now = std::chrono::steady_clock::now();
   return std::chrono::duration_cast<std::chrono::microseconds>(now - start).count();
 }

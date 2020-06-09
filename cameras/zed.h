@@ -3,6 +3,16 @@
 #include <opencv2/opencv.hpp>
 #include <sl/Camera.hpp>
 
+#include <mutex>
+
+class ZEDMeasurement {
+ public:
+  ZEDMeasurement();
+
+ private:
+
+};
+
 class ZED {
  public:
   ZED();
@@ -15,6 +25,8 @@ class ZED {
 
  private:
   void allocate_if_needed(cv::Mat *img) const;
+
+  void sensor_capture();
 
   sl::Camera zed_;
   sl::CameraConfiguration config_;

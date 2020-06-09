@@ -8,7 +8,6 @@
 #include "pangolin_viewer/viewer.h"
 
 #include "openvslam/config.h"
-#include "openvslam/system.h"
 
 #include <sl/Camera.hpp>
 #include <opencv2/opencv.hpp>
@@ -17,6 +16,7 @@
 #include <spdlog/spdlog.h>
 
 #include "cameras/zed.h"
+#include "utils/slam.h"
 #include "utils/time.h"
 
 void tracking(const std::shared_ptr<openvslam::config> &cfg,
@@ -41,10 +41,6 @@ void tracking(const std::shared_ptr<openvslam::config> &cfg,
       const auto timestamp = get_timestamp_sec_f();
 
       SLAM.feed_stereo_frame(left_img, right_img, timestamp);
-    }
-
-    while (SLAM.loop_BA_is_running()) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
   });
 
