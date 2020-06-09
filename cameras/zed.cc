@@ -1,5 +1,7 @@
 #include "zed.h"
 
+#include <spdlog/spdlog.h>
+
 ZED::ZED() {
   sl::InitParameters init_params;
   init_params.camera_resolution = sl::RESOLUTION::VGA;
@@ -8,6 +10,7 @@ ZED::ZED() {
   init_params.coordinate_units = sl::UNIT::METER;
   zed_.open(init_params);
   config_ = zed_.getCameraInformation().camera_configuration;
+  spdlog::debug("CONSTRUCT: ZED::ZED");
 }
 
 ZED::~ZED() {

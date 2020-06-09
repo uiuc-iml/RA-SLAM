@@ -10,7 +10,6 @@ class ZEDMeasurement {
   ZEDMeasurement();
 
  private:
-
 };
 
 class ZED {
