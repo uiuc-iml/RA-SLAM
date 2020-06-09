@@ -16,3 +16,7 @@ if(${WITH_ZED_SDK})
         PUBLIC zed_sdk
         PRIVATE openvslam::openvslam)
 endif(${WITH_ZED_SDK})
+
+find_package(OpenCV REQUIRED)
+add_library(zed_native zed_native.cc)
+target_link_libraries(zed_native PUBLIC ${OpenCV_LIBS} openvslam::openvslam)
