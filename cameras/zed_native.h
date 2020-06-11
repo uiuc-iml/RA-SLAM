@@ -12,7 +12,7 @@
 
 class ZEDNative {
  public:
-  ZEDNative(const openvslam::config &cfg);
+  ZEDNative(const openvslam::config &cfg, int dev_id = 0);
   ~ZEDNative();
 
   void get_stereo_img(cv::Mat *left_img, cv::Mat* right_img);
@@ -25,7 +25,6 @@ class ZEDNative {
   const openvslam::camera::base *cam_model_;
   const openvslam::util::stereo_rectifier rectifier_;
 
-  int dev_id_;
-  std::unique_ptr<cv::VideoCapture> cap_ = nullptr;
+  cv::VideoCapture cap_;
   cv::Ptr<cv::StereoSGBM> sgm_;
 };

@@ -17,7 +17,6 @@
 
 class slam_system : public openvslam::system {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   //! Constructor
   slam_system(const std::shared_ptr<openvslam::config> &cfg,
               const std::string &vocab_file_path);

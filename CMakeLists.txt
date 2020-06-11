@@ -18,11 +18,11 @@ target_link_libraries(openvslam
 option(WITH_ZED_SDK "Whether to include ZED SDK or not (disable on MacOS)" ON)
 
 add_subdirectory(cameras)
-add_subdirectory(utils)
+add_subdirectory(modules)
 add_subdirectory(third_party)
 
 add_executable(run_sr300 run_sr300.cc)
 target_link_libraries(run_sr300 PRIVATE sr300 openvslam)
 
 add_executable(run_zed run_zed.cc)
-target_link_libraries(run_zed PRIVATE zed_native openvslam utils)
+target_link_libraries(run_zed PRIVATE zed_native openvslam modules)

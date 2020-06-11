@@ -19,7 +19,7 @@
 #include <spdlog/spdlog.h>
 
 #include "cameras/zed_native.h"
-#include "utils/slam.h"
+#include "modules/slam_module.h"
 #include "utils/time.hpp"
 
 void tracking(const std::shared_ptr<openvslam::config> &cfg,
@@ -64,6 +64,8 @@ int main(int argc, char *argv[]) {
   auto debug_mode = op.add<popl::Switch>("", "debug", "debug mode");
   auto map_db_path = op.add<popl::Value<std::string>>("p", "map-db",
                             "path to store the map database", "");
+  auto device_id = op.add<popl::Value<int>>("", "devid", "camera device id", 0);
+
   try {
     op.parse(argc, argv);
   } catch (const std::exception &e) {
@@ -100,7 +102,7 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  ZEDNative camera(*cfg);
+  ZEDNative camera(*cfg, device_id->value());
 
   tracking(cfg, 
       vocab_file_path->value(), map_db_path->value(), &camera);
