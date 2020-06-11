@@ -1,12 +1,14 @@
 #include "zed.h"
+#include "utils/time.hpp"
 
+#include <chrono>
+#include <mutex>
 #include <spdlog/spdlog.h>
 
 ZED::ZED() {
   sl::InitParameters init_params;
   init_params.camera_resolution = sl::RESOLUTION::VGA;
   init_params.camera_fps = 100;
-  init_params.depth_mode = sl::DEPTH_MODE::NONE;
   init_params.coordinate_units = sl::UNIT::METER;
   zed_.open(init_params);
   config_ = zed_.getCameraInformation().camera_configuration;
@@ -15,6 +17,8 @@ ZED::ZED() {
 
 ZED::~ZED() {
   zed_.close();
+  request_terminate();
+  //capture_t_->join();
 }
 
 sl::CameraConfiguration ZED::get_camera_config() const {
@@ -41,4 +45,24 @@ void ZED::allocate_if_needed(cv::Mat *img) const {
       img->cols != config_.resolution.width ||
       img->rows != config_.resolution.height)
     *img = cv::Mat(config_.resolution.height, config_.resolution.width, CV_8UC1);
+}
+
+void ZED::capture_thread() {
+  while (true) {
+    {
+      std::lock_guard<std::mutex> lock(mtx_terminate_);
+      if (terminate_is_requested_)
+        break;
+    }
+    if (zed_.grab() == sl::ERROR_CODE::SUCCESS) {
+      zed_.retrieveImage(measurements_[write_idx_].left_img, sl::VIEW::LEFT_GRAY);
+      zed_.retrieveImage(measurements_[write_idx_].right_img, sl::VIEW::RIGHT_GRAY);
+      zed_.retrieveMeasure(measurements_[write_idx_].xyzrgba, sl::MEASURE::XYZRGBA);
+    }
+  }
+}
+
+void ZED::request_terminate() {
+  std::lock_guard<std::mutex> lock(mtx_terminate_);
+  terminate_is_requested_ = true;
 }

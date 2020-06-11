@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
 project(disinfslam LANGUAGES CXX C)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -24,7 +24,5 @@ add_subdirectory(third_party)
 add_executable(run_sr300 run_sr300.cc)
 target_link_libraries(run_sr300 PRIVATE sr300 openvslam)
 
-if(${WITH_ZED_SDK})
-    add_executable(run_zed run_zed.cc)
-    target_link_libraries(run_zed PRIVATE zed openvslam utils)
-endif(${WITH_ZED_SDK})
+add_executable(run_zed run_zed.cc)
+target_link_libraries(run_zed PRIVATE zed_native openvslam utils)

@@ -1,6 +1,10 @@
+#include <algorithm>
 #include <chrono>
 #include <iostream>
 #include <memory>
+#include <opencv2/core.hpp>
+#include <opencv2/core/base.hpp>
+#include <opencv2/highgui.hpp>
 #include <string>
 #include <thread>
 #include <yaml-cpp/yaml.h>
@@ -9,24 +13,23 @@
 
 #include "openvslam/config.h"
 
-#include <sl/Camera.hpp>
 #include <opencv2/opencv.hpp>
 
 #include <popl.hpp>
 #include <spdlog/spdlog.h>
 
-#include "cameras/zed.h"
+#include "cameras/zed_native.h"
 #include "utils/slam.h"
-#include "utils/time.h"
+#include "utils/time.hpp"
 
 void tracking(const std::shared_ptr<openvslam::config> &cfg,
               const std::string &vocab_file_path,
               const std::string &map_db_path,
-              ZED *camera) {
-  openvslam::system SLAM(cfg, vocab_file_path);
+              ZEDNative *camera) {
+  auto SLAM = openvslam::system(cfg, vocab_file_path);
   SLAM.startup();
 
-  pangolin_viewer::viewer viewer(
+  pangolin_viewer::viewer viewer = pangolin_viewer::viewer(
       cfg, &SLAM, SLAM.get_frame_publisher(), SLAM.get_map_publisher());
 
   std::thread t([&]() {
@@ -37,10 +40,9 @@ void tracking(const std::shared_ptr<openvslam::config> &cfg,
         break;
 
       camera->get_stereo_img(&left_img, &right_img);
-      const auto tp = std::chrono::steady_clock::now();
-      const auto timestamp = get_timestamp_sec_f();
+      const auto timestamp = get_timestamp<std::chrono::microseconds>();
 
-      SLAM.feed_stereo_frame(left_img, right_img, timestamp);
+      SLAM.feed_stereo_frame(left_img, right_img, timestamp / 1e6);
     }
   });
 
@@ -50,34 +52,6 @@ void tracking(const std::shared_ptr<openvslam::config> &cfg,
 
   if (!map_db_path.empty())
     SLAM.save_map_database(map_db_path);
-}
-
-std::shared_ptr<openvslam::config> get_config(const std::string &config_file_path,
-                                              const ZED &camera) {
-  YAML::Node yaml_node = YAML::LoadFile(config_file_path);
-  // modify configuration based on realsense camera data
-  // pre-defined stream profile
-  auto cam_config = camera.get_camera_config();
-  yaml_node["Camera.fps"] = cam_config.fps;
-  yaml_node["Camera.cols"] = cam_config.resolution.width;
-  yaml_node["Camera.rows"] = cam_config.resolution.height;
-  yaml_node["Camera.color_order"] = "Gray"; 
-  // camera intrinsics
-  yaml_node["Camera.fx"] = cam_config.calibration_parameters.left_cam.fx;
-  yaml_node["Camera.fy"] = cam_config.calibration_parameters.left_cam.fy;
-  yaml_node["Camera.cx"] = cam_config.calibration_parameters.left_cam.cx;
-  yaml_node["Camera.cy"] = cam_config.calibration_parameters.left_cam.cy;
-  yaml_node["Camera.focal_x_baseline"] = 
-    cam_config.calibration_parameters.stereo_transform.getTranslation().x *
-    cam_config.calibration_parameters.left_cam.fx;
-  // zero camera distortion
-  yaml_node["Camera.k1"] = 0;
-  yaml_node["Camera.k2"] = 0;
-  yaml_node["Camera.p1"] = 0;
-  yaml_node["Camera.p2"] = 0;
-  yaml_node["Camera.k3"] = 0;
-
-  return std::make_shared<openvslam::config>(yaml_node, config_file_path);
 }
 
 int main(int argc, char *argv[]) {
@@ -117,15 +91,16 @@ int main(int argc, char *argv[]) {
   else
     spdlog::set_level(spdlog::level::info);
 
-  ZED camera;
 
   std::shared_ptr<openvslam::config> cfg;
   try {
-    cfg = get_config(config_file_path->value(), camera);
+    cfg = std::make_shared<openvslam::config>(config_file_path->value());
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return EXIT_FAILURE;
   }
+
+  ZEDNative camera(*cfg);
 
   tracking(cfg, 
       vocab_file_path->value(), map_db_path->value(), &camera);

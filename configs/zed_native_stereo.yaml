@@ -1,0 +1,55 @@
+# Camera Model
+Camera.name: "ZED Rev 1"
+Camera.setup: "stereo" 
+Camera.model: "perspective"
+
+Camera.id: 0
+
+Camera.fps: 100
+Camera.cols: 672
+Camera.rows: 376
+
+Camera.color_order: "BGR"
+
+Camera.fx: 345.31180425
+Camera.fy: 345.31180425
+Camera.cx: 336.38026428
+Camera.cy: 178.91456413
+
+Camera.k1: 0.0
+Camera.k2: 0.0
+Camera.p1: 0.0
+Camera.p2: 0.0
+Camera.k3: 0.0
+
+Camera.focal_x_baseline: 41.43879775692531
+
+# Stereo Rectification Params
+StereoRectifier.K_left: [349.9125, 0.0, 342.22, 0.0, 349.9125, 186.23325, 0.0, 0.0, 1.0]
+StereoRectifier.D_left: [-0.173028, 0.0266431, 0.00233625, -0.000495465, 0.0]
+StereoRectifier.R_left: [ 9.99757195e-01, -1.38644283e-04,  2.20347831e-02,  9.74967027e-05, 9.99998250e-01,  1.86845545e-03, -2.20350036e-02, -1.86585346e-03, 9.99755459e-01]
+StereoRectifier.K_right: [349.6875, 0.0, 343.355, 0.0, 349.6875, 171.61275, 0.0, 0.0, 1]
+StereoRectifier.D_right: [-0.175975, 0.0277322, 0.00231321, -0.000857275, 0.0]
+StereoRectifier.R_right: [ 1.00000000e+00, -4.64174055e-18,  2.17360852e-15,  1.16261666e-17, 9.99998257e-01, -1.86726781e-03, -2.17187379e-15,  1.86726781e-03, 9.99998257e-01]
+
+# ORB Parameters
+Feature.max_num_keypoints: 1000
+Feature.scale_factor: 1.2
+Feature.num_levels: 8
+Feature.ini_fast_threshold: 20
+Feature.min_fast_threshold: 7
+
+# PangolinViewer Parameters
+PangolinViewer.keyframe_size: 0.05
+PangolinViewer.keyframe_line_width: 1
+PangolinViewer.graph_line_width: 1
+PangolinViewer.point_size: 2
+PangolinViewer.camera_size: 0.08
+PangolinViewer.camera_line_width: 3
+PangolinViewer.viewpoint_x: 0
+PangolinViewer.viewpoint_y: -0.9
+PangolinViewer.viewpoint_z: -1.9
+PangolinViewer.viewpoint_f: 400
+
+# Initializer Parameters
+Initializer.num_min_triangulated_pts: 100
