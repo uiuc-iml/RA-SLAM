@@ -9,6 +9,10 @@ find_package(openvslam REQUIRED)
 find_package(Pangolin REQUIRED)
 find_package(OpenCV REQUIRED)
 
+# ------------ Compile Flags ------------ #
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=native -march=native")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mtune=native -march=native")
+
 # Interface wrapper lib for OpenVSLAM
 add_library(openvslam INTERFACE)
 target_link_libraries(openvslam

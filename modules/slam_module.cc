@@ -81,6 +81,6 @@ unsigned int slam_system::feed_stereo_images(
     map_publisher_->set_current_cam_pose(cam_pose_cw);
   }
 
-  return tracker_->curr_frm_->id_;
+  return tracker_->curr_frm_.id_;
 }
 
