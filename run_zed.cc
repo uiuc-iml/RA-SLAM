@@ -24,34 +24,34 @@
 
 void tracking(const std::shared_ptr<openvslam::config> &cfg,
               const std::string &vocab_file_path,
-              const std::string &map_db_path,
-              ZEDNative *camera) {
-  auto SLAM = openvslam::system(cfg, vocab_file_path);
-  SLAM.startup();
+              const std::string &map_db_path) {
+  auto SLAM = std::make_unique<slam_system>(cfg, vocab_file_path);
+  auto camera = std::make_unique<ZEDNative>(*cfg, 0);
+  auto viewer = std::make_unique<pangolin_viewer::viewer>(
+      cfg, SLAM.get(), SLAM->get_frame_publisher(), SLAM->get_map_publisher());
+      
+  SLAM->startup();
 
-  pangolin_viewer::viewer viewer = pangolin_viewer::viewer(
-      cfg, &SLAM, SLAM.get_frame_publisher(), SLAM.get_map_publisher());
-
+  cv::Mat left_img, right_img;
   std::thread t([&]() {
     const auto start = std::chrono::steady_clock::now();
-    cv::Mat left_img, right_img;
     while (true) {
-      if (SLAM.terminate_is_requested())
+      if (SLAM->terminate_is_requested())
         break;
 
       camera->get_stereo_img(&left_img, &right_img);
       const auto timestamp = get_timestamp<std::chrono::microseconds>();
 
-      SLAM.feed_stereo_frame(left_img, right_img, timestamp / 1e6);
+      SLAM->feed_stereo_images(left_img, right_img, timestamp / 1e6);
     }
   });
 
-  viewer.run();
+  viewer->run();
   t.join();
-  SLAM.shutdown();
+  SLAM->shutdown();
 
   if (!map_db_path.empty())
-    SLAM.save_map_database(map_db_path);
+    SLAM->save_map_database(map_db_path);
 }
 
 int main(int argc, char *argv[]) {
@@ -102,10 +102,8 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  ZEDNative camera(*cfg, device_id->value());
-
   tracking(cfg, 
-      vocab_file_path->value(), map_db_path->value(), &camera);
+      vocab_file_path->value(), map_db_path->value());
 
   return EXIT_SUCCESS;
 }

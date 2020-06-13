@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <spdlog/spdlog.h>
 
+#include "openvslam/data/frame_statistics.h"
 #include "openvslam/data/keyframe.h"
 #include "openvslam/data/map_database.h"
 #include "openvslam/publish/frame_publisher.h"
@@ -12,9 +13,9 @@
 
 using namespace openvslam;
 
-slam_system::slam_system(const std::shared_ptr<config>& cfg, 
-                         const std::string& vocab_file_path)
-    : system(cfg, vocab_file_path) {}
+slam_system::slam_system(const std::shared_ptr<config> &cfg, 
+                         const std::string &vocab_file_path)
+    : openvslam::system(cfg, vocab_file_path) {}
 
 void slam_system::save_matched_trajectory(const std::string &path,
                                           const std::vector<unsigned int> &frame_ids) const {
