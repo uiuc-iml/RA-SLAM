@@ -3,11 +3,11 @@ Camera.name: "RealSense SR300"
 Camera.setup: "RGBD" 
 Camera.model: "perspective"
 
+Camera.focal_x_baseline: 40
+
 # Realsense SR300 Configurations
 RS.filter_option: 7
 RS.motion_range: 50
-
-true_depth_threshold: 3.
 
 # ORB Parameters
 Feature.max_num_keypoints: 1000
