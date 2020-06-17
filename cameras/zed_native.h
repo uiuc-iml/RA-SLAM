@@ -1,8 +1,9 @@
 #pragma once
 
-#include "openvslam/camera/base.h"
-#include "openvslam/config.h"
-#include "openvslam/util/stereo_rectifier.h"
+#include <openvslam/camera/base.h>
+#include <openvslam/config.h>
+
+#include "utils/stereo_rectifier.h"
 
 #include <memory>
 
@@ -17,13 +18,16 @@ class ZEDNative {
 
   void get_stereo_img(cv::Mat *left_img, cv::Mat* right_img);
 
-  cv::Mat compute_depth(const cv::Mat &left_img, const cv::Mat &right_img);
+  void get_rectified_intrinsics(double *fx, double *fy, double *cx, double *cy, 
+                                double *focal_x_baseline) const;
+
+  cv::Mat compute_depth(const cv::Mat &left_img, const cv::Mat &right_img) const;
 
  private:
   void capture_thread();
 
   const openvslam::camera::base *cam_model_;
-  const openvslam::util::stereo_rectifier rectifier_;
+  const stereo_rectifier rectifier_;
 
   cv::VideoCapture cap_;
   cv::Ptr<cv::StereoSGBM> sgm_;

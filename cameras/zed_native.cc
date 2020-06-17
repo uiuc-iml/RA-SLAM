@@ -8,7 +8,7 @@
 #include <spdlog/spdlog.h>
 
 ZEDNative::ZEDNative(const openvslam::config &cfg, int dev_id) 
-    : rectifier_(cfg.camera_, cfg.yaml_node_), cam_model_(cfg.camera_),
+    : rectifier_(cfg.yaml_node_), cam_model_(cfg.camera_),
       cap_(dev_id),
       sgm_(cv::StereoSGBM::create(0, 128, 9, 4*3*81, 16*3*81, 1, 63, 10, 100, 32, cv::StereoSGBM::MODE_HH)){
   if (!cap_.isOpened()) {
@@ -34,7 +34,7 @@ void ZEDNative::get_stereo_img(cv::Mat *left_img, cv::Mat *right_img) {
   }
 }
 
-cv::Mat ZEDNative::compute_depth(const cv::Mat &left_img, const cv::Mat &right_img) {
+cv::Mat ZEDNative::compute_depth(const cv::Mat &left_img, const cv::Mat &right_img) const {
   cv::Mat disparity;
   sgm_->compute(left_img, right_img, disparity);
   return disparity;

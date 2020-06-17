@@ -9,26 +9,25 @@ Camera.rows: 376
 
 Camera.color_order: "BGR"
 
-Camera.fx: 345.31180425
-Camera.fy: 345.31180425
-Camera.cx: 336.38026428
-Camera.cy: 178.91456413
-
 Camera.k1: 0.0
 Camera.k2: 0.0
 Camera.p1: 0.0
 Camera.p2: 0.0
 Camera.k3: 0.0
 
-Camera.focal_x_baseline: 41.43879775692531
-
-# Stereo Rectification Params
-StereoRectifier.K_left: [349.9125, 0.0, 342.22, 0.0, 349.9125, 186.23325, 0.0, 0.0, 1.0]
-StereoRectifier.D_left: [-0.173028, 0.0266431, 0.00233625, -0.000495465, 0.0]
-StereoRectifier.R_left: [ 9.99757195e-01, -1.38644283e-04,  2.20347831e-02,  9.74967027e-05, 9.99998250e-01,  1.86845545e-03, -2.20350036e-02, -1.86585346e-03, 9.99755459e-01]
-StereoRectifier.K_right: [349.6875, 0.0, 343.355, 0.0, 349.6875, 171.61275, 0.0, 0.0, 1]
-StereoRectifier.D_right: [-0.175975, 0.0277322, 0.00231321, -0.000857275, 0.0]
-StereoRectifier.R_right: [ 1.00000000e+00, -4.64174055e-18,  2.17360852e-15,  1.16261666e-17, 9.99998257e-01, -1.86726781e-03, -2.17187379e-15,  1.86726781e-03, 9.99998257e-01]
+# Raw Camera Calibration
+Calibration.left.fx: 3.487076003817052e+02
+Calibration.left.fy: 3.488764359986724e+02
+Calibration.left.cx: 3.406248547355793e+02
+Calibration.left.cy: 1.965738170547168e+02
+Calibration.left.distortion: [-0.167523746742601, 0.017655521050795, -9.201156510274841e-05, 1.732261137383475e-04, 0.005184740535757]
+Calibration.right.fx: 3.479528432208166e+02 
+Calibration.right.fy: 3.481548470530499e+02
+Calibration.right.cx: 3.419864978256713e+02
+Calibration.right.cy: 1.814489012207199e+02
+Calibration.right.distortion: [-0.158307432969450, -0.006512762619073, -1.576432892020557e-04, -9.680808782839360e-06, 0.020164400650090]
+Calibration.rotation: [-0.004582783357264, 0.020892528338472, 0.000463038187049]
+Calibration.translation: [-0.119381340243638, -0.000151048143148, 0.000186169370744]
 
 # ORB Parameters
 Feature.max_num_keypoints: 1000

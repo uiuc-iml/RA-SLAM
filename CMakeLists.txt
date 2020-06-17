@@ -8,16 +8,20 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(openvslam REQUIRED)
 find_package(Pangolin REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 # ------------ Compile Flags ------------ #
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=native -march=native")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mtune=native -march=native")
+
+include_directories(${CMAKE_SOURCE_DIR})
 
 # Interface wrapper lib for OpenVSLAM
 add_library(openvslam INTERFACE)
 target_link_libraries(openvslam
     INTERFACE popl openvslam::openvslam openvslam::pangolin_viewer)
 
+add_subdirectory(utils)
 add_subdirectory(cameras)
 add_subdirectory(modules)
 add_subdirectory(third_party)

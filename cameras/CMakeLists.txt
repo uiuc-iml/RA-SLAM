@@ -6,4 +6,4 @@ target_link_libraries(sr300
 
 find_package(OpenCV REQUIRED)
 add_library(zed_native zed_native.cc)
-target_link_libraries(zed_native PUBLIC ${OpenCV_LIBS} openvslam::openvslam)
+target_link_libraries(zed_native PUBLIC ${OpenCV_LIBS} openvslam::openvslam utils)
