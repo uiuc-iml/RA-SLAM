@@ -79,7 +79,6 @@ void tracking(const std::shared_ptr<openvslam::config> &cfg,
         break;
 
       camera->get_stereo_img(&img_left, &img_right, &data.img_rgb, &data.img_depth);
-      const auto tp = std::chrono::steady_clock::now();
       const auto timestamp = get_timestamp<std::chrono::microseconds>();
 
       data.id = SLAM.feed_stereo_images(img_left, img_right, timestamp / 1e6);

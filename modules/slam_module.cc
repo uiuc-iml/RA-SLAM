@@ -67,13 +67,30 @@ void slam_system::save_matched_trajectory(const std::string &path,
 }
 
 unsigned int slam_system::feed_stereo_images(
-    const cv::Mat& left_img, const cv::Mat& right_img, 
+    const cv::Mat& img_left, const cv::Mat& img_right, 
     const double timestamp, const cv::Mat& mask) {
   assert(camera_->setup_type_ == camera::setup_type_t::Stereo);
 
   check_reset_request();
 
-  const Mat44_t cam_pose_cw = tracker_->track_stereo_image(left_img, right_img, timestamp, mask);
+  const Mat44_t cam_pose_cw = tracker_->track_stereo_image(img_left, img_right, timestamp, mask);
+
+  frame_publisher_->update(tracker_);
+  if (tracker_->tracking_state_ == tracker_state_t::Tracking) {
+    map_publisher_->set_current_cam_pose(cam_pose_cw);
+  }
+
+  return tracker_->curr_frm_.id_;
+}
+
+unsigned int slam_system::feed_rgbd_images(
+    const cv::Mat& img_rgb, const cv::Mat& img_depth, 
+    const double timestamp, const cv::Mat& mask) {
+  assert(camera_->setup_type_ == camera::setup_type_t::RGBD);
+
+  check_reset_request();
+
+  const Mat44_t cam_pose_cw = tracker_->track_RGBD_image(img_rgb, img_depth, timestamp, mask);
 
   frame_publisher_->update(tracker_);
   if (tracker_->tracking_state_ == tracker_state_t::Tracking) {

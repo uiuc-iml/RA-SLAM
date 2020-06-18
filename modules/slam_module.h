@@ -23,8 +23,11 @@ class slam_system : public openvslam::system {
 
   //! Feed a stereo frame to SLAM system
   //! (Note: Left and Right images must be stereo-rectified)
-  unsigned int feed_stereo_images(const cv::Mat& left_img, const cv::Mat& right_img, 
-                                  const double timestamp, const cv::Mat& mask = cv::Mat{});
+  unsigned int feed_stereo_images(const cv::Mat &img_left, const cv::Mat &img_right, 
+                                  const double timestamp, const cv::Mat &mask = cv::Mat{});
+
+  unsigned int feed_rgbd_images(const cv::Mat &img_rgb, const cv::Mat &img_depth,
+                                const double timestamp, const cv::Mat &mask = cv::Mat{});
 
   //! Save the frame trajectory in the specified format
   void save_matched_trajectory(const std::string &path, 
