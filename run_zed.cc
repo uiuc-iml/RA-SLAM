@@ -21,6 +21,13 @@
 
 class DepthData {
  public:
+  DepthData() = default;
+
+  DepthData(const DepthData &others) 
+    : img_rgb(others.img_rgb.clone()),
+      img_depth(others.img_depth.clone()), 
+      id(others.id) {}
+
   cv::Mat img_rgb;
   cv::Mat img_depth;
   unsigned int id;

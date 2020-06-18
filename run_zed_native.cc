@@ -23,81 +23,46 @@
 
 #include "cameras/zed_native.h"
 #include "modules/slam_module.h"
+#include "utils/data_logger.hpp"
 #include "utils/time.hpp"
 
 class StereoData {
  public:
+  StereoData() = default;
+
+  StereoData(const StereoData &others)
+    : img_left(others.img_left.clone()),
+      img_right(others.img_right.clone()),
+      id(others.id) {}
+
   cv::Mat img_left;
   cv::Mat img_right;
   unsigned int id;
 };
 
-class StereoLogger {
+class StereoLogger : public DataLogger<StereoData> {
  public:
   StereoLogger(const std::string &logdir) 
       : logdir_(logdir),
-        log_thread_(&StereoLogger::run, this) {}
-
-  ~StereoLogger() {
-    {
-      std::lock_guard<std::mutex> lock(mtx_terminate_);
-      terminate_is_requested_ = true;
-    }
-    log_thread_.join();
-  }
-
-  void put_stereo_data(const cv::Mat &img_left, const cv::Mat &img_right, const unsigned int id) {
-    std::lock_guard<std::mutex> lock(mtx_data_);
-    data_[write_idx_].id = id;
-    data_[write_idx_].img_left = img_left.clone();
-    data_[write_idx_].img_right = img_right.clone();
-    data_available_ = true;
-  }
+        DataLogger<StereoData>() {}
 
   std::vector<unsigned int> logged_ids;
 
- private:
-  const std::string logdir_;
-
-  std::mutex mtx_data_;
-  int write_idx_ = 0;
-  bool data_available_ = false;
-  StereoData data_[2];
-
-  std::thread log_thread_;
-  mutable std::mutex mtx_terminate_;
-  bool terminate_is_requested_ = false;
-
-  void save_latest_stereo_data() {
-    // switch read / write buffer
-    {
-      std::lock_guard<std::mutex> lock(mtx_data_);
-      if (!data_available_)
-        return;
-      data_available_ = false;
-      write_idx_ = 1 - write_idx_;
-    }
-    const auto &stereo_data = data_[1 - write_idx_];
-    if (stereo_data.img_left.empty() || stereo_data.img_right.empty())
+ protected:
+  void save_data(const StereoData &data) override {
+    if (data.img_left.empty() || data.img_right.empty())
       return;
 
-    const std::string left_path = logdir_ + "/" + std::to_string(stereo_data.id) + "_left.png";
-    const std::string right_path = logdir_ + "/" + std::to_string(stereo_data.id) + "_right.png";
-    cv::imwrite(left_path, stereo_data.img_left);
-    cv::imwrite(right_path, stereo_data.img_right);
-    logged_ids.push_back(stereo_data.id);
+    const std::string left_path = logdir_ + "/" + std::to_string(data.id) + "_left.png";
+    const std::string right_path = logdir_ + "/" + std::to_string(data.id) + "_right.png";
+
+    cv::imwrite(left_path, data.img_left);
+    cv::imwrite(right_path, data.img_right);
+    logged_ids.push_back(data.id);
   }
 
-  void run() {
-    while (true) {
-      {
-        std::lock_guard<std::mutex> lock(mtx_terminate_);
-        if (terminate_is_requested_)
-          break;
-      }
-      save_latest_stereo_data();
-    }
-  }
+ private:
+  const std::string logdir_;
 };
 
 void tracking(const std::shared_ptr<openvslam::config> &cfg,
@@ -115,17 +80,18 @@ void tracking(const std::shared_ptr<openvslam::config> &cfg,
 
   std::thread t([&]() {
     const auto start = std::chrono::steady_clock::now();
-    cv::Mat left_img, right_img;
+    StereoData data;
     while (true) {
       if (SLAM.terminate_is_requested())
         break;
 
-      camera->get_stereo_img(&left_img, &right_img);
+      camera->get_stereo_img(&data.img_left, &data.img_right);
       const auto timestamp = get_timestamp<std::chrono::microseconds>();
 
-      const unsigned int id = SLAM.feed_stereo_images(left_img, right_img, timestamp / 1e6);
+      data.id = SLAM.feed_stereo_images(
+          data.img_left, data.img_right, timestamp / 1e6);
 
-      logger.put_stereo_data(left_img, right_img, id);
+      logger.log_data(data);
     }
   });
 
