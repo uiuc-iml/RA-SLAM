@@ -9,8 +9,8 @@ find_package(openvslam REQUIRED)
 find_package(Pangolin REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(yaml-cpp REQUIRED)
-find_package(ZED 3)
-find_package(CUDA)
+find_package(ZED 3 QUIET)
+find_package(CUDA QUIET)
 
 # Compile Flags
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=native -march=native")
