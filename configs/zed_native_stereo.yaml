@@ -1,0 +1,52 @@
+# Camera Model
+Camera.name: "ZED Rev 1"
+Camera.setup: "stereo" 
+Camera.model: "perspective"
+
+Camera.fps: 60
+Camera.cols: 672
+Camera.rows: 376
+
+Camera.color_order: "BGR"
+
+Camera.k1: 0.0
+Camera.k2: 0.0
+Camera.p1: 0.0
+Camera.p2: 0.0
+Camera.k3: 0.0
+
+# Raw Camera Calibration
+Calibration.left.fx: 3.487076003817052e+02
+Calibration.left.fy: 3.488764359986724e+02
+Calibration.left.cx: 3.406248547355793e+02
+Calibration.left.cy: 1.965738170547168e+02
+Calibration.left.distortion: [-0.167523746742601, 0.017655521050795, -9.201156510274841e-05, 1.732261137383475e-04, 0.005184740535757]
+Calibration.right.fx: 3.479528432208166e+02 
+Calibration.right.fy: 3.481548470530499e+02
+Calibration.right.cx: 3.419864978256713e+02
+Calibration.right.cy: 1.814489012207199e+02
+Calibration.right.distortion: [-0.158307432969450, -0.006512762619073, -1.576432892020557e-04, -9.680808782839360e-06, 0.020164400650090]
+Calibration.rotation: [-0.004582783357264, 0.020892528338472, 0.000463038187049]
+Calibration.translation: [-0.119381340243638, -0.000151048143148, 0.000186169370744]
+
+# ORB Parameters
+Feature.max_num_keypoints: 1000
+Feature.scale_factor: 1.2
+Feature.num_levels: 8
+Feature.ini_fast_threshold: 20
+Feature.min_fast_threshold: 7
+
+# PangolinViewer Parameters
+PangolinViewer.keyframe_size: 0.05
+PangolinViewer.keyframe_line_width: 1
+PangolinViewer.graph_line_width: 1
+PangolinViewer.point_size: 2
+PangolinViewer.camera_size: 0.08
+PangolinViewer.camera_line_width: 3
+PangolinViewer.viewpoint_x: 0
+PangolinViewer.viewpoint_y: -0.9
+PangolinViewer.viewpoint_z: -1.9
+PangolinViewer.viewpoint_f: 400
+
+# Initializer Parameters
+Initializer.num_min_triangulated_pts: 100

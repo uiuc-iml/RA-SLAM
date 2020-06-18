@@ -9,8 +9,10 @@ find_package(openvslam REQUIRED)
 find_package(Pangolin REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(yaml-cpp REQUIRED)
+find_package(ZED 3)
+find_package(CUDA)
 
-# ------------ Compile Flags ------------ #
+# Compile Flags
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=native -march=native")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mtune=native -march=native")
 
@@ -21,6 +23,7 @@ add_library(openvslam INTERFACE)
 target_link_libraries(openvslam
     INTERFACE popl openvslam::openvslam openvslam::pangolin_viewer)
 
+
 add_subdirectory(utils)
 add_subdirectory(cameras)
 add_subdirectory(modules)
@@ -29,5 +32,10 @@ add_subdirectory(third_party)
 add_executable(run_sr300 run_sr300.cc)
 target_link_libraries(run_sr300 PRIVATE sr300 openvslam)
 
-add_executable(run_zed run_zed.cc)
-target_link_libraries(run_zed PRIVATE zed_native modules)
+add_executable(run_zed_native run_zed_native.cc)
+target_link_libraries(run_zed_native PRIVATE zed_native modules)
+
+if (${ZED_FOUND})
+    add_executable(run_zed run_zed.cc)
+    target_link_libraries(run_zed PRIVATE zed modules)
+endif (${ZED_FOUND})

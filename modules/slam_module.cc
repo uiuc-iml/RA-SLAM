@@ -52,12 +52,11 @@ void slam_system::save_matched_trajectory(const std::string &path,
     const Mat44_t cam_pose_kTw = ref_keyframe->get_cam_pose();
     const Mat44_t cam_pose_cTk = rc_iter->second;
     const Mat44_t cam_pose_cTw = cam_pose_cTk * cam_pose_kTw;
-    const Mat44_t cam_pose_wTc = cam_pose_cTw.inverse();
 
     fout << frame_id << " ";
     for (size_t i = 0; i < 3; ++i)
       for (size_t j = 0; j < 4; ++j)
-        fout << cam_pose_wTc(i, j) << " ";
+        fout << cam_pose_cTw(i, j) << " ";
     fout << std::endl;
   }
 
