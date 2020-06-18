@@ -17,6 +17,7 @@
 
 #include "cameras/zed.h"
 #include "modules/slam_module.h"
+#include "utils/data_logger.hpp"
 #include "utils/time.hpp"
 
 class DepthData {
@@ -33,74 +34,27 @@ class DepthData {
   unsigned int id;
 };
 
-class DepthLogger {
+class DepthLogger : public DataLogger<DepthData> {
  public:
   DepthLogger(const std::string &logdir) 
       : logdir_(logdir),
-        log_thread_(&DepthLogger::run, this) {}
-
-  ~DepthLogger() {
-    {
-      std::lock_guard<std::mutex> lock(mtx_terminate_);
-      terminate_is_requested_ = true;
-    }
-    log_thread_.join();
-  }
-
-  void put_stereo_data(const cv::Mat &img_rgb, const cv::Mat &img_depth, const unsigned int id) {
-    std::lock_guard<std::mutex> lock(mtx_data_);
-    data_[write_idx_].id = id;
-    data_[write_idx_].img_rgb = img_rgb.clone();
-    data_[write_idx_].img_depth = img_depth.clone();
-    data_available_ = true;
-  }
+        DataLogger<DepthData>() {}
 
   std::vector<unsigned int> logged_ids;
 
+ protected:
+  void save_data(const DepthData &data) override {
+    const std::string rgb_path = logdir_ + "/" + std::to_string(data.id) + "_rgb.png";
+    const std::string depth_path = logdir_ + "/" + std::to_string(data.id) + "_depth.png";
+    cv::Mat img_depth_uint16;
+    data.img_depth.convertTo(img_depth_uint16, CV_16UC1);
+    cv::imwrite(rgb_path, data.img_rgb);
+    cv::imwrite(depth_path, img_depth_uint16);
+    logged_ids.push_back(data.id);
+  }
+
  private:
   const std::string logdir_;
-
-  std::mutex mtx_data_;
-  int write_idx_ = 0;
-  bool data_available_ = false;
-  DepthData data_[2];
-
-  std::thread log_thread_;
-  mutable std::mutex mtx_terminate_;
-  bool terminate_is_requested_ = false;
-
-  void save_latest_stereo_data() {
-    // switch read / write buffer
-    {
-      std::lock_guard<std::mutex> lock(mtx_data_);
-      if (!data_available_)
-        return;
-      data_available_ = false;
-      write_idx_ = 1 - write_idx_;
-    }
-    const auto &stereo_data = data_[1 - write_idx_];
-    if (stereo_data.img_rgb.empty() || stereo_data.img_depth.empty())
-      return;
-
-    const std::string rgb_path = logdir_ + "/" + std::to_string(stereo_data.id) + "_rgb.png";
-    const std::string depth_path = logdir_ + "/" + std::to_string(stereo_data.id) + "_depth.png";
-    cv::Mat img_depth_uint16;
-    stereo_data.img_depth.convertTo(img_depth_uint16, CV_16UC1);
-    cv::imwrite(rgb_path, stereo_data.img_rgb);
-    cv::imwrite(depth_path, img_depth_uint16);
-    logged_ids.push_back(stereo_data.id);
-  }
-
-  void run() {
-    while (true) {
-      {
-        std::lock_guard<std::mutex> lock(mtx_terminate_);
-        if (terminate_is_requested_)
-          break;
-      }
-      save_latest_stereo_data();
-    }
-  }
 };
 
 void tracking(const std::shared_ptr<openvslam::config> &cfg,
@@ -116,20 +70,21 @@ void tracking(const std::shared_ptr<openvslam::config> &cfg,
 
   DepthLogger logger(logdir);
 
+  DepthData data;
   std::thread t([&]() {
     const auto start = std::chrono::steady_clock::now();
-    cv::Mat left_img, right_img, rgb_img, depth_img;
+    cv::Mat img_left, img_right;
     while (true) {
       if (SLAM.terminate_is_requested())
         break;
 
-      camera->get_stereo_img(&left_img, &right_img, &rgb_img, &depth_img);
+      camera->get_stereo_img(&img_left, &img_right, &data.img_rgb, &data.img_depth);
       const auto tp = std::chrono::steady_clock::now();
       const auto timestamp = get_timestamp<std::chrono::microseconds>();
 
-      const unsigned int id = SLAM.feed_stereo_images(left_img, right_img, timestamp / 1e6);
+      data.id = SLAM.feed_stereo_images(img_left, img_right, timestamp / 1e6);
 
-      logger.put_stereo_data(rgb_img, depth_img, id);
+      logger.log_data(data);
     }
 
     while (SLAM.loop_BA_is_running()) {
