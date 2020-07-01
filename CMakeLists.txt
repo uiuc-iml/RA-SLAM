@@ -5,10 +5,18 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# OpenGL
+find_package(GLEW REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GLM REQUIRED glm)
+find_package(glfw3 REQUIRED)
+find_package(OpenGL REQUIRED)
+# Slam
 find_package(openvslam REQUIRED)
-find_package(Pangolin REQUIRED)
+find_package(Pangolin REQUIRED) # TODO(alvin): to be completely replaced by Dear ImGUI
 find_package(OpenCV REQUIRED)
 find_package(yaml-cpp REQUIRED)
+# Zed SDK (optional)
 find_package(ZED 3 QUIET)
 find_package(CUDA QUIET)
 
@@ -39,3 +47,5 @@ if (${ZED_FOUND})
     add_executable(run_zed run_zed.cc)
     target_link_libraries(run_zed PRIVATE zed modules)
 endif (${ZED_FOUND})
+
+add_subdirectory(examples)

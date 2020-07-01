@@ -1,4 +1,4 @@
-add_library(gl_utils renderer_base.cc)
+add_library(gl_utils renderer_base.cc shader.cc)
 target_link_libraries(gl_utils 
     PUBLIC imgui
     PRIVATE spdlog)

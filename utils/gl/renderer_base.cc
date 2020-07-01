@@ -2,9 +2,6 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
-
 #include <spdlog/spdlog.h>
 
 #include "renderer_base.h"
@@ -14,7 +11,14 @@
 #define GL_VERSION_MINOR 3
 #define GLSL_VERSION "#version 430"
 
+bool RendererBase::initialized_ = false;
+
 RendererBase::RendererBase(const std::string &name, int width, int height) {
+  if (initialized_) {
+    spdlog::error("singleton renderer instantiated twice!");
+    exit(EXIT_FAILURE);
+  }
+  initialized_ = true;
   // GLFW init
   glfwSetErrorCallback(&RendererBase::GLFWErrorHandler);
   if (!glfwInit()) {
@@ -25,6 +29,7 @@ RendererBase::RendererBase(const std::string &name, int width, int height) {
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, GL_VERSION_MAJOR);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, GL_VERSION_MINOR);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+  
   // window creation
   window_ = glfwCreateWindow(width, height, name.c_str(), NULL, NULL);
   if (window_ == NULL) {
@@ -38,6 +43,9 @@ RendererBase::RendererBase(const std::string &name, int width, int height) {
     spdlog::error("cannot initialize glew");
     exit(EXIT_FAILURE);
   }
+  spdlog::info("OpenGL {} is used", glGetString(GL_VERSION));
+  // attach OpenGL error callbacks
+  glDebugMessageCallback(&RendererBase::GLErrorHandler, NULL);
   // imgui
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
@@ -74,5 +82,19 @@ void RendererBase::Run() {
 
 void RendererBase::GLFWErrorHandler(int error, const char *desc) {
   spdlog::error("glfw error {}: {}", error, desc);
+}
+
+void RendererBase::GLErrorHandler(GLenum source, GLenum type, GLuint id, GLenum severity,
+                                  GLsizei length, const GLchar *msg, const void *args) {
+#ifdef DEBUG
+  (void)source;
+  (void)type;
+  (void)id;
+  (void)severity;
+  (void)length;
+  (void)args;
+  const std::string msg_str(msg, msg+length);
+  spdlog::error("[GL Error] {}", msg);
+#endif
 }
 

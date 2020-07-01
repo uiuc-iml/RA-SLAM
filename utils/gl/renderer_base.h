@@ -2,6 +2,7 @@
 
 #include <imgui.h>
 
+#include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
 #include <string>
@@ -13,10 +14,13 @@ class RendererBase {
 
   void Run();
 
+ protected:
+  GLFWwindow *window_; 
   virtual void Render() = 0;
 
  private:
   static void GLFWErrorHandler(int error, const char *desc);
-
-  GLFWwindow *window_; 
+  static void GLErrorHandler(GLenum source, GLenum type, GLuint id, GLenum severity,
+                             GLsizei length, const GLchar *msg, const void *args);
+  static bool initialized_;
 };
