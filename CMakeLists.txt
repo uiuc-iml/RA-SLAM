@@ -24,10 +24,10 @@ target_link_libraries(openvslam
     INTERFACE popl openvslam::openvslam openvslam::pangolin_viewer)
 
 
+add_subdirectory(third_party)
 add_subdirectory(utils)
 add_subdirectory(cameras)
 add_subdirectory(modules)
-add_subdirectory(third_party)
 
 add_executable(run_sr300 run_sr300.cc)
 target_link_libraries(run_sr300 PRIVATE sr300 modules)
