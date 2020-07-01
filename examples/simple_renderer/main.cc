@@ -1,6 +1,5 @@
 #include "utils/gl/renderer_base.h"
 #include "utils/gl/shader.h"
-#include "utils/types.h"
 
 class SimpleRenderer : public RendererBase {
  public:
@@ -24,8 +23,8 @@ class SimpleRenderer : public RendererBase {
   }
  
  private:
-  float4 clear_color_;
-  float4 point_color_;
+  ImVec4 clear_color_;
+  ImVec4 point_color_;
   const Shader shader_;
 };
 

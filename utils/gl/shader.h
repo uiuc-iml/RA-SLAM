@@ -5,8 +5,6 @@
 
 #include <GL/glew.h>
 
-#include "utils/types.h"
-
 class Shader {
  public:
   Shader(const std::string &vertex_shader_filepath, const std::string &fragment_shader_filepath);
@@ -16,8 +14,8 @@ class Shader {
   void Unbind() const;
   
   // TODO(alvin): extend type support when needed
-  void SetUniform3f(const std::string &name, const float3 &value) const;
-  void SetUniform4f(const std::string &name, const float4 &value) const;
+  void SetUniform3f(const std::string &name, float x, float y, float z) const;
+  void SetUniform4f(const std::string &name, float x, float y, float z, float w) const;
 
  private:
   GLuint CompileShader(const std::string &filepath, GLenum shader_type);

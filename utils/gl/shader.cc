@@ -35,22 +35,22 @@ void Shader::Unbind() const {
   glUseProgram(0);
 }
 
-void Shader::SetUniform4f(const std::string &name, const float4 &value) const {
+void Shader::SetUniform4f(const std::string &name, float x, float y, float z, float w) const {
     const GLint uniform_idx = GetUniformLocation(name);
     if (uniform_idx < 0) {
       spdlog::error("Uniform name {} does not exist", name);
       return;
     }
-    glUniform4f(uniform_idx, value.x, value.y, value.z, value.w);
+    glUniform4f(uniform_idx, x, y, z, w);
 }
 
-void Shader::SetUniform3f(const std::string &name, const float3 &value) const {
+void Shader::SetUniform3f(const std::string &name, float x, float y, float z) const {
     const GLint uniform_idx = GetUniformLocation(name);
     if (uniform_idx < 0) {
       spdlog::error("Uniform name {} does not exist", name);
       return;
     }
-    glUniform3f(uniform_idx, value.x, value.y, value.z);
+    glUniform3f(uniform_idx, x, y, z);
 }
 
 GLuint Shader::CompileShader(const std::string &filepath, GLenum shader_type) {
