@@ -31,6 +31,7 @@ if __name__ == '__main__':
     cap = cv2.VideoCapture(args.camera)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, img_size_wh[0] * 2)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, img_size_wh[1])
+    cap.set(cv2.CAP_PROP_FPS, 60)
     if args.exposure is not None:
         cap.set(cv2.CAP_PROP_EXPOSURE, args.exposure)
     if args.gain is not None:
