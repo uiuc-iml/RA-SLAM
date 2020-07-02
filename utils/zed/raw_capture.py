@@ -17,6 +17,12 @@ def parse_args():
                         help='directory to store output images')
     parser.add_argument('-c', '--camera', type=int, default=0,
                         help='camera device id (default to 0)')
+    parser.add_argument('-e', '--exposure', type=float, default=None,
+                        help='fixed exposure value (default to auto exposure)')
+    parser.add_argument('-g', '--gain', type=float, default=None,
+                        help='fixed gain value (default to auto gain)')
+    parser.add_argument('-b', '--brightness', type=float, default=None,
+                        help='fixed brightness (default to auto brightness)')
     return parser.parse_args()
 
 if __name__ == '__main__':
@@ -25,6 +31,12 @@ if __name__ == '__main__':
     cap = cv2.VideoCapture(args.camera)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, img_size_wh[0] * 2)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, img_size_wh[1])
+    if args.exposure is not None:
+        cap.set(cv2.CAP_PROP_EXPOSURE, args.exposure)
+    if args.gain is not None:
+        cap.set(cv2.CAP_PROP_GAIN, args.gain)
+    if args.brightness is not None:
+        cap.set(cv2.CAP_PROP_BRIGHTNESS, args.brightness)
     left_dir = os.path.join(args.output, 'left')
     right_dir = os.path.join(args.output, 'right')
     os.makedirs(left_dir, exist_ok=True)
