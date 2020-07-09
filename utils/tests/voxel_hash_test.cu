@@ -51,8 +51,8 @@ __global__ void Assignment(VoxelHashTable hash_table, const Vector3<short> *poin
 
 TEST_F(VoxelHashTest, Single) {
   // allocate block (1, 1, 1)
-  *block_pos = Vector3<short>::Ones();
-  *point = Vector3<short>::Ones() * 8;
+  *block_pos = Vector3<short>(1);
+  *point = Vector3<short>(8);
   Allocate<<<1, 1>>>(voxel_hash_table, block_pos);
   ASSERT_EQ(cudaGetLastError(), cudaSuccess);
   Retrieve<<<1, 1>>>(voxel_hash_table, point, voxel, voxel_block);
@@ -61,13 +61,13 @@ TEST_F(VoxelHashTest, Single) {
   EXPECT_EQ(voxel_hash_table.NumActiveBlock(), 1);
   EXPECT_EQ(voxel_block->block_pos, *block_pos);
   // retrieve empty block
-  *point = Vector3<short>::Zeros();
+  *point = Vector3<short>(0);
   Retrieve<<<1, 1>>>(voxel_hash_table, point, voxel, voxel_block);
   ASSERT_EQ(cudaGetLastError(), cudaSuccess);
   cudaDeviceSynchronize();
   EXPECT_EQ(voxel->weight, 0);
   // assignment
-  *block_pos = Vector3<short>::Zeros();
+  *block_pos = Vector3<short>(0);
   Allocate<<<1, 1>>>(voxel_hash_table, block_pos);
   voxel_block->offset = 0; // reset cache after re allocation
   ASSERT_EQ(cudaGetLastError(), cudaSuccess);
@@ -103,7 +103,7 @@ TEST_F(VoxelHashTest, Multiple) {
   EXPECT_EQ(voxel_hash_table.NumActiveBlock(), MAX_BLOCKS);
   // assign some voxels
   for (unsigned char i = 0; i < MAX_BLOCKS; ++i) {
-    point[i] = Vector3<short>::Ones() * (i * BLOCK_LEN);
+    point[i] = Vector3<short>(i * BLOCK_LEN);
     voxel[i] = { 1, { i, i, i }, i };
   }
   Assignment<<<1, MAX_BLOCKS>>>(voxel_hash_table, point, voxel);
@@ -124,7 +124,7 @@ TEST_F(VoxelHashTest, Multiple) {
     EXPECT_EQ(voxel[i].rgb[1], i);
     EXPECT_EQ(voxel[i].rgb[2], i);
     EXPECT_EQ(voxel[i].weight, i);
-    EXPECT_EQ(voxel_block[i].block_pos, Vector3<short>::Ones() * i);
+    EXPECT_EQ(voxel_block[i].block_pos, Vector3<short>(i));
   }
 } 
 
