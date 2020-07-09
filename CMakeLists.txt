@@ -1,9 +1,13 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.10)
 project(disinfslam LANGUAGES CUDA CXX C)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CUDA_STANDARD 14)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+set(CMAKE_CUDA_FLAGS_DEBUG "-G ${CMAKE_CUDA_FLAGS_DEBUG}")
 
 # OpenGL
 find_package(GLEW REQUIRED)
@@ -18,7 +22,13 @@ find_package(OpenCV REQUIRED)
 find_package(yaml-cpp REQUIRED)
 # Zed SDK (optional)
 find_package(ZED 3 QUIET)
-find_package(CUDA QUIET)
+# Camera SDKs
+find_package(realsense2 REQUIRED)
+find_package(OpenCV REQUIRED)
+
+# enable testing
+enable_testing()
+include(GoogleTest)
 
 # Compile Flags
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=native -march=native")
@@ -31,11 +41,11 @@ add_library(openvslam INTERFACE)
 target_link_libraries(openvslam
     INTERFACE popl openvslam::openvslam openvslam::pangolin_viewer)
 
-
 add_subdirectory(third_party)
 add_subdirectory(utils)
 add_subdirectory(cameras)
 add_subdirectory(modules)
+
 
 add_executable(run_sr300 run_sr300.cc)
 target_link_libraries(run_sr300 PRIVATE sr300 modules)

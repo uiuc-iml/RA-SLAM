@@ -1,6 +1,8 @@
 #include "utils/gl/renderer_base.h"
 #include "utils/gl/shader.h"
 
+#include <iostream>
+
 class SimpleRenderer : public RendererBase {
  public:
   SimpleRenderer(const std::string &name) 
