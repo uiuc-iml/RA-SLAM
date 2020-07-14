@@ -1,6 +1,7 @@
 #include <cassert>
 
-#include "voxel_hash.cuh"
+#include "utils/cuda/errors.cuh"
+#include "utils/tsdf/voxel_hash.cuh"
 
 __device__ __host__ uint hash(const Vector3<short> &block_pos) {
   return (((uint)block_pos.x * 73856093u) ^
@@ -37,11 +38,11 @@ __device__ __host__ Voxel& VoxelBlock::GetVoxelMutable(const short idx) const {
 
 VoxelHashTable::VoxelHashTable() : VoxelMemPool() {
   // initialize hash table
-  cudaMalloc(&hash_table_, sizeof(VoxelBlock) * NUM_ENTRY);
-  cudaMemset(hash_table_, 0, sizeof(VoxelBlock) * NUM_ENTRY);
+  CUDA_SAFE_CALL(cudaMalloc(&hash_table_, sizeof(VoxelBlock) * NUM_ENTRY));
+  CUDA_SAFE_CALL(cudaMemset(hash_table_, 0, sizeof(VoxelBlock) * NUM_ENTRY));
   // initialize bucket locks
-  cudaMalloc(&bucket_locks_, sizeof(BucketLock) * NUM_BUCKET);
-  cudaMemset(bucket_locks_, FREE, sizeof(BucketLock) * NUM_BUCKET);
+  CUDA_SAFE_CALL(cudaMalloc(&bucket_locks_, sizeof(BucketLock) * NUM_BUCKET));
+  CUDA_SAFE_CALL(cudaMemset(bucket_locks_, FREE, sizeof(BucketLock) * NUM_BUCKET));
 }
 
 __global__ static void reset_locks(int *locks, int num_locks) {
@@ -56,8 +57,8 @@ void VoxelHashTable::ResetLocks() {
 }
 
 void VoxelHashTable::ReleaseMemory() {
-  cudaFree(hash_table_);
-  cudaFree(bucket_locks_);
+  CUDA_SAFE_CALL(cudaFree(hash_table_));
+  CUDA_SAFE_CALL(cudaFree(bucket_locks_));
   VoxelMemPool::ReleaseMemory();
 }
 

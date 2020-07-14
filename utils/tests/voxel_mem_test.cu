@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <ctime>
 
+#include "utils/cuda/errors.cuh"
 #include "utils/tsdf/voxel_mem.cuh"
 
 class VoxelMemTest : public ::testing::Test {
@@ -42,41 +43,47 @@ constexpr int NUM_BLOCK_ALLOC = 8;
 TEST_F(VoxelMemTest, Test1) {
   Voxel **voxel_blocks;
   // allocation
-  cudaMallocManaged(&voxel_blocks, sizeof(Voxel*) * NUM_BLOCK_ALLOC);
-  cudaMemset(voxel_blocks, 0, sizeof(Voxel*) * NUM_BLOCK_ALLOC);
+  CUDA_SAFE_CALL(cudaMallocManaged(&voxel_blocks, sizeof(Voxel*) * NUM_BLOCK_ALLOC));
+  CUDA_SAFE_CALL(cudaMemset(voxel_blocks, 0, sizeof(Voxel*) * NUM_BLOCK_ALLOC));
   AquireBlocks<<<1, NUM_BLOCK_ALLOC>>>(voxel_mem_pool, voxel_blocks);
-  cudaDeviceSynchronize();
+  CUDA_SAFE_DEVICE_SYNC;
   EXPECT_TRUE(voxel_blocks[0] != NULL);
   for (int i = 1; i < NUM_BLOCK_ALLOC; ++i) {
     EXPECT_TRUE(voxel_blocks[i] != NULL);
     EXPECT_TRUE(voxel_blocks[i-1] != voxel_blocks[i]);
   }
   // assignment
-  AssignBlocks<<<1, dim3(BLOCK_LEN, BLOCK_LEN, BLOCK_LEN)>>>(voxel_blocks, NUM_BLOCK_ALLOC);
+  const dim3 THREAD_DIM(BLOCK_LEN, BLOCK_LEN, BLOCK_LEN);
+  AssignBlocks<<<1, THREAD_DIM>>>(voxel_blocks, NUM_BLOCK_ALLOC);
+  CUDA_CHECK_ERROR;
   for (int i = 0; i < NUM_BLOCK_ALLOC; ++i) {
     Voxel voxels[BLOCK_VOLUME];
-    cudaMemcpy(voxels, voxel_blocks[i], sizeof(Voxel) * BLOCK_VOLUME, cudaMemcpyDeviceToHost);
+    CUDA_SAFE_CALL(
+      cudaMemcpy(voxels, voxel_blocks[i], sizeof(Voxel) * BLOCK_VOLUME, cudaMemcpyDeviceToHost));
     for (int j = 0; j < BLOCK_VOLUME; ++j) {
       EXPECT_TRUE(voxels[j].weight == i);
     }
   }
   // release (does not clobber memory)
   ReleaseBlocks<<<1, NUM_BLOCK_ALLOC>>>(voxel_mem_pool, voxel_blocks);
+  CUDA_CHECK_ERROR;
   for (int i = 0; i < NUM_BLOCK_ALLOC; ++i) {
     Voxel voxels[BLOCK_VOLUME];
-    cudaMemcpy(voxels, voxel_blocks[i], sizeof(Voxel) * BLOCK_VOLUME, cudaMemcpyDeviceToHost);
+    CUDA_SAFE_CALL(
+      cudaMemcpy(voxels, voxel_blocks[i], sizeof(Voxel) * BLOCK_VOLUME, cudaMemcpyDeviceToHost));
     for (int j = 0; j < BLOCK_VOLUME; ++j) {
       EXPECT_TRUE(voxels[j].weight == i);
     }
   }
   // aquire without assignment should get the same set of blocks (with arbitrary order)
   int *indics;
-  cudaMallocManaged(&indics, sizeof(int) * NUM_BLOCK_ALLOC);
+  CUDA_SAFE_CALL(cudaMallocManaged(&indics, sizeof(int) * NUM_BLOCK_ALLOC));
   AquireRead<<<1, NUM_BLOCK_ALLOC>>>(voxel_mem_pool, voxel_blocks, indics);
-  cudaDeviceSynchronize(); 
+  CUDA_SAFE_DEVICE_SYNC;
   for (int i = 0; i < NUM_BLOCK_ALLOC; ++i) {
     Voxel voxels[BLOCK_VOLUME];
-    cudaMemcpy(voxels, voxel_blocks[i], sizeof(Voxel) * BLOCK_VOLUME, cudaMemcpyDeviceToHost);
+    CUDA_SAFE_CALL(
+      cudaMemcpy(voxels, voxel_blocks[i], sizeof(Voxel) * BLOCK_VOLUME, cudaMemcpyDeviceToHost));
     for (int j = 0; j < BLOCK_VOLUME; ++j) {
       EXPECT_TRUE(voxels[j].weight == indics[i]);
     }

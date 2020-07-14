@@ -1,6 +1,7 @@
-#include "utils/tsdf/voxel_mem.cuh"
-
 #include <cstdio>
+
+#include "utils/cuda/errors.cuh"
+#include "utils/tsdf/voxel_mem.cuh"
 
 __global__ static void heap_init(int *heap) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -23,21 +24,21 @@ __device__ __host__ unsigned int offset2index(const Vector3<short> &point_offset
 
 VoxelMemPool::VoxelMemPool() {
   // initialize free block counter
-  cudaMallocManaged(&num_free_blocks_, sizeof(int));
+  CUDA_SAFE_CALL(cudaMallocManaged(&num_free_blocks_, sizeof(int)));
   *num_free_blocks_ = NUM_BLOCK;
   // initialize heap array
-  cudaMalloc(&heap_, sizeof(int) * NUM_BLOCK);
+  CUDA_SAFE_CALL(cudaMalloc(&heap_, sizeof(int) * NUM_BLOCK));
   heap_init<<<NUM_BLOCK / 256, 256>>>(heap_);
   // initialize voxels
-  cudaMalloc(&voxels_, sizeof(Voxel) * NUM_BLOCK * BLOCK_VOLUME);
-  cudaMemset(voxels_, 0, sizeof(Voxel) * NUM_BLOCK * BLOCK_VOLUME);
-  cudaDeviceSynchronize();
+  CUDA_SAFE_CALL(cudaMalloc(&voxels_, sizeof(Voxel) * NUM_BLOCK * BLOCK_VOLUME));
+  CUDA_SAFE_CALL(cudaMemset(voxels_, 0, sizeof(Voxel) * NUM_BLOCK * BLOCK_VOLUME));
+  CUDA_SAFE_DEVICE_SYNC;
 }
 
 void VoxelMemPool::ReleaseMemory() {
-  cudaFree(num_free_blocks_);
-  cudaFree(heap_);
-  cudaFree(voxels_);
+  CUDA_SAFE_CALL(cudaFree(num_free_blocks_));
+  CUDA_SAFE_CALL(cudaFree(heap_));
+  CUDA_SAFE_CALL(cudaFree(voxels_));
 }
 
 __device__ Voxel* VoxelMemPool::AquireBlock() {

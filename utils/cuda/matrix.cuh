@@ -11,7 +11,7 @@ class Matrix3 {
  public:
   __device__ __host__ Matrix3<T>() {}
 
-  __device__ __host__ Matrix3<T>(const T &scalar)
+  __device__ __host__ explicit Matrix3<T>(const T &scalar)
     : m00(scalar), m01(scalar), m02(scalar),
       m10(scalar), m11(scalar), m12(scalar),
       m20(scalar), m21(scalar), m22(scalar) {}
@@ -180,7 +180,7 @@ class Matrix4 {
  public:
   __device__ __host__ Matrix4<T>() {}
 
-  __device__ __host__ Matrix4<T>(const T &scalar)
+  __device__ __host__ explicit Matrix4<T>(const T &scalar)
     : m00(scalar), m01(scalar), m02(scalar), m03(scalar),
       m10(scalar), m11(scalar), m12(scalar), m13(scalar),
       m20(scalar), m21(scalar), m22(scalar), m23(scalar),

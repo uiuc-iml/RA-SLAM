@@ -3,6 +3,10 @@
 TSDFGrid::TSDFGrid(float voxel_size, float truncation, float max_depth) 
   : voxel_size_(voxel_size), truncation_(truncation), max_depth_(max_depth) {}
 
+__global__ void ray_cast(Vector3<float> *points) {
+
+}
+
 void TSDFGrid::RayCast(const Vector2<int> &img_hw, 
                        const CameraIntrinsics<float> &intrinsics, 
                        const SE3<float> &cam_T_world) {

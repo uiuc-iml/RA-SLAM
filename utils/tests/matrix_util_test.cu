@@ -13,6 +13,7 @@ TEST(MatrixUtilTest, SO3Inverse) {
   const SO3<float> r(0, 1, 0, 0, 0, 1, 1, 0, 0);
   const SO3<float> r_inv = r.Inverse();
   EXPECT_TRUE(r * r_inv == Matrix3<float>::Identity());
+  EXPECT_TRUE(r_inv * r == Matrix3<float>::Identity());
 }
 
 TEST(MatrixUtilTest, SE3Inverse) {
@@ -20,6 +21,6 @@ TEST(MatrixUtilTest, SE3Inverse) {
   const Vector3<float> t(1, 2, 3);
   const SE3<float> transform(r, t);
   const SE3<float> transform_inv = transform.Inverse();
-  const Matrix4<float> eye = transform * transform_inv;
   EXPECT_TRUE(transform * transform_inv == Matrix4<float>::Identity());
+  EXPECT_TRUE(transform_inv * transform == Matrix4<float>::Identity());
 }

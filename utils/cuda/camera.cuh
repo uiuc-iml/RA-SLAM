@@ -1,3 +1,5 @@
+#pragma once
+
 #include "utils/cuda/matrix.cuh"
 
 template<typename T>
