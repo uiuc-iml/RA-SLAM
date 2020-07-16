@@ -57,13 +57,13 @@ TEST_F(VoxelHashTest, Single) {
   Allocate<<<1, 1>>>(voxel_hash_table, block_pos);
   CUDA_CHECK_ERROR;
   Retrieve<<<1, 1>>>(voxel_hash_table, point, voxel, voxel_block);
-  CUDA_SAFE_DEVICE_SYNC;
+  CUDA_SAFE_CALL(cudaDeviceSynchronize());
   EXPECT_EQ(voxel_hash_table.NumActiveBlock(), 1);
   EXPECT_EQ(voxel_block->block_pos, *block_pos);
   // retrieve empty block
   *point = Vector3<short>(0);
   Retrieve<<<1, 1>>>(voxel_hash_table, point, voxel, voxel_block);
-  CUDA_SAFE_DEVICE_SYNC;
+  CUDA_SAFE_CALL(cudaDeviceSynchronize());
   EXPECT_EQ(voxel->weight, 0);
   // assignment
   *block_pos = Vector3<short>(0);
@@ -74,17 +74,17 @@ TEST_F(VoxelHashTest, Single) {
     *point = { 0, 0, i };
     *voxel = { 1, { i, i, i }, i };
     Assignment<<<1, 1>>>(voxel_hash_table, point, voxel);
-    CUDA_SAFE_DEVICE_SYNC;
+    CUDA_SAFE_CALL(cudaDeviceSynchronize());
   }
   EXPECT_EQ(voxel_hash_table.NumActiveBlock(), 2);
   for (unsigned char i = 0; i < BLOCK_LEN; ++i) {
     *point = { 0, 0, i };
     Retrieve<<<1, 1>>>(voxel_hash_table, point, voxel, voxel_block);
-    CUDA_SAFE_DEVICE_SYNC;
-    EXPECT_EQ(voxel->sdf, 1);
-    EXPECT_EQ(voxel->rgb[0], i);
-    EXPECT_EQ(voxel->rgb[1], i);
-    EXPECT_EQ(voxel->rgb[2], i);
+    CUDA_SAFE_CALL(cudaDeviceSynchronize());
+    EXPECT_EQ(voxel->tsdf, 1);
+    EXPECT_EQ(voxel->rgb.x, i);
+    EXPECT_EQ(voxel->rgb.y, i);
+    EXPECT_EQ(voxel->rgb.z, i);
     EXPECT_EQ(voxel->weight, i);
   }
 }
@@ -95,7 +95,7 @@ TEST_F(VoxelHashTest, Multiple) {
   }
   Allocate<<<1, MAX_BLOCKS>>>(voxel_hash_table, block_pos);
   voxel_hash_table.ResetLocks();
-  CUDA_SAFE_DEVICE_SYNC;
+  CUDA_SAFE_CALL(cudaDeviceSynchronize());
   // check received (assume no collision)
   EXPECT_EQ(voxel_hash_table.NumActiveBlock(), MAX_BLOCKS);
   // assign some voxels
@@ -104,7 +104,7 @@ TEST_F(VoxelHashTest, Multiple) {
     voxel[i] = { 1, { i, i, i }, i };
   }
   Assignment<<<1, MAX_BLOCKS>>>(voxel_hash_table, point, voxel);
-  CUDA_SAFE_DEVICE_SYNC;
+  CUDA_SAFE_CALL(cudaDeviceSynchronize());
   // reset buffer
   for (unsigned char i = 0; i < MAX_BLOCKS; ++i) {
     voxel[i] = { 0, { 0, 0, 0 }, 0 };
@@ -112,12 +112,12 @@ TEST_F(VoxelHashTest, Multiple) {
   }
   // retrieve and verify
   Retrieve<<<1, MAX_BLOCKS>>>(voxel_hash_table, point, voxel, voxel_block);
-  CUDA_SAFE_DEVICE_SYNC;
+  CUDA_SAFE_CALL(cudaDeviceSynchronize());
   for (unsigned char i = 0; i < MAX_BLOCKS; ++i) {
-    EXPECT_EQ(voxel[i].sdf, 1);
-    EXPECT_EQ(voxel[i].rgb[0], i);
-    EXPECT_EQ(voxel[i].rgb[1], i);
-    EXPECT_EQ(voxel[i].rgb[2], i);
+    EXPECT_EQ(voxel[i].tsdf, 1);
+    EXPECT_EQ(voxel[i].rgb.x, i);
+    EXPECT_EQ(voxel[i].rgb.y, i);
+    EXPECT_EQ(voxel[i].rgb.z, i);
     EXPECT_EQ(voxel[i].weight, i);
     EXPECT_EQ(voxel_block[i].block_pos, Vector3<short>(i));
   }
@@ -136,17 +136,17 @@ TEST_F(VoxelHashTest, Collision) {
   // allocate with conflict
   Allocate<<<1, 4>>>(voxel_hash_table, block_pos);
   voxel_hash_table.ResetLocks();
-  CUDA_SAFE_DEVICE_SYNC;
+  CUDA_SAFE_CALL(cudaDeviceSynchronize());
   EXPECT_EQ(voxel_hash_table.NumActiveBlock(), 2);
   // allocate again
   Allocate<<<1, 4>>>(voxel_hash_table, block_pos);
   voxel_hash_table.ResetLocks();
-  CUDA_SAFE_DEVICE_SYNC;
+  CUDA_SAFE_CALL(cudaDeviceSynchronize());
   EXPECT_EQ(voxel_hash_table.NumActiveBlock(), 3);
   // allocate yet again
   Allocate<<<1, 4>>>(voxel_hash_table, block_pos);
   voxel_hash_table.ResetLocks();
-  CUDA_SAFE_DEVICE_SYNC;
+  CUDA_SAFE_CALL(cudaDeviceSynchronize());
   EXPECT_EQ(voxel_hash_table.NumActiveBlock(), 4);
   // do some assignment
   for (unsigned char i = 0; i < 4; ++i) {
@@ -154,7 +154,7 @@ TEST_F(VoxelHashTest, Collision) {
     voxel[i] = { 1, { i, i, i }, i };
   }
   Assignment<<<1, 4>>>(voxel_hash_table, point, voxel);
-  CUDA_SAFE_DEVICE_SYNC;
+  CUDA_SAFE_CALL(cudaDeviceSynchronize());
   // reset buffer
   for (unsigned char i = 0; i < 4; ++i) {
     voxel[i] = { 0, { 0, 0, 0 }, 0 };
@@ -162,12 +162,12 @@ TEST_F(VoxelHashTest, Collision) {
   }
   // retrieve and verify
   Retrieve<<<1, 4>>>(voxel_hash_table, point, voxel, voxel_block);
-  CUDA_SAFE_DEVICE_SYNC;
+  CUDA_SAFE_CALL(cudaDeviceSynchronize());
   for (unsigned char i = 0; i < 4; ++i) {
-    EXPECT_EQ(voxel[i].sdf, 1);
-    EXPECT_EQ(voxel[i].rgb[0], i);
-    EXPECT_EQ(voxel[i].rgb[1], i);
-    EXPECT_EQ(voxel[i].rgb[2], i);
+    EXPECT_EQ(voxel[i].tsdf, 1);
+    EXPECT_EQ(voxel[i].rgb.x, i);
+    EXPECT_EQ(voxel[i].rgb.y, i);
+    EXPECT_EQ(voxel[i].rgb.z, i);
     EXPECT_EQ(voxel[i].weight, i);
   }
 }

@@ -2,7 +2,7 @@
 
 #include <cassert>
 
-#include "utils/tsdf/voxel_types.h"
+#include "utils/tsdf/voxel_types.cuh"
 #include "utils/cuda/vector.cuh"
 
 #define NUM_BLOCK_BITS    18

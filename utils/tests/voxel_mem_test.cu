@@ -32,12 +32,6 @@ __global__ void ReleaseBlocks(VoxelMemPool voxel_mem_pool, Voxel **voxel_blocks)
   voxel_mem_pool.ReleaseBlock(voxel_blocks[idx]);
 }
 
-__global__ void AquireRead(VoxelMemPool voxel_mem_pool, Voxel **voxel_blocks, int *indics) {
-  const int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  voxel_blocks[idx] = voxel_mem_pool.AquireBlock();
-  indics[idx] = voxel_blocks[idx][0].weight;
-}
-
 constexpr int NUM_BLOCK_ALLOC = 8;
 
 TEST_F(VoxelMemTest, Test1) {
@@ -46,7 +40,7 @@ TEST_F(VoxelMemTest, Test1) {
   CUDA_SAFE_CALL(cudaMallocManaged(&voxel_blocks, sizeof(Voxel*) * NUM_BLOCK_ALLOC));
   CUDA_SAFE_CALL(cudaMemset(voxel_blocks, 0, sizeof(Voxel*) * NUM_BLOCK_ALLOC));
   AquireBlocks<<<1, NUM_BLOCK_ALLOC>>>(voxel_mem_pool, voxel_blocks);
-  CUDA_SAFE_DEVICE_SYNC;
+  CUDA_SAFE_CALL(cudaDeviceSynchronize());
   EXPECT_TRUE(voxel_blocks[0] != NULL);
   for (int i = 1; i < NUM_BLOCK_ALLOC; ++i) {
     EXPECT_TRUE(voxel_blocks[i] != NULL);
@@ -61,7 +55,7 @@ TEST_F(VoxelMemTest, Test1) {
     CUDA_SAFE_CALL(
       cudaMemcpy(voxels, voxel_blocks[i], sizeof(Voxel) * BLOCK_VOLUME, cudaMemcpyDeviceToHost));
     for (int j = 0; j < BLOCK_VOLUME; ++j) {
-      EXPECT_TRUE(voxels[j].weight == i);
+      EXPECT_EQ(voxels[j].weight, i);
     }
   }
   // release (does not clobber memory)
@@ -72,20 +66,18 @@ TEST_F(VoxelMemTest, Test1) {
     CUDA_SAFE_CALL(
       cudaMemcpy(voxels, voxel_blocks[i], sizeof(Voxel) * BLOCK_VOLUME, cudaMemcpyDeviceToHost));
     for (int j = 0; j < BLOCK_VOLUME; ++j) {
-      EXPECT_TRUE(voxels[j].weight == i);
+      EXPECT_EQ(voxels[j].weight, i);
     }
   }
-  // aquire without assignment should get the same set of blocks (with arbitrary order)
-  int *indics;
-  CUDA_SAFE_CALL(cudaMallocManaged(&indics, sizeof(int) * NUM_BLOCK_ALLOC));
-  AquireRead<<<1, NUM_BLOCK_ALLOC>>>(voxel_mem_pool, voxel_blocks, indics);
-  CUDA_SAFE_DEVICE_SYNC;
+  // aquire again should clear voxel memory
+  AquireBlocks<<<1, NUM_BLOCK_ALLOC>>>(voxel_mem_pool, voxel_blocks);
+  CUDA_SAFE_CALL(cudaDeviceSynchronize());
   for (int i = 0; i < NUM_BLOCK_ALLOC; ++i) {
     Voxel voxels[BLOCK_VOLUME];
     CUDA_SAFE_CALL(
       cudaMemcpy(voxels, voxel_blocks[i], sizeof(Voxel) * BLOCK_VOLUME, cudaMemcpyDeviceToHost));
     for (int j = 0; j < BLOCK_VOLUME; ++j) {
-      EXPECT_TRUE(voxels[j].weight == indics[i]);
+      EXPECT_TRUE(voxels[j].weight == 0);
     }
   }
 }

@@ -50,4 +50,12 @@ class SE3 : public Matrix4<T> {
   __device__ __host__ inline Vector3<T> GetT() const {
     return Vector3<T>(this->m03, this->m13, this->m23);
   }
+
+  __device__ __host__ inline Vector3<T> Apply(const Vector3<T> &vec3) const {
+    return Vector3<T>(
+      this->m00 * vec3.x + this->m01 * vec3.y + this->m02 * vec3.z + this->m03,
+      this->m10 * vec3.x + this->m11 * vec3.y + this->m12 * vec3.z + this->m13,
+      this->m20 * vec3.x + this->m21 * vec3.y + this->m22 * vec3.z + this->m23
+    );
+  }
 };

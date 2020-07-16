@@ -1,5 +1,7 @@
 #include <cstdio>
 
+#include <cuda_runtime_api.h>
+
 #include "utils/cuda/errors.cuh"
 #include "utils/tsdf/voxel_mem.cuh"
 
@@ -32,7 +34,7 @@ VoxelMemPool::VoxelMemPool() {
   // initialize voxels
   CUDA_SAFE_CALL(cudaMalloc(&voxels_, sizeof(Voxel) * NUM_BLOCK * BLOCK_VOLUME));
   CUDA_SAFE_CALL(cudaMemset(voxels_, 0, sizeof(Voxel) * NUM_BLOCK * BLOCK_VOLUME));
-  CUDA_SAFE_DEVICE_SYNC;
+  CUDA_SAFE_CALL(cudaDeviceSynchronize());
 }
 
 void VoxelMemPool::ReleaseMemory() {
@@ -46,8 +48,10 @@ __device__ Voxel* VoxelMemPool::AquireBlock() {
   assert(idx >= 1);
 
   const int block_idx = heap_[idx - 1];
+  const int voxel_idx = block_idx << BLOCK_VOLUME_BITS;
 
-  return &voxels_[block_idx << BLOCK_VOLUME_BITS]; 
+  CUDA_SAFE_CALL(cudaMemsetAsync(&voxels_[voxel_idx], 0, sizeof(Voxel) * BLOCK_VOLUME, NULL));
+  return &voxels_[voxel_idx]; 
 }
 
 __device__ void VoxelMemPool::ReleaseBlock(const Voxel *voxel_block) {
@@ -55,7 +59,7 @@ __device__ void VoxelMemPool::ReleaseBlock(const Voxel *voxel_block) {
   assert(idx < NUM_BLOCK);
 
   const int voxel_idx = (int)(voxel_block - voxels_);
-  assert((voxel_idx & ((1 << BLOCK_VOLUME_BITS) - 1)) == 0);
+  assert((voxel_idx & (BLOCK_VOLUME - 1)) == 0);
 
   heap_[idx] = voxel_idx >> BLOCK_VOLUME_BITS;
 }

@@ -1,8 +1,10 @@
 #pragma once
 
 #include "utils/cuda/vector.cuh"
+#include "utils/cuda/lie_group.cuh"
+#include "utils/cuda/camera.cuh"
 #include "utils/tsdf/voxel_mem.cuh"
-#include "utils/tsdf/voxel_types.h"
+#include "utils/tsdf/voxel_types.cuh"
 
 #define NUM_BUCKET_BITS           21
 #define NUM_BUCKET                (1 << NUM_BUCKET_BITS)
@@ -49,7 +51,7 @@ class VoxelHashTable : public VoxelMemPool {
  public:
   VoxelHashTable();
 
-  void ResetLocks();
+  void ResetLocks(cudaStream_t stream = NULL);
 
   void ReleaseMemory();
 
@@ -60,6 +62,8 @@ class VoxelHashTable : public VoxelMemPool {
   __device__ Voxel Retrieve(const Vector3<short> &point, VoxelBlock &cache) const;
 
   __device__ Voxel* RetrieveMutable(const Vector3<short> &point, VoxelBlock &cache) const;
+
+  __device__ const VoxelBlock& GetBlock(const int idx) const;
 
   __device__ __host__ int NumActiveBlock() const;
 

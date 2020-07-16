@@ -1,6 +1,15 @@
 #pragma once
 
 template<typename T>
+class Vector2;
+
+template<typename T>
+class Vector3;
+
+template<typename T>
+class Vector4;
+
+template<typename T>
 class Vector2 {
  public:
   T x, y;
@@ -12,6 +21,9 @@ class Vector2 {
 
   __device__ __host__ explicit Vector2<T>(const T &scalar)
       : Vector2<T>(scalar, scalar) {}
+
+  __device__ __host__ explicit Vector2<T>(const Vector3<T> &vec3)
+      : Vector2<T>(vec3.x, vec3.y) {}
 
   __device__ __host__ inline Vector2<T>& operator+=(const Vector2<T> &rhs) {
     x += rhs.x; y += rhs.y;
@@ -114,6 +126,11 @@ class Vector2 {
   __device__ __host__ inline bool operator!=(const Vector2<T> &rhs) const {
     return !operator==(rhs);
   }
+
+  template<typename Tout>
+  __device__ __host__ inline Vector2<Tout> cast() const {
+    return Vector2<Tout>(static_cast<Tout>(x), static_cast<Tout>(y));
+  }
 };
 
 template<typename T>
@@ -130,8 +147,8 @@ __device__ __host__ inline Vector2<T> operator-(const T &lhs, const Vector2<T> &
 
 template<typename T>
 __device__ __host__ inline Vector2<T> operator*(const T &lhs, const Vector2<T> &rhs) {
-  Vector2<T> ret(lhs); 
-  return ret *= rhs;
+  Vector2<T> ret(rhs); 
+  return ret *= lhs;
 }
 
 template<typename T>
@@ -146,6 +163,9 @@ class Vector3 {
 
   __device__ __host__ explicit Vector3<T>(const Vector2<T> &vec2)
       : Vector3<T>(vec2.x, vec2.y, 1) {}
+
+  __device__ __host__ explicit Vector3<T>(const Vector4<T> &vec4)
+      : Vector3<T>(vec4.x, vec4.y, vec4.z) {}
 
   __device__ __host__ explicit Vector3<T>(const T &scalar)
       : Vector3<T>(scalar, scalar, scalar) {}
@@ -251,6 +271,11 @@ class Vector3 {
   __device__ __host__ inline bool operator!=(const Vector3<T> &rhs) const {
     return !operator==(rhs);
   }
+
+  template<typename Tout>
+  __device__ __host__ inline Vector3<Tout> cast() const {
+    return Vector3<Tout>(static_cast<Tout>(x), static_cast<Tout>(y), static_cast<Tout>(z));
+  }
 };
 
 template<typename T>
@@ -267,8 +292,8 @@ __device__ __host__ inline Vector3<T> operator-(const T &lhs, const Vector3<T> &
 
 template<typename T>
 __device__ __host__ inline Vector3<T> operator*(const T &lhs, const Vector3<T> &rhs) {
-  Vector3<T> ret(lhs); 
-  return ret *= rhs;
+  Vector3<T> ret(rhs); 
+  return ret *= lhs;
 }
 
 template<typename T>
@@ -348,6 +373,12 @@ class Vector4 {
   __device__ __host__ inline bool operator!=(const Vector4<T> &rhs) const {
     return !operator==(rhs);
   }
+
+  template<typename Tout>
+  __device__ __host__ inline Vector4<Tout> cast() const {
+    return Vector4<Tout>(static_cast<Tout>(x), static_cast<Tout>(y), 
+                         static_cast<Tout>(z), static_cast<Tout>(w));
+  }
 };
 
 template<typename T>
@@ -364,7 +395,7 @@ __device__ __host__ inline Vector4<T> operator-(const T &lhs, const Vector4<T> &
 
 template<typename T>
 __device__ __host__ inline Vector4<T> operator*(const T &lhs, const Vector4<T> &rhs) {
-  Vector4<T> ret(lhs); 
-  return ret *= rhs;
+  Vector4<T> ret(rhs); 
+  return ret *= lhs;
 }
 

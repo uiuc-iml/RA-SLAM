@@ -30,7 +30,7 @@ class Matrix3 {
   }
 
   template<typename Tout>
-  __device__ __host__ inline Matrix3<Tout> cast() {
+  __device__ __host__ inline Matrix3<Tout> cast() const {
     return Matrix3<Tout>(
       static_cast<Tout>(m00), static_cast<Tout>(m01), static_cast<Tout>(m02),
       static_cast<Tout>(m10), static_cast<Tout>(m11), static_cast<Tout>(m12),
@@ -202,7 +202,7 @@ class Matrix4 {
   }
 
   template<typename Tout>
-  __device__ __host__ inline Matrix4<Tout> cast() {
+  __device__ __host__ inline Matrix4<Tout> cast() const {
     return Matrix4<Tout>(
       static_cast<Tout>(m00), static_cast<Tout>(m01), static_cast<Tout>(m02), static_cast<Tout>(m03),
       static_cast<Tout>(m10), static_cast<Tout>(m11), static_cast<Tout>(m12), static_cast<Tout>(m13),

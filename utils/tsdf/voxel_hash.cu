@@ -1,7 +1,15 @@
 #include <cassert>
 
+#include "utils/cuda/arithmetic.cuh"
 #include "utils/cuda/errors.cuh"
 #include "utils/tsdf/voxel_hash.cuh"
+
+__global__ static void reset_locks_kernel(int *locks, int num_locks) {
+  const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx < num_locks) {
+    locks[idx] = FREE;
+  }
+}
 
 __device__ __host__ uint hash(const Vector3<short> &block_pos) {
   return (((uint)block_pos.x * 73856093u) ^
@@ -25,8 +33,8 @@ __device__ __host__ Voxel VoxelBlock::GetVoxel(const short idx) const {
 __device__ __host__ Voxel& VoxelBlock::GetVoxelMutable(const Vector3<short> &point) const {
   assert(voxels != NULL);
   assert(point2block(point) == this->block_pos);
-  Vector3<short> offset = point2offset(point);
-  unsigned short idx = offset2index(offset); 
+  const Vector3<short> offset = point2offset(point);
+  const unsigned short idx = offset2index(offset); 
   return voxels[idx];
 }
 
@@ -45,15 +53,9 @@ VoxelHashTable::VoxelHashTable() : VoxelMemPool() {
   CUDA_SAFE_CALL(cudaMemset(bucket_locks_, FREE, sizeof(BucketLock) * NUM_BUCKET));
 }
 
-__global__ static void reset_locks(int *locks, int num_locks) {
-  const int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx < num_locks) {
-    locks[idx] = FREE;
-  }
-}
-
-void VoxelHashTable::ResetLocks() {
-  reset_locks<<<NUM_BUCKET / 1024, 1024>>>(bucket_locks_, NUM_BUCKET);
+void VoxelHashTable::ResetLocks(cudaStream_t stream) {
+  reset_locks_kernel<<<NUM_BUCKET / 1024, 1024, 0, stream>>>(bucket_locks_, NUM_BUCKET);
+  CUDA_CHECK_ERROR;
 }
 
 void VoxelHashTable::ReleaseMemory() {
@@ -206,6 +208,11 @@ __device__ Voxel* VoxelHashTable::RetrieveMutable(const Vector3<short> &point,
   cache.offset = -1;
   cache.voxels = NULL;
   return NULL;
+}
+
+__device__ const VoxelBlock& VoxelHashTable::GetBlock(const int idx) const {
+  assert(idx < NUM_ENTRY);
+  return hash_table_[idx];
 }
 
 __device__ __host__ int VoxelHashTable::NumActiveBlock() const {
