@@ -7,6 +7,8 @@ class SO3 : public Matrix3<T> {
  public:
   using Matrix3<T>::Matrix3;
 
+  __device__ __host__ SO3(const Matrix3<T> &mat3) : Matrix3<T>(mat3) {}
+
   __device__ __host__ inline SO3<T> Inverse() const {
     return SO3<T>(
       this->m00, this->m10, this->m20,
@@ -20,6 +22,8 @@ template<typename T>
 class SE3 : public Matrix4<T> {
  public:
   using Matrix4<T>::Matrix4;
+
+  __device__ __host__ SE3(const Matrix4<T> &mat4) : Matrix4<T>(mat4) {}
 
   __device__ __host__ SE3<T>(const SO3<T> &rot, const Vector3<T> &trans)
     : Matrix4<T>(

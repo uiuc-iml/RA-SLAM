@@ -65,6 +65,7 @@ TEST_F(VoxelHashTest, Single) {
   Retrieve<<<1, 1>>>(voxel_hash_table, point, voxel, voxel_block);
   CUDA_SAFE_CALL(cudaDeviceSynchronize());
   EXPECT_EQ(voxel->weight, 0);
+  EXPECT_EQ(voxel->tsdf, 1);
   // assignment
   *block_pos = Vector3<short>(0);
   Allocate<<<1, 1>>>(voxel_hash_table, block_pos);

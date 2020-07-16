@@ -127,6 +127,10 @@ class Vector2 {
     return !operator==(rhs);
   }
 
+  __device__ __host__ inline T dot(const Vector2<T> &rhs) const {
+    return x * rhs.x + y * rhs.y;
+  }
+
   template<typename Tout>
   __device__ __host__ inline Vector2<Tout> cast() const {
     return Vector2<Tout>(static_cast<Tout>(x), static_cast<Tout>(y));
@@ -272,6 +276,10 @@ class Vector3 {
     return !operator==(rhs);
   }
 
+  __device__ __host__ inline T dot(const Vector3<T> &rhs) const {
+    return x * rhs.x + y * rhs.y + z * rhs.z;
+  }
+
   template<typename Tout>
   __device__ __host__ inline Vector3<Tout> cast() const {
     return Vector3<Tout>(static_cast<Tout>(x), static_cast<Tout>(y), static_cast<Tout>(z));
@@ -372,6 +380,10 @@ class Vector4 {
 
   __device__ __host__ inline bool operator!=(const Vector4<T> &rhs) const {
     return !operator==(rhs);
+  }
+
+  __device__ __host__ inline T dot(const Vector4<T> &rhs) const {
+    return x * rhs.x + y * rhs.y + z * rhs.z + w * rhs.w;
   }
 
   template<typename Tout>

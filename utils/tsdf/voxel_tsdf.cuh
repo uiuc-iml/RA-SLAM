@@ -14,8 +14,8 @@ class TSDFGrid {
   void Integrate(const cv::Mat &img_rgb, const cv::Mat &img_depth, 
                  const CameraIntrinsics<float> &intrinsics, const SE3<float> &cam_P_world);
 
-  void RayCast(cv::Mat *img_normal, const CameraParams &virtual_cam_params, 
-                                    const SE3<float> &cam_P_world);
+  void RayCast(cv::Mat *img, const CameraIntrinsics<float> &virtual_intrinsics, 
+                             const SE3<float> &cam_P_world);
 
  protected:
   cudaStream_t stream_;
@@ -34,5 +34,7 @@ class TSDFGrid {
   uchar3 *img_rgb_;
   float *img_depth_;
   float *img_depth_to_range_;
+  // renderer buffer
+  float *img_normal_;
 };
 

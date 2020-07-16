@@ -68,6 +68,7 @@ __device__ void VoxelHashTable::Allocate(const Vector3<short> &block_pos) {
   const unsigned int bucket_idx = hash(block_pos);
   const unsigned int entry_idx = (bucket_idx << NUM_ENTRY_PER_BUCKET_BITS);
   // check for current bucket
+  #pragma unroll
   for(int i = 0; i < NUM_ENTRY_PER_BUCKET; ++i) {
     VoxelBlock &block = hash_table_[entry_idx + i];
     if (block.block_pos == block_pos && block.voxels) { return; }
@@ -118,6 +119,7 @@ __device__ void VoxelHashTable::Delete(const Vector3<short> &block_pos) {
   const unsigned int bucket_idx = hash(block_pos);
   const unsigned int entry_idx = (bucket_idx << NUM_ENTRY_PER_BUCKET_BITS);
   // check for current bucket
+  #pragma unroll
   for(int i = 0; i < NUM_ENTRY_PER_BUCKET - 1; ++i) {
     VoxelBlock &block = hash_table_[entry_idx + i];
     if (block.block_pos == block_pos && block.voxels) { 
@@ -169,7 +171,7 @@ __device__ Voxel VoxelHashTable::Retrieve(const Vector3<short> &point, VoxelBloc
   if (voxel)
     return *voxel;
   // not found -> empty space
-  return { -1., { 0, 0, 0 }, 0 };
+  return { 1., { 0, 0, 0 }, 0 };
 }
 
 __device__ Voxel* VoxelHashTable::RetrieveMutable(const Vector3<short> &point, 
@@ -186,6 +188,7 @@ __device__ Voxel* VoxelHashTable::RetrieveMutable(const Vector3<short> &point,
   const unsigned int bucket_idx = hash(block_pos);
   const unsigned int entry_idx = (bucket_idx << NUM_ENTRY_PER_BUCKET_BITS);
   // check for current bucket
+  #pragma unroll
   for(int i = 0; i < NUM_ENTRY_PER_BUCKET; ++i) {
     VoxelBlock &block = hash_table_[entry_idx + i];
     if (block.block_pos == block_pos && block.voxels) { 

@@ -5,3 +5,7 @@ get_filename_component(VERTEX_SHADER_PATH simple_renderer/shader.vert ABSOLUTE)
 get_filename_component(FRAGMENT_SHADER_PATH simple_renderer/shader.frag ABSOLUTE)
 target_compile_definitions(simple_renderer PRIVATE
     VERTEX_SHADER_PATH="${VERTEX_SHADER_PATH}" FRAGMENT_SHADER_PATH="${FRAGMENT_SHADER_PATH}")
+
+add_executable(tsdf_sephere tsdf_sephere/main.cu)
+target_link_libraries(tsdf_sephere PRIVATE tsdf_utils ${OpenCV_LIBS})
+set_target_properties(tsdf_sephere PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
