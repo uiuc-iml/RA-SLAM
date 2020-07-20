@@ -18,6 +18,16 @@ class TSDFGrid {
                              const SE3<float> &cam_P_world);
 
  protected:
+  void Allocate(const cv::Mat &img_rgb, const cv::Mat &img_depth,
+                const CameraParams &cam_params, const SE3<float> &cam_P_world);
+
+  int GatherVisible(const CameraParams &cam_params, const SE3<float> &cam_P_world);
+
+  void UpdateTSDF(int num_visible_blocks, 
+                  const CameraParams &cam_params, const SE3<float> &cam_P_world);
+
+  void SpaceCarving(int num_visible_blocks);
+
   cudaStream_t stream_;
   // voxel grid params
   VoxelHashTable hash_table_;

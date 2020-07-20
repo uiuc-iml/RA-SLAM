@@ -67,7 +67,7 @@ __global__ void scan_kernel(T *input, T *output, T *auxout, int len) {
 template<typename T>
 void prefix_sum(T *input, T *output, T *auxout, int len, cudaStream_t stream = NULL) {
   // cannot handle more than (1 << 22) elements
-  assert(len < SCAN_BLOCK_SIZE * SCAN_BLOCK_SIZE * 4);
+  assert(len <= SCAN_BLOCK_SIZE * SCAN_BLOCK_SIZE * 4);
 
   const int num_aux = ceil((float)len / (2*SCAN_BLOCK_SIZE));
 
