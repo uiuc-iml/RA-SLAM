@@ -55,7 +55,7 @@ VoxelHashTable::VoxelHashTable() : VoxelMemPool() {
 
 void VoxelHashTable::ResetLocks(cudaStream_t stream) {
   reset_locks_kernel<<<NUM_BUCKET / 1024, 1024, 0, stream>>>(bucket_locks_, NUM_BUCKET);
-  CUDA_CHECK_ERROR;
+  CUDA_STREAM_CHECK_ERROR(stream);
 }
 
 void VoxelHashTable::ReleaseMemory() {

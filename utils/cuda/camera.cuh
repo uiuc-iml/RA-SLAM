@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cuda_runtime.h>
+
 #include "utils/cuda/matrix.cuh"
 
 template<typename T>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cassert>
+#include <cuda_runtime.h>
 
 #include "utils/tsdf/voxel_types.cuh"
 #include "utils/cuda/vector.cuh"

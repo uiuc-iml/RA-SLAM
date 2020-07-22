@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cassert>
+#include <cuda_runtime.h>
 
 #include "utils/cuda/errors.cuh"
 
@@ -72,7 +73,9 @@ void prefix_sum(T *input, T *output, T *auxout, int len, cudaStream_t stream = N
   const int num_aux = ceil((float)len / (2*SCAN_BLOCK_SIZE));
 
   scan_kernel<T><<<num_aux, SCAN_BLOCK_SIZE, 0, stream>>>(input, output, auxout, len);
+  CUDA_STREAM_CHECK_ERROR(stream);
   scan_kernel<T><<<1, SCAN_BLOCK_SIZE, 0, stream>>>(auxout, auxout, NULL, num_aux);
+  CUDA_STREAM_CHECK_ERROR(stream);
   auxiliary_sum_kernel<T><<<num_aux, SCAN_BLOCK_SIZE, 0, stream>>>(output, output, auxout, len);
-  CUDA_CHECK_ERROR;
+  CUDA_STREAM_CHECK_ERROR(stream);
 }

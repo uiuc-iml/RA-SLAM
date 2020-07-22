@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cuda_runtime.h>
+
 template<typename T>
 class Vector2;
 
@@ -91,7 +93,7 @@ class Vector2 {
   }
 
   __device__ __host__ inline Vector2<T> operator-() const {
-    return (T)0 - *this;
+    return Vector2<T>(-x, -y);
   }
 
   __device__ __host__ inline Vector2<T> operator*(const T &rhs) const {
@@ -240,7 +242,7 @@ class Vector3 {
   }
 
   __device__ __host__ inline Vector3<T> operator-() const {
-    return (T)0 - *this;
+    return Vector3<T>(-x, -y, -z);
   }
 
   __device__ __host__ inline Vector3<T> operator*(const T &rhs) const {
@@ -366,7 +368,7 @@ class Vector4 {
   }
 
   __device__ __host__ inline Vector4<T> operator-() const {
-    return (T)0 - *this;
+    return Vector4<T>(-x, -y, -z, -w);
   }
 
   __device__ __host__ inline Vector4<T> operator*(const T &rhs) const {

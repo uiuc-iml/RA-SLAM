@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cuda_runtime.h>
 #include <opencv2/opencv.hpp>
 
 #include "utils/cuda/lie_group.cuh"

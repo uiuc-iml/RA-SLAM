@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cuda_runtime.h>
+
 #include "utils/cuda/vector.cuh"
 #include "utils/cuda/lie_group.cuh"
 #include "utils/cuda/camera.cuh"

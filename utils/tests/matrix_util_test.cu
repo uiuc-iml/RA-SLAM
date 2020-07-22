@@ -20,8 +20,21 @@ TEST(MatrixUtilTest, SO3Inverse) {
 TEST(MatrixUtilTest, SE3Inverse) {
   const SO3<float> r(0, 1, 0, 0, 0, 1, 1, 0, 0);
   const Vector3<float> t(1, 2, 3);
-  const SE3<float> transform(r, t);
-  const SE3<float> transform_inv = transform.Inverse();
-  EXPECT_TRUE(transform * transform_inv == Matrix4<float>::Identity());
-  EXPECT_TRUE(transform_inv * transform == Matrix4<float>::Identity());
+  const SE3<float> pose(r, t);
+  const SE3<float> pose_inv = pose.Inverse();
+  EXPECT_TRUE(pose * pose_inv == Matrix4<float>::Identity());
+  EXPECT_TRUE(pose_inv * pose == Matrix4<float>::Identity());
+}
+
+TEST(MatrixUtilTest, SE3Apply) {
+  const Vector3<float> vec3(3, 7, 21);
+  const Vector4<float> vec3_h(vec3);
+  const SO3<float> r(0, 1, 0, 0, 0, 1, 1, 0, 0);
+  const Vector3<float> t(1, 2, 3);
+  const SE3<float> pose(r, t);
+
+  const Vector3<float> ret1 = pose.Apply(vec3);
+  const Vector4<float> ret2_h = pose * vec3_h;
+
+  EXPECT_TRUE(Vector4<float>(ret1) == ret2_h);
 }

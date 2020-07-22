@@ -1,6 +1,4 @@
-#include <cstdio>
-
-#include <cuda_runtime_api.h>
+#include <cassert>
 
 #include "utils/cuda/errors.cuh"
 #include "utils/tsdf/voxel_mem.cuh"
@@ -31,6 +29,7 @@ VoxelMemPool::VoxelMemPool() {
   // initialize heap array
   CUDA_SAFE_CALL(cudaMalloc(&heap_, sizeof(int) * NUM_BLOCK));
   heap_init<<<NUM_BLOCK / 256, 256>>>(heap_);
+  CUDA_CHECK_ERROR;
   // initialize voxels
   CUDA_SAFE_CALL(cudaMalloc(&voxels_, sizeof(Voxel) * NUM_BLOCK * BLOCK_VOLUME));
   CUDA_SAFE_CALL(cudaMemset(voxels_, 0, sizeof(Voxel) * NUM_BLOCK * BLOCK_VOLUME));
@@ -50,7 +49,12 @@ __device__ Voxel* VoxelMemPool::AquireBlock() {
   const int block_idx = heap_[idx - 1];
   const int voxel_idx = block_idx << BLOCK_VOLUME_BITS;
 
-  CUDA_SAFE_CALL(cudaMemsetAsync(&voxels_[voxel_idx], 0, sizeof(Voxel) * BLOCK_VOLUME, NULL));
+  #pragma unroll
+  for (int i = 0; i < BLOCK_VOLUME; ++i) {
+    voxels_[i + voxel_idx].weight = 0;
+    voxels_[i + voxel_idx].tsdf = 1;
+  }
+
   return &voxels_[voxel_idx]; 
 }
 
