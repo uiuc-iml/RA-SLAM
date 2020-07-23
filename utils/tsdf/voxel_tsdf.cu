@@ -127,7 +127,7 @@ __global__ static void block_allocate_kernel(VoxelHashTable hash_table,
   const Vector3<float> ray_grid = 2 * truncation * ray_dir_grid; // start -> end vector
   // DDA for finding ray / block intersection
   const int step_grid = 
-    roundf(fmaxf(fmaxf(fabsf(ray_grid.x), fabsf(ray_grid.y)), fabsf(ray_grid.z)) / BLOCK_LEN);
+    ceilf(fmaxf(fmaxf(fabsf(ray_grid.x), fabsf(ray_grid.y)), fabsf(ray_grid.z)) / BLOCK_LEN);
   const Vector3<float> ray_step_grid = ray_grid / fmaxf((float)step_grid, 0);
   Vector3<float> pos_grid = ray_start_grid;
   // allocate blocks along the ray
@@ -214,7 +214,7 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
         hash_table.Retrieve({ pos2_grid.x, pos2_grid.y, pos2_grid.z + 1 }, cache).tsdf - 
         hash_table.Retrieve({ pos2_grid.x, pos2_grid.y, pos2_grid.z - 1 }, cache).tsdf
       );
-      const Vector3<float> pos_mid_world = pos_mid_grid * voxel_size;
+      const Vector3<float> dist_world = pos_mid_grid * voxel_size - world_P_cam.GetT();
       img_gray[idx] = fmaxf(norm_raw.dot(-ray_dir_world) / sqrtf(norm_raw.dot(norm_raw)), 0);
       return;
     }

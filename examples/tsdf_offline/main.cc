@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  TSDFGrid tsdf(0.01, 0.08, 5);
+  TSDFGrid tsdf(0.01, 0.06, 3);
 
   const auto intrinsics = get_zed_intrinsics();
   const auto log_entries = parse_log_entries(logdir->value());
