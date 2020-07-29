@@ -282,6 +282,10 @@ class Vector3 {
     return x * rhs.x + y * rhs.y + z * rhs.z;
   }
 
+  __device__ __host__ inline Vector3<T> cross(const Vector3<T> &rhs) const {
+    return Vector3<T>(y*rhs.z - z*rhs.y, z*rhs.x - x*rhs.z, x*rhs.y - y*rhs.x);
+  }
+
   template<typename Tout>
   __device__ __host__ inline Vector3<Tout> cast() const {
     return Vector3<Tout>(static_cast<Tout>(x), static_cast<Tout>(y), static_cast<Tout>(z));

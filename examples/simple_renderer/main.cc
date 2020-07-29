@@ -16,6 +16,8 @@ class SimpleRenderer : public RendererBase {
     int display_w, display_h;
     glfwGetFramebufferSize(window_, &display_w, &display_h);
     glViewport(0, 0, display_w, display_h);
+    // shader
+    shader_.Bind();
     // bg color
     ImGui::Begin("simple renderer");
     ImGui::ColorEdit3("background color", (float*)&clear_color_);

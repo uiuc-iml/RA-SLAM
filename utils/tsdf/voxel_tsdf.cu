@@ -223,8 +223,8 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
   img_gray[idx] = 0; // no surface intersection found
 }
 
-TSDFGrid::TSDFGrid(float voxel_size, float truncation, float max_depth) 
-  : voxel_size_(voxel_size), truncation_(truncation), max_depth_(max_depth) {
+TSDFGrid::TSDFGrid(float voxel_size, float truncation) 
+  : voxel_size_(voxel_size), truncation_(truncation) {
   // memory allocation
   CUDA_SAFE_CALL(cudaMalloc(&visible_mask_, sizeof(int) * NUM_ENTRY));
   CUDA_SAFE_CALL(cudaMalloc(&visible_indics_, sizeof(int) * NUM_ENTRY));
@@ -253,7 +253,7 @@ TSDFGrid::~TSDFGrid() {
   CUDA_SAFE_CALL(cudaStreamDestroy(stream_));
 }
 
-void TSDFGrid::Integrate(const cv::Mat &img_rgb, const cv::Mat &img_depth, 
+void TSDFGrid::Integrate(const cv::Mat &img_rgb, const cv::Mat &img_depth, float max_depth,
                          const CameraIntrinsics<float> &intrinsics, 
                          const SE3<float> &cam_P_world) {
   assert(img_rgb.type() == CV_8UC3);
@@ -263,13 +263,13 @@ void TSDFGrid::Integrate(const cv::Mat &img_rgb, const cv::Mat &img_depth,
 
   const CameraParams cam_params(intrinsics, img_rgb.rows, img_rgb.cols);
 
-  Allocate(img_rgb, img_depth, cam_params, cam_P_world);
-  const int num_visible_blocks = GatherVisible(cam_params, cam_P_world);
-  UpdateTSDF(num_visible_blocks, cam_params, cam_P_world);
+  Allocate(img_rgb, img_depth, max_depth, cam_params, cam_P_world);
+  const int num_visible_blocks = GatherVisible(max_depth, cam_params, cam_P_world);
+  UpdateTSDF(num_visible_blocks, max_depth, cam_params, cam_P_world);
   SpaceCarving(num_visible_blocks);
 }
 
-void TSDFGrid::Allocate(const cv::Mat &img_rgb, const cv::Mat &img_depth,
+void TSDFGrid::Allocate(const cv::Mat &img_rgb, const cv::Mat &img_depth, float max_depth,
                         const CameraParams &cam_params, const SE3<float> &cam_P_world) {
   CUDA_SAFE_CALL(cudaMemcpyAsync(img_rgb_, img_rgb.data, 
     sizeof(uchar3)*img_rgb.total(), cudaMemcpyHostToDevice, stream_));
@@ -279,18 +279,19 @@ void TSDFGrid::Allocate(const cv::Mat &img_rgb, const cv::Mat &img_depth,
   const dim3 IMG_THREAD_DIM(32, 16);
   block_allocate_kernel<<<IMG_BLOCK_DIM, IMG_THREAD_DIM, 0, stream_>>>(
     hash_table_, img_depth_, cam_params, cam_P_world.Inverse(), 
-    voxel_size_, max_depth_, truncation_, img_depth_to_range_);
+    voxel_size_, max_depth, truncation_, img_depth_to_range_);
   CUDA_STREAM_CHECK_ERROR(stream_);
   hash_table_.ResetLocks(stream_);
   spdlog::debug("[TSDF] {} active blocks after allocation", hash_table_.NumActiveBlock());
 }
 
-int TSDFGrid::GatherVisible(const CameraParams &cam_params, const SE3<float> &cam_P_world) {
+int TSDFGrid::GatherVisible(float max_depth,
+                            const CameraParams &cam_params, const SE3<float> &cam_P_world) {
   constexpr int GATHER_THREAD_DIM = 512;
   const int GATHER_BLOCK_DIM = ceil((float)NUM_ENTRY / GATHER_THREAD_DIM);
   // generate binary array of visibility
   check_visibility_kernel<<<GATHER_BLOCK_DIM, GATHER_THREAD_DIM, 0, stream_>>>(
-    hash_table_, voxel_size_, max_depth_, cam_params,
+    hash_table_, voxel_size_, max_depth, cam_params,
     cam_P_world, visible_mask_);
   CUDA_STREAM_CHECK_ERROR(stream_);
   // parallel prefix sum scan
@@ -308,12 +309,12 @@ int TSDFGrid::GatherVisible(const CameraParams &cam_params, const SE3<float> &ca
   return num_visible_blocks;
 }
 
-void TSDFGrid::UpdateTSDF(int num_visible_blocks, 
+void TSDFGrid::UpdateTSDF(int num_visible_blocks, float max_depth,
                           const CameraParams &cam_params, const SE3<float> &cam_P_world) {
   const dim3 VOXEL_BLOCK_DIM(BLOCK_LEN, BLOCK_LEN, BLOCK_LEN);
   tsdf_integrate_kernel<<<num_visible_blocks, VOXEL_BLOCK_DIM, 0, stream_>>>(
     visible_blocks_, cam_P_world, cam_params, num_visible_blocks, 
-    max_depth_, truncation_, voxel_size_, img_rgb_, img_depth_, img_depth_to_range_);
+    max_depth, truncation_, voxel_size_, img_rgb_, img_depth_, img_depth_to_range_);
   CUDA_STREAM_CHECK_ERROR(stream_);
 }
 
@@ -325,7 +326,7 @@ void TSDFGrid::SpaceCarving(int num_visible_blocks) {
   spdlog::debug("[TSDF] {} active blocks after carving", hash_table_.NumActiveBlock());
 }
 
-void TSDFGrid::RayCast(cv::Mat *img, 
+void TSDFGrid::RayCast(cv::Mat *img, float max_depth,
                        const CameraIntrinsics<float> &virtual_intrinsics,
                        const SE3<float> &cam_P_world) {
   assert(img->type() == CV_32FC1);
@@ -335,7 +336,7 @@ void TSDFGrid::RayCast(cv::Mat *img,
   const dim3 IMG_THREAD_DIM(32, 16);
   ray_cast_kernel<<<IMG_BLOCK_DIM, IMG_THREAD_DIM, 0, stream_>>>(
     hash_table_, cam_params, cam_P_world.Inverse(),
-    truncation_/2, max_depth_, voxel_size_, img_normal_);
+    truncation_/2, max_depth, voxel_size_, img_normal_);
   CUDA_STREAM_CHECK_ERROR(stream_);
   CUDA_SAFE_CALL(cudaMemcpyAsync(img->data, img_normal_, 
     sizeof(float) * img->total(), cudaMemcpyDeviceToHost, stream_));

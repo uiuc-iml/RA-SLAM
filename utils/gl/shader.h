@@ -7,7 +7,9 @@
 
 class Shader {
  public:
-  Shader(const std::string &vertex_shader_filepath, const std::string &fragment_shader_filepath);
+  Shader(const std::string &vertex_shader, 
+         const std::string &fragment_shader,
+         bool load_file = true);
   ~Shader();
   
   void Bind() const;
@@ -18,7 +20,8 @@ class Shader {
   void SetUniform4f(const std::string &name, float x, float y, float z, float w) const;
 
  private:
-  GLuint CompileShader(const std::string &filepath, GLenum shader_type);
+  std::string ReadFile(const std::string &filepath);
+  GLuint CompileShader(const std::string &shader_code, GLenum shader_type);
   GLint GetUniformLocation(const std::string &name) const;
 
   const GLuint program_id_;

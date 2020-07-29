@@ -7,6 +7,11 @@
 
 #include <string>
 
+// minimum OpenGL 4.3
+#define GL_VERSION_MAJOR 4
+#define GL_VERSION_MINOR 3
+#define GLSL_VERSION "#version 430"
+
 class RendererBase {
  public:
   RendererBase(const std::string &name, int width = 1280, int height = 720);
@@ -17,6 +22,7 @@ class RendererBase {
  protected:
   GLFWwindow *window_; 
   virtual void Render() = 0;
+  virtual void DispatchInput();
 
  private:
   static void GLFWErrorHandler(int error, const char *desc);

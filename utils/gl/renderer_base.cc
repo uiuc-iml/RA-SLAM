@@ -6,11 +6,6 @@
 
 #include "renderer_base.h"
 
-// minimum OpenGL 4.3
-#define GL_VERSION_MAJOR 4
-#define GL_VERSION_MINOR 3
-#define GLSL_VERSION "#version 430"
-
 bool RendererBase::initialized_ = false;
 
 RendererBase::RendererBase(const std::string &name, int width, int height) {
@@ -70,7 +65,8 @@ void RendererBase::Run() {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
-    // custom rendering logic to be overloaded
+    // custom input dispatch / rendering logic to be overloaded
+    DispatchInput();
     Render();
     // render imgui
     ImGui::Render();
@@ -80,13 +76,15 @@ void RendererBase::Run() {
   }
 }
 
+void RendererBase::DispatchInput() {}
+
 void RendererBase::GLFWErrorHandler(int error, const char *desc) {
   spdlog::error("glfw error {}: {}", error, desc);
 }
 
 void RendererBase::GLErrorHandler(GLenum source, GLenum type, GLuint id, GLenum severity,
                                   GLsizei length, const GLchar *msg, const void *args) {
-#ifdef DEBUG
+#ifndef NDEBUG
   (void)source;
   (void)type;
   (void)id;

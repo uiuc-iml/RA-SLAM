@@ -2,6 +2,7 @@
 #include <exception>
 #include <fstream>
 #include <iostream>
+#include <cmath>
 #include <string>
 #include <vector>
 #include <opencv2/highgui.hpp>
@@ -11,7 +12,11 @@
 #include <spdlog/spdlog.h>
 
 #include "cameras/zed.h"
+#include "imgui.h"
+#include "utils/gl/image.h"
+#include "utils/gl/renderer_base.h"
 #include "third_party/popl/include/popl.hpp"
+#include "utils/cuda/vector.cuh"
 #include "utils/cuda/errors.cuh"
 #include "utils/time.hpp"
 #include "utils/tsdf/voxel_tsdf.cuh"
@@ -62,6 +67,107 @@ void get_images_by_id(int id, cv::Mat *img_rgb, cv::Mat *img_depth,
   img_depth_raw.convertTo(*img_depth, CV_32FC1, 1./1000);
 }
 
+class ImageRenderer : public RendererBase {
+ public:
+  ImageRenderer(const std::string &name, const std::string &logdir, int img_h, int img_w)
+     : RendererBase(name), logdir_(logdir),
+       image_(img_h, img_w), tsdf_(0.01, 0.06),
+       intrinsics_(get_zed_intrinsics()),
+       log_entries_(parse_log_entries(logdir)) {
+    ImGuiIO &io = ImGui::GetIO();
+    io.FontGlobalScale = 2;
+  }
+
+ protected:
+  void DispatchInput() override {
+    ImGuiIO &io = ImGui::GetIO();
+    if (io.MouseWheel != 0) {
+      follow_cam_ = false;
+      const Vector3<float> move_cam(0, 0, io.MouseWheel * .1);
+      const SO3<float> virtual_cam_R_world = virtual_cam_P_world_.GetR(); 
+      const Vector3<float> virtual_cam_T_world = virtual_cam_P_world_.GetT();
+      virtual_cam_P_world_ = SE3<float>(virtual_cam_R_world, virtual_cam_T_world - move_cam);
+    }
+    if (!io.WantCaptureMouse && ImGui::IsMouseDragging(0)) {
+      follow_cam_ = false;
+      const ImVec2 delta = ImGui::GetMouseDragDelta(0);
+      const Vector2<float> delta_img(delta.x, delta.y);
+      const Vector2<float> pos_new_img(io.MousePos.x, io.MousePos.y);
+      const Vector2<float> pos_old_img = pos_new_img - delta_img;
+      const Vector3<float> pos_new_cam = intrinsics_.Inverse() * Vector3<float>(pos_new_img);
+      const Vector3<float> pos_old_cam = intrinsics_.Inverse() * Vector3<float>(pos_old_img);
+      const Vector3<float> pos_new_norm_cam = pos_new_cam / sqrt(pos_new_cam.dot(pos_new_cam));
+      const Vector3<float> pos_old_norm_cam = pos_old_cam / sqrt(pos_old_cam.dot(pos_old_cam));
+      const Vector3<float> rot_axis_cross_cam = pos_new_norm_cam.cross(pos_old_norm_cam);
+      const float theta = acos(pos_new_norm_cam.dot(pos_old_norm_cam));
+      const Vector3<float> w = rot_axis_cross_cam / sin(theta) * theta;
+      const Matrix3<float> w_x(0, -w.z, w.y, w.z, 0, -w.x, -w.y, w.x, 0);
+      const Matrix3<float> R = Matrix3<float>::Identity() + 
+                               sin(theta) / theta * w_x + 
+                               (1 - cos(theta)) / (theta * theta) * w_x * w_x;
+      const SE3<float> pose_cam1_P_cam2(R, Vector3<float>(0));
+      virtual_cam_P_world_ = pose_cam1_P_cam2.Inverse() * virtual_cam_P_world_old_;
+    }
+    else if (!io.WantCaptureMouse && ImGui::IsMouseDragging(2)) {
+      follow_cam_ = false;
+      const ImVec2 delta = ImGui::GetMouseDragDelta(2);
+      const Vector3<float> translation(delta.x, delta.y, 0);
+      const Vector3<float> T = virtual_cam_P_world_old_.GetT();
+      const Matrix3<float> R = virtual_cam_P_world_old_.GetR();
+      virtual_cam_P_world_ = SE3<float>(R, T + translation * .01);
+    }
+    else {
+      virtual_cam_P_world_old_ = virtual_cam_P_world_;
+    }
+  }
+
+  void Render() override {
+    int display_w, display_h;
+    glfwGetFramebufferSize(window_, &display_w, &display_h);
+    glViewport(0, 0, display_w, display_h);
+    glClearColor(0, 0, 0, 0);
+    glClear(GL_COLOR_BUFFER_BIT);
+    // GUI
+    ImGui::Begin("Menu");
+    if (!running_ && ImGui::Button("Start")) { running_ = true; }
+    else if (running_ && ImGui::Button("Pause")) { running_ = false; }
+    if (ImGui::Button("Follow Camera")) { follow_cam_ = true; }
+    ImGui::End();
+    // compute
+    if (running_) {
+      const LogEntry &log_entry = log_entries_[(cnt_++) % log_entries_.size()];
+      cam_P_world_ = log_entry.cam_P_world;
+      get_images_by_id(log_entry.id, &img_rgb_, &img_depth_, logdir_);
+      cv::imshow("rgb", img_rgb_);
+      cv::imshow("depth", img_depth_);
+      if (img_tsdf_.empty()) {
+        img_depth_.copyTo(img_tsdf_);
+      }
+      cv::waitKey(1);
+      tsdf_.Integrate(img_rgb_, img_depth_, 3, intrinsics_, log_entry.cam_P_world);
+    }
+    if (follow_cam_) { virtual_cam_P_world_ = cam_P_world_; }
+    // render
+    tsdf_.RayCast(&img_tsdf_, 10, intrinsics_, virtual_cam_P_world_);
+    image_.ReBindImage(img_tsdf_.rows, img_tsdf_.cols, img_tsdf_.data);
+    image_.Draw();
+  }
+ 
+ private:
+  int cnt_ = 0;
+  bool running_ = false;
+  bool follow_cam_ = true;
+  GLImage image_;
+  TSDFGrid tsdf_;
+  cv::Mat img_rgb_, img_depth_, img_tsdf_;
+  SE3<float> cam_P_world_ = SE3<float>::Identity();
+  SE3<float> virtual_cam_P_world_ = SE3<float>::Identity();
+  SE3<float> virtual_cam_P_world_old_ = SE3<float>::Identity();
+  const std::string logdir_;
+  const CameraIntrinsics<float> intrinsics_;
+  const std::vector<LogEntry> log_entries_;
+};
+
 int main(int argc, char *argv[]) {
   popl::OptionParser op("Allowed options");
   auto help = op.add<popl::Switch>("h", "help", "produce help message");
@@ -93,24 +199,8 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  TSDFGrid tsdf(0.01, 0.06, 3);
-
-  const auto intrinsics = get_zed_intrinsics();
-  const auto log_entries = parse_log_entries(logdir->value());
-  cv::Mat img_rgb, img_depth, img_tsdf;
-  for (int i = 0; i < log_entries.size(); ++i) {
-    const auto &log_entry = log_entries[i];
-    get_images_by_id(log_entry.id, &img_rgb, &img_depth, logdir->value());
-    cv::imshow("rgb", img_rgb);
-    cv::imshow("depth", img_depth);
-    tsdf.Integrate(img_rgb, img_depth, intrinsics, log_entry.cam_P_world);
-    if (img_tsdf.empty()) {
-      img_depth.copyTo(img_tsdf);
-    }
-    tsdf.RayCast(&img_tsdf, intrinsics, log_entry.cam_P_world);
-    cv::imshow("tsdf", img_tsdf);
-    cv::waitKey(0);
-  }
+  ImageRenderer renderer("tsdf", logdir->value(), 100, 100);
+  renderer.Run();
 
   return EXIT_SUCCESS;
 }
