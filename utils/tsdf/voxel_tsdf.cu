@@ -326,19 +326,18 @@ void TSDFGrid::SpaceCarving(int num_visible_blocks) {
   spdlog::debug("[TSDF] {} active blocks after carving", hash_table_.NumActiveBlock());
 }
 
-void TSDFGrid::RayCast(cv::Mat *img, float max_depth,
-                       const CameraIntrinsics<float> &virtual_intrinsics,
+void TSDFGrid::RayCast(GLImage *gl_tsdf_, float max_depth,
+                       const CameraParams &virtual_cam,
                        const SE3<float> &cam_P_world) {
-  assert(img->type() == CV_32FC1);
-
-  const CameraParams cam_params(virtual_intrinsics, img->rows, img->cols);
-  const dim3 IMG_BLOCK_DIM(ceil((float)cam_params.img_w/32), ceil((float)cam_params.img_h/16));
+  if (gl_tsdf_->height != virtual_cam.img_h || gl_tsdf_->width != virtual_cam.img_w) {
+    gl_tsdf_->ReBindImage(virtual_cam.img_h, virtual_cam.img_w);
+  }
+  const dim3 IMG_BLOCK_DIM(ceil((float)virtual_cam.img_w/32), 
+                           ceil((float)virtual_cam.img_h/16));
   const dim3 IMG_THREAD_DIM(32, 16);
   ray_cast_kernel<<<IMG_BLOCK_DIM, IMG_THREAD_DIM, 0, stream_>>>(
-    hash_table_, cam_params, cam_P_world.Inverse(),
+    hash_table_, virtual_cam, cam_P_world.Inverse(),
     truncation_/2, max_depth, voxel_size_, img_normal_);
   CUDA_STREAM_CHECK_ERROR(stream_);
-  CUDA_SAFE_CALL(cudaMemcpyAsync(img->data, img_normal_, 
-    sizeof(float) * img->total(), cudaMemcpyDeviceToHost, stream_));
-  CUDA_SAFE_CALL(cudaStreamSynchronize(stream_));
+  gl_tsdf_->LoadCuda(img_normal_, stream_);
 }

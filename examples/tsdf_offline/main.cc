@@ -71,7 +71,7 @@ class ImageRenderer : public RendererBase {
  public:
   ImageRenderer(const std::string &name, const std::string &logdir, int img_h, int img_w)
      : RendererBase(name), logdir_(logdir),
-       image_(img_h, img_w), tsdf_(0.01, 0.06),
+       tsdf_(0.01, 0.06),
        intrinsics_(get_zed_intrinsics()),
        log_entries_(parse_log_entries(logdir)) {
     ImGuiIO &io = ImGui::GetIO();
@@ -140,26 +140,28 @@ class ImageRenderer : public RendererBase {
       get_images_by_id(log_entry.id, &img_rgb_, &img_depth_, logdir_);
       cv::imshow("rgb", img_rgb_);
       cv::imshow("depth", img_depth_);
-      if (img_tsdf_.empty()) {
-        img_depth_.copyTo(img_tsdf_);
+      if (!gl_tsdf_.height || !gl_tsdf_.width) {
+        gl_tsdf_.ReBindImage(img_depth_.rows, img_depth_.cols, nullptr);
       }
       cv::waitKey(1);
       tsdf_.Integrate(img_rgb_, img_depth_, 3, intrinsics_, log_entry.cam_P_world);
     }
     if (follow_cam_) { virtual_cam_P_world_ = cam_P_world_; }
     // render
-    tsdf_.RayCast(&img_tsdf_, 10, intrinsics_, virtual_cam_P_world_);
-    image_.ReBindImage(img_tsdf_.rows, img_tsdf_.cols, img_tsdf_.data);
-    image_.Draw();
+    if (!img_depth_.empty() && !img_rgb_.empty()) {
+      const CameraParams virtual_cam(intrinsics_, img_depth_.rows, img_depth_.cols);
+      tsdf_.RayCast(&gl_tsdf_, 10, virtual_cam, virtual_cam_P_world_);
+      gl_tsdf_.Draw();
+    }
   }
  
  private:
   int cnt_ = 0;
   bool running_ = false;
   bool follow_cam_ = true;
-  GLImage image_;
+  GLImage gl_tsdf_;
   TSDFGrid tsdf_;
-  cv::Mat img_rgb_, img_depth_, img_tsdf_;
+  cv::Mat img_rgb_, img_depth_;
   SE3<float> cam_P_world_ = SE3<float>::Identity();
   SE3<float> virtual_cam_P_world_ = SE3<float>::Identity();
   SE3<float> virtual_cam_P_world_old_ = SE3<float>::Identity();

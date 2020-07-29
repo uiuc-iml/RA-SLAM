@@ -5,6 +5,7 @@
 
 #include "utils/cuda/lie_group.cuh"
 #include "utils/cuda/camera.cuh"
+#include "utils/gl/image.h"
 #include "utils/tsdf/voxel_hash.cuh"
 
 class TSDFGrid {
@@ -16,8 +17,8 @@ class TSDFGrid {
                  const CameraIntrinsics<float> &intrinsics, 
                  const SE3<float> &cam_P_world);
 
-  void RayCast(cv::Mat *img, float max_depth, 
-               const CameraIntrinsics<float> &virtual_intrinsics, 
+  void RayCast(GLImage *gl_tsdf_, float max_depth, 
+               const CameraParams &virtual_cam, 
                const SE3<float> &cam_P_world);
 
  protected:

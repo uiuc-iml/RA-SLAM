@@ -1,5 +1,6 @@
 #include "utils/gl/image.h"
 #include "utils/gl/renderer_base.h"
+#include "utils/cuda/errors.cuh"
 
 #include <string>
 #include <GL/glew.h>
@@ -36,8 +37,8 @@ void main() {
 }
 )END";
 
-GLImage::GLImage(int height, int width, void *data) 
-    : height(height), width(width), shader_(vertex_shader, fragment_shader, false) {
+GLImage::GLImage()
+    : height(0), width(0), shader_(vertex_shader, fragment_shader, false) {
   // vertices stuff
   glGenVertexArrays(1, &vao_);
   glGenBuffers(1, &vbo_);
@@ -51,9 +52,11 @@ GLImage::GLImage(int height, int width, void *data)
   glEnableVertexAttribArray(0);
   // texture stuff
   glGenTextures(1, &texture_);
+}
+
+GLImage::GLImage(int height, int width, void *data) 
+    : GLImage() {
   ReBindImage(height, width, data);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 }
 
 GLImage::~GLImage() {
@@ -61,11 +64,23 @@ GLImage::~GLImage() {
   glDeleteBuffers(1, &vbo_);
   glDeleteBuffers(1, &ebo_);
   glDeleteTextures(1, &texture_);
+  if (cuda_resrc_) {
+    CUDA_SAFE_CALL(cudaGraphicsUnregisterResource(cuda_resrc_));
+  }
 }
 
 void GLImage::ReBindImage(int height, int width, void *data) {
+  if (cuda_resrc_) {
+    CUDA_SAFE_CALL(cudaGraphicsUnregisterResource(cuda_resrc_));
+  }
+  this->height = height;
+  this->width = width;
   glBindTexture(GL_TEXTURE_2D, texture_);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, width, height, 0, GL_RED, GL_FLOAT, data);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, data);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  CUDA_SAFE_CALL(cudaGraphicsGLRegisterImage(
+    &cuda_resrc_, texture_, GL_TEXTURE_2D, cudaGraphicsRegisterFlagsWriteDiscard));
 }
 
 void GLImage::Draw() const {
@@ -75,3 +90,16 @@ void GLImage::Draw() const {
   glBindVertexArray(vao_);
   glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
+
+void GLImage::LoadCuda(const void *data, cudaStream_t stream) {
+  if (!cuda_resrc_) {
+    return;
+  }
+  cudaArray_t array;
+  CUDA_SAFE_CALL(cudaGraphicsMapResources(1, &cuda_resrc_, stream));
+  CUDA_SAFE_CALL(cudaGraphicsSubResourceGetMappedArray(&array, cuda_resrc_, 0, 0));
+  CUDA_SAFE_CALL(cudaMemcpy2DToArrayAsync(array, 0, 0, data, 
+    width * sizeof(float), width * sizeof(float), height, cudaMemcpyDeviceToDevice, stream));
+  CUDA_SAFE_CALL(cudaGraphicsUnmapResources(1, &cuda_resrc_, stream));
+}
+
