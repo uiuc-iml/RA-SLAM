@@ -27,7 +27,7 @@ void main() {
 }
 )END";
 
-const static char *fragment_shader = GLSL_VERSION "\n" R"END(
+const static char *frag_shader_c1 = GLSL_VERSION "\n" R"END(
 out vec4 frag_color;
 in vec2 tex_coord;
 uniform sampler2D tex;
@@ -37,7 +37,17 @@ void main() {
 }
 )END";
 
-GLImage::GLImage()
+const static char *frag_shader_c4 = GLSL_VERSION "\n" R"END(
+out vec4 frag_color;
+in vec2 tex_coord;
+uniform sampler2D tex;
+
+void main() {
+  frag_color = texture(tex, tex_coord);
+}
+)END";
+
+GLImageBase::GLImageBase(const char *fragment_shader)
     : height(0), width(0), shader_(vertex_shader, fragment_shader, false) {
   // vertices stuff
   glGenVertexArrays(1, &vao_);
@@ -52,14 +62,12 @@ GLImage::GLImage()
   glEnableVertexAttribArray(0);
   // texture stuff
   glGenTextures(1, &texture_);
+  glBindTexture(GL_TEXTURE_2D, texture_);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 }
 
-GLImage::GLImage(int height, int width, void *data) 
-    : GLImage() {
-  ReBindImage(height, width, data);
-}
-
-GLImage::~GLImage() {
+GLImageBase::~GLImageBase() {
   glDeleteVertexArrays(1, &vao_);
   glDeleteBuffers(1, &vbo_);
   glDeleteBuffers(1, &ebo_);
@@ -69,21 +77,19 @@ GLImage::~GLImage() {
   }
 }
 
-void GLImage::ReBindImage(int height, int width, void *data) {
+void GLImageBase::BindImage(int height, int width, const void *data) {
   if (cuda_resrc_) {
     CUDA_SAFE_CALL(cudaGraphicsUnregisterResource(cuda_resrc_));
   }
   this->height = height;
   this->width = width;
   glBindTexture(GL_TEXTURE_2D, texture_);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, data);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  GLTex2D(height, width, data);
   CUDA_SAFE_CALL(cudaGraphicsGLRegisterImage(
     &cuda_resrc_, texture_, GL_TEXTURE_2D, cudaGraphicsRegisterFlagsWriteDiscard));
 }
 
-void GLImage::Draw() const {
+void GLImageBase::Draw() const {
   shader_.Bind();
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, texture_);
@@ -91,7 +97,7 @@ void GLImage::Draw() const {
   glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
-void GLImage::LoadCuda(const void *data, cudaStream_t stream) {
+void GLImageBase::LoadCuda(const void *data, cudaStream_t stream) {
   if (!cuda_resrc_) {
     return;
   }
@@ -99,7 +105,26 @@ void GLImage::LoadCuda(const void *data, cudaStream_t stream) {
   CUDA_SAFE_CALL(cudaGraphicsMapResources(1, &cuda_resrc_, stream));
   CUDA_SAFE_CALL(cudaGraphicsSubResourceGetMappedArray(&array, cuda_resrc_, 0, 0));
   CUDA_SAFE_CALL(cudaMemcpy2DToArrayAsync(array, 0, 0, data, 
-    width * sizeof(float), width * sizeof(float), height, cudaMemcpyDeviceToDevice, stream));
+    width * ElementSize(), width * ElementSize(), height, cudaMemcpyDeviceToDevice, stream));
   CUDA_SAFE_CALL(cudaGraphicsUnmapResources(1, &cuda_resrc_, stream));
 }
 
+GLImage32FC1::GLImage32FC1() : GLImageBase(frag_shader_c1) {}
+
+void GLImage32FC1::GLTex2D(int height, int width, const void *data) const {
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, data);
+}
+
+size_t GLImage32FC1::ElementSize() const {
+  return sizeof(float);
+}
+
+GLImage8UC4::GLImage8UC4() : GLImageBase(frag_shader_c4) {}
+
+void GLImage8UC4::GLTex2D(int height, int width, const void *data) const {
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+}
+
+size_t GLImage8UC4::ElementSize() const {
+  return sizeof(unsigned char) * 4;
+}

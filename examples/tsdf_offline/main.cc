@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <cmath>
+#include <opencv2/imgproc.hpp>
 #include <string>
 #include <vector>
 #include <opencv2/highgui.hpp>
@@ -132,7 +133,6 @@ class ImageRenderer : public RendererBase {
     if (!running_ && ImGui::Button("Start")) { running_ = true; }
     else if (running_ && ImGui::Button("Pause")) { running_ = false; }
     if (ImGui::Button("Follow Camera")) { follow_cam_ = true; }
-    ImGui::End();
     // compute
     if (running_) {
       const LogEntry &log_entry = log_entries_[(cnt_++) % log_entries_.size()];
@@ -140,26 +140,34 @@ class ImageRenderer : public RendererBase {
       get_images_by_id(log_entry.id, &img_rgb_, &img_depth_, logdir_);
       cv::imshow("rgb", img_rgb_);
       cv::imshow("depth", img_depth_);
-      if (!gl_tsdf_.height || !gl_tsdf_.width) {
-        gl_tsdf_.ReBindImage(img_depth_.rows, img_depth_.cols, nullptr);
+      if (!tsdf_rgba_.height || !tsdf_rgba_.width || !tsdf_normal_.height || !tsdf_normal_.width) {
+        tsdf_rgba_.BindImage(img_depth_.rows, img_depth_.cols, nullptr);
+        tsdf_normal_.BindImage(img_depth_.rows, img_depth_.cols, nullptr);
       }
       cv::waitKey(1);
+      cv::cvtColor(img_rgb_, img_rgb_, cv::COLOR_BGR2RGB);
       tsdf_.Integrate(img_rgb_, img_depth_, 3, intrinsics_, log_entry.cam_P_world);
     }
     if (follow_cam_) { virtual_cam_P_world_ = cam_P_world_; }
     // render
     if (!img_depth_.empty() && !img_rgb_.empty()) {
       const CameraParams virtual_cam(intrinsics_, img_depth_.rows, img_depth_.cols);
-      tsdf_.RayCast(&gl_tsdf_, 10, virtual_cam, virtual_cam_P_world_);
-      gl_tsdf_.Draw();
+      tsdf_.RayCast(10, virtual_cam, virtual_cam_P_world_, &tsdf_rgba_, &tsdf_normal_);
+      static int render_mode = 0;
+      ImGui::RadioButton("rgb", &render_mode, 0); ImGui::SameLine();
+      ImGui::RadioButton("normal", &render_mode, 1);
+      if (render_mode == 0) { tsdf_rgba_.Draw(); }
+      else if (render_mode == 1) { tsdf_normal_.Draw(); }
     }
+    ImGui::End();
   }
  
  private:
   int cnt_ = 0;
   bool running_ = false;
   bool follow_cam_ = true;
-  GLImage gl_tsdf_;
+  GLImage8UC4 tsdf_rgba_;
+  GLImage8UC4 tsdf_normal_;
   TSDFGrid tsdf_;
   cv::Mat img_rgb_, img_depth_;
   SE3<float> cam_P_world_ = SE3<float>::Identity();

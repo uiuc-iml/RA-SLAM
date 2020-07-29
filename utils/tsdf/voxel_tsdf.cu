@@ -163,11 +163,13 @@ __global__ static void space_carving_kernel(VoxelHashTable hash_table,
 
 __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
                                        const CameraParams cam_params,
+                                       const SE3<float> cam_P_world,
                                        const SE3<float> world_P_cam,
                                        const float step_size, 
                                        const float max_depth,
                                        const float voxel_size,
-                                       float *img_gray) {
+                                       uchar4 *img_tsdf_rgba,
+                                       uchar4 *img_tsdf_normal) {
   const int x = blockIdx.x * blockDim.x + threadIdx.x;
   const int y = blockIdx.y * blockDim.y + threadIdx.y;
   if (x >= cam_params.img_w || y >= cam_params.img_h) {
@@ -206,7 +208,7 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
       }
       const Voxel voxel = hash_table.Retrieve((pos_mid_grid+.5).cast<short>(), cache);
       // calculate gradient
-      const Vector3<float> norm_raw(
+      const Vector3<float> norm_raw_grid(
         hash_table.Retrieve({ pos2_grid.x + 1, pos2_grid.y, pos2_grid.z }, cache).tsdf - 
         hash_table.Retrieve({ pos2_grid.x - 1, pos2_grid.y, pos2_grid.z }, cache).tsdf,
         hash_table.Retrieve({ pos2_grid.x, pos2_grid.y + 1, pos2_grid.z }, cache).tsdf - 
@@ -214,13 +216,19 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
         hash_table.Retrieve({ pos2_grid.x, pos2_grid.y, pos2_grid.z + 1 }, cache).tsdf - 
         hash_table.Retrieve({ pos2_grid.x, pos2_grid.y, pos2_grid.z - 1 }, cache).tsdf
       );
-      const Vector3<float> dist_world = pos_mid_grid * voxel_size - world_P_cam.GetT();
-      img_gray[idx] = fmaxf(norm_raw.dot(-ray_dir_world) / sqrtf(norm_raw.dot(norm_raw)), 0);
+      const Vector2<float> norm_raw_cam = Vector2<float>(cam_P_world.GetR() * norm_raw_grid);
+      const Vector2<float> norm_cam = norm_raw_cam / sqrt(norm_raw_cam.dot(norm_raw_cam));
+      const Vector2<float> norm_img = norm_cam * .5 + .5;
+      img_tsdf_rgba[idx] = make_uchar4(voxel.rgb.x, voxel.rgb.y, voxel.rgb.z, 255);
+      img_tsdf_normal[idx] = make_uchar4(
+          norm_img.x * 255, norm_img.y * 255, 255, 255);
       return;
     }
     voxel_prev = voxel_curr;
   }
-  img_gray[idx] = 0; // no surface intersection found
+  // no surface intersection found
+  img_tsdf_rgba[idx] = make_uchar4(0, 0, 0, 0);
+  img_tsdf_normal[idx] = make_uchar4(0, 0, 0, 0);
 }
 
 TSDFGrid::TSDFGrid(float voxel_size, float truncation) 
@@ -233,7 +241,8 @@ TSDFGrid::TSDFGrid(float voxel_size, float truncation)
   CUDA_SAFE_CALL(cudaMalloc(&img_rgb_, sizeof(uint3) * MAX_IMG_SIZE));
   CUDA_SAFE_CALL(cudaMalloc(&img_depth_, sizeof(float) * MAX_IMG_SIZE));
   CUDA_SAFE_CALL(cudaMalloc(&img_depth_to_range_, sizeof(float) * MAX_IMG_SIZE));
-  CUDA_SAFE_CALL(cudaMalloc(&img_normal_, sizeof(float) * MAX_IMG_SIZE));
+  CUDA_SAFE_CALL(cudaMalloc(&img_tsdf_rgba_, sizeof(uchar4) * MAX_IMG_SIZE));
+  CUDA_SAFE_CALL(cudaMalloc(&img_tsdf_normal_, sizeof(uchar4) * MAX_IMG_SIZE));
   // stream init
   CUDA_SAFE_CALL(cudaStreamCreate(&stream_));
 }
@@ -248,7 +257,8 @@ TSDFGrid::~TSDFGrid() {
   CUDA_SAFE_CALL(cudaFree(img_rgb_));
   CUDA_SAFE_CALL(cudaFree(img_depth_));
   CUDA_SAFE_CALL(cudaFree(img_depth_to_range_));
-  CUDA_SAFE_CALL(cudaFree(img_normal_));
+  CUDA_SAFE_CALL(cudaFree(img_tsdf_rgba_));
+  CUDA_SAFE_CALL(cudaFree(img_tsdf_normal_));
   // release cuda stream
   CUDA_SAFE_CALL(cudaStreamDestroy(stream_));
 }
@@ -326,18 +336,17 @@ void TSDFGrid::SpaceCarving(int num_visible_blocks) {
   spdlog::debug("[TSDF] {} active blocks after carving", hash_table_.NumActiveBlock());
 }
 
-void TSDFGrid::RayCast(GLImage *gl_tsdf_, float max_depth,
+void TSDFGrid::RayCast(float max_depth,
                        const CameraParams &virtual_cam,
-                       const SE3<float> &cam_P_world) {
-  if (gl_tsdf_->height != virtual_cam.img_h || gl_tsdf_->width != virtual_cam.img_w) {
-    gl_tsdf_->ReBindImage(virtual_cam.img_h, virtual_cam.img_w);
-  }
+                       const SE3<float> &cam_P_world,
+                       GLImage8UC4 *tsdf_rgba, GLImage8UC4 *tsdf_normal) {
   const dim3 IMG_BLOCK_DIM(ceil((float)virtual_cam.img_w/32), 
                            ceil((float)virtual_cam.img_h/16));
   const dim3 IMG_THREAD_DIM(32, 16);
   ray_cast_kernel<<<IMG_BLOCK_DIM, IMG_THREAD_DIM, 0, stream_>>>(
-    hash_table_, virtual_cam, cam_P_world.Inverse(),
-    truncation_/2, max_depth, voxel_size_, img_normal_);
+    hash_table_, virtual_cam, cam_P_world, cam_P_world.Inverse(),
+    truncation_/2, max_depth, voxel_size_, img_tsdf_rgba_, img_tsdf_normal_);
   CUDA_STREAM_CHECK_ERROR(stream_);
-  gl_tsdf_->LoadCuda(img_normal_, stream_);
+  if (tsdf_rgba) { tsdf_rgba->LoadCuda(img_tsdf_rgba_); }
+  if (tsdf_normal) { tsdf_normal->LoadCuda(img_tsdf_normal_); }
 }

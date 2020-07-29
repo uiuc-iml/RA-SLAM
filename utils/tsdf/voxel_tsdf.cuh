@@ -17,9 +17,10 @@ class TSDFGrid {
                  const CameraIntrinsics<float> &intrinsics, 
                  const SE3<float> &cam_P_world);
 
-  void RayCast(GLImage *gl_tsdf_, float max_depth, 
+  void RayCast(float max_depth, 
                const CameraParams &virtual_cam, 
-               const SE3<float> &cam_P_world);
+               const SE3<float> &cam_P_world,
+               GLImage8UC4 *tsdf_rgba = NULL, GLImage8UC4 *tsdf_normal = NULL);
 
  protected:
   void Allocate(const cv::Mat &img_rgb, const cv::Mat &img_depth, float max_depth,
@@ -49,6 +50,7 @@ class TSDFGrid {
   float *img_depth_;
   float *img_depth_to_range_;
   // renderer buffer
-  float *img_normal_;
+  uchar4 *img_tsdf_rgba_;
+  uchar4 *img_tsdf_normal_;
 };
 
