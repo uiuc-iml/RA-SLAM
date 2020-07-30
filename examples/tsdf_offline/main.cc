@@ -159,6 +159,7 @@ class ImageRenderer : public RendererBase {
       if (render_mode == 0) { tsdf_rgba_.Draw(); }
       else if (render_mode == 1) { tsdf_normal_.Draw(); }
     }
+    ImGui::Text("Frame Rate: %.1f FPS", ImGui::GetIO().Framerate);
     ImGui::End();
   }
  

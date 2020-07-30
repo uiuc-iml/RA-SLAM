@@ -7,6 +7,7 @@ ZED::ZED() {
   init_params.coordinate_units = sl::UNIT::MILLIMETER;
   init_params.depth_mode = sl::DEPTH_MODE::QUALITY;
   zed_.open(init_params);
+  zed_.setCameraSettings(sl::VIDEO_SETTINGS::EXPOSURE, 90);
   rt_params_ = zed_.getRuntimeParameters();
   rt_params_.confidence_threshold = 50;
   config_ = zed_.getCameraInformation().camera_configuration;

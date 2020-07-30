@@ -191,7 +191,7 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
     const Vector3<short> pos_grid = (pos_world / voxel_size + .5).cast<short>();
     const Voxel voxel_curr = hash_table.Retrieve(pos_grid, cache);
     // ray hit surface
-    if (voxel_prev.tsdf > 0 && voxel_curr.tsdf <= 0) {
+    if (voxel_prev.tsdf > 0 && voxel_curr.tsdf <= 0 && voxel_prev.tsdf - voxel_curr.tsdf <= 1.) {
       Vector3<float> pos1_grid = ((pos_world - ray_step_world) / voxel_size + .5).cast<float>();
       Vector3<float> pos2_grid = pos_grid.cast<float>();
       Vector3<float> pos_mid_grid;
