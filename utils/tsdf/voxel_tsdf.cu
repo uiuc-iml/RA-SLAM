@@ -191,9 +191,9 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
     const Vector3<short> pos_grid = (pos_world / voxel_size + .5).cast<short>();
     const Voxel voxel_curr = hash_table.Retrieve(pos_grid, cache);
     // ray hit surface
-    if (voxel_prev.tsdf > 0 && voxel_curr.tsdf <= 0 && voxel_prev.tsdf - voxel_curr.tsdf <= 1.) {
-      Vector3<float> pos1_grid = ((pos_world - ray_step_world) / voxel_size + .5).cast<float>();
-      Vector3<float> pos2_grid = pos_grid.cast<float>();
+    if (voxel_prev.tsdf > 0 && voxel_curr.tsdf <= 0 && voxel_prev.tsdf - voxel_curr.tsdf <= 1.5) {
+      Vector3<float> pos1_grid = (pos_world - ray_step_world) / voxel_size;
+      Vector3<float> pos2_grid = pos_world / voxel_size;
       Vector3<float> pos_mid_grid;
       // binary search refinement
       while((pos1_grid - pos2_grid).dot(pos1_grid - pos2_grid) > 1) {
@@ -206,22 +206,23 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
           pos1_grid = pos_mid_grid;
         }
       }
-      const Voxel voxel = hash_table.Retrieve((pos_mid_grid+.5).cast<short>(), cache);
+      const Vector3<short> final_grid = (pos_mid_grid + .5).cast<short>();
+      const Voxel voxel = hash_table.Retrieve(final_grid, cache);
       // calculate gradient
       const Vector3<float> norm_raw_grid(
-        hash_table.Retrieve({ pos2_grid.x + 1, pos2_grid.y, pos2_grid.z }, cache).tsdf - 
-        hash_table.Retrieve({ pos2_grid.x - 1, pos2_grid.y, pos2_grid.z }, cache).tsdf,
-        hash_table.Retrieve({ pos2_grid.x, pos2_grid.y + 1, pos2_grid.z }, cache).tsdf - 
-        hash_table.Retrieve({ pos2_grid.x, pos2_grid.y - 1, pos2_grid.z }, cache).tsdf,
-        hash_table.Retrieve({ pos2_grid.x, pos2_grid.y, pos2_grid.z + 1 }, cache).tsdf - 
-        hash_table.Retrieve({ pos2_grid.x, pos2_grid.y, pos2_grid.z - 1 }, cache).tsdf
+        hash_table.Retrieve({ final_grid.x + 1, final_grid.y, final_grid.z }, cache).tsdf - 
+        hash_table.Retrieve({ final_grid.x - 1, final_grid.y, final_grid.z }, cache).tsdf,
+        hash_table.Retrieve({ final_grid.x, final_grid.y + 1, final_grid.z }, cache).tsdf - 
+        hash_table.Retrieve({ final_grid.x, final_grid.y - 1, final_grid.z }, cache).tsdf,
+        hash_table.Retrieve({ final_grid.x, final_grid.y, final_grid.z + 1 }, cache).tsdf - 
+        hash_table.Retrieve({ final_grid.x, final_grid.y, final_grid.z - 1 }, cache).tsdf
       );
-      const Vector2<float> norm_raw_cam = Vector2<float>(cam_P_world.GetR() * norm_raw_grid);
-      const Vector2<float> norm_cam = norm_raw_cam / sqrt(norm_raw_cam.dot(norm_raw_cam));
-      const Vector2<float> norm_img = norm_cam * .5 + .5;
-      img_tsdf_rgba[idx] = make_uchar4(voxel.rgb.x, voxel.rgb.y, voxel.rgb.z, 255);
+      const float diffusivity = fmaxf(norm_raw_grid.dot(-ray_dir_world) / 
+                                sqrtf(norm_raw_grid.dot(norm_raw_grid)), 0);
+      img_tsdf_rgba[idx] = make_uchar4(
+          voxel.rgb.x, voxel.rgb.y, voxel.rgb.z, 255);
       img_tsdf_normal[idx] = make_uchar4(
-          norm_img.x * 255, norm_img.y * 255, 255, 255);
+          diffusivity * 255, diffusivity * 255, diffusivity * 255, 255);
       return;
     }
     voxel_prev = voxel_curr;

@@ -166,6 +166,31 @@ __device__ void VoxelHashTable::Delete(const Vector3<short> &block_pos) {
   }
 }
 
+__device__ float VoxelHashTable::RetrieveTSDF(const Vector3<float> &point, 
+                                              VoxelBlock &cache) const {
+  const Vector3<float> point_l = point.cast<short>().cast<float>();
+  const Vector3<float> point_h = point_l + 1;
+  const Vector3<float> alpha = point_h - point;
+  const float tsdf_000 = Retrieve(Vector3<short>(point_l.x, point_l.y, point_l.z), cache).tsdf;
+  const float tsdf_001 = Retrieve(Vector3<short>(point_h.x, point_l.y, point_h.z), cache).tsdf;
+  const float tsdf_010 = Retrieve(Vector3<short>(point_l.x, point_h.y, point_l.z), cache).tsdf;
+  const float tsdf_011 = Retrieve(Vector3<short>(point_l.x, point_h.y, point_h.z), cache).tsdf;
+  const float tsdf_100 = Retrieve(Vector3<short>(point_h.x, point_l.y, point_l.z), cache).tsdf;
+  const float tsdf_101 = Retrieve(Vector3<short>(point_h.x, point_l.y, point_h.z), cache).tsdf;
+  const float tsdf_110 = Retrieve(Vector3<short>(point_h.x, point_h.y, point_l.z), cache).tsdf;
+  const float tsdf_111 = Retrieve(Vector3<short>(point_h.x, point_h.y, point_h.z), cache).tsdf;
+  // interpolate across z
+  const float tsdf_00 = tsdf_000 * alpha.z + tsdf_001 * (1 - alpha.z);
+  const float tsdf_01 = tsdf_010 * alpha.z + tsdf_011 * (1 - alpha.z);
+  const float tsdf_10 = tsdf_100 * alpha.z + tsdf_101 * (1 - alpha.z);
+  const float tsdf_11 = tsdf_110 * alpha.z + tsdf_111 * (1 - alpha.z);
+  // interpolate across y
+  const float tsdf_0 = tsdf_00 * alpha.y + tsdf_01 * (1 - alpha.y);
+  const float tsdf_1 = tsdf_10 * alpha.y + tsdf_11 * (1 - alpha.y);
+  // interpolate across x
+  return tsdf_0 * alpha.x + tsdf_1 * (1 - alpha.x);
+}
+
 __device__ Voxel VoxelHashTable::Retrieve(const Vector3<short> &point, VoxelBlock &cache) const {
   Voxel *voxel = RetrieveMutable(point, cache);
   if (voxel)

@@ -70,7 +70,7 @@ void get_images_by_id(int id, cv::Mat *img_rgb, cv::Mat *img_depth,
 
 class ImageRenderer : public RendererBase {
  public:
-  ImageRenderer(const std::string &name, const std::string &logdir, int img_h, int img_w)
+  ImageRenderer(const std::string &name, const std::string &logdir)
      : RendererBase(name), logdir_(logdir),
        tsdf_(0.01, 0.06),
        intrinsics_(get_zed_intrinsics()),
@@ -89,11 +89,13 @@ class ImageRenderer : public RendererBase {
       const Vector3<float> virtual_cam_T_world = virtual_cam_P_world_.GetT();
       virtual_cam_P_world_ = SE3<float>(virtual_cam_R_world, virtual_cam_T_world - move_cam);
     }
-    if (!io.WantCaptureMouse && ImGui::IsMouseDragging(0)) {
+    if (!io.WantCaptureMouse && ImGui::IsMouseDragging(0) && tsdf_rgba_.width) {
       follow_cam_ = false;
       const ImVec2 delta = ImGui::GetMouseDragDelta(0);
-      const Vector2<float> delta_img(delta.x, delta.y);
-      const Vector2<float> pos_new_img(io.MousePos.x, io.MousePos.y);
+      const Vector2<float> delta_img(delta.x / io.DisplaySize.x * tsdf_rgba_.width, 
+                                     delta.y / io.DisplaySize.y * tsdf_rgba_.height);
+      const Vector2<float> pos_new_img(io.MousePos.x / io.DisplaySize.x * tsdf_rgba_.width, 
+                                       io.MousePos.y / io.DisplaySize.y * tsdf_rgba_.height);
       const Vector2<float> pos_old_img = pos_new_img - delta_img;
       const Vector3<float> pos_new_cam = intrinsics_.Inverse() * Vector3<float>(pos_new_img);
       const Vector3<float> pos_old_cam = intrinsics_.Inverse() * Vector3<float>(pos_old_img);
@@ -139,16 +141,20 @@ class ImageRenderer : public RendererBase {
       cam_P_world_ = log_entry.cam_P_world;
       get_images_by_id(log_entry.id, &img_rgb_, &img_depth_, logdir_);
       cv::imshow("rgb", img_rgb_);
-      cv::imshow("depth", img_depth_);
       if (!tsdf_rgba_.height || !tsdf_rgba_.width || !tsdf_normal_.height || !tsdf_normal_.width) {
         tsdf_rgba_.BindImage(img_depth_.rows, img_depth_.cols, nullptr);
         tsdf_normal_.BindImage(img_depth_.rows, img_depth_.cols, nullptr);
       }
-      cv::waitKey(1);
       cv::cvtColor(img_rgb_, img_rgb_, cv::COLOR_BGR2RGB);
-      tsdf_.Integrate(img_rgb_, img_depth_, 3, intrinsics_, log_entry.cam_P_world);
+      tsdf_.Integrate(img_rgb_, img_depth_, 4, intrinsics_, log_entry.cam_P_world);
+      img_depth_.convertTo(img_depth_, CV_32FC1, 1./4);
+      cv::imshow("depth", img_depth_);
+      cv::waitKey(1);
     }
-    if (follow_cam_) { virtual_cam_P_world_ = cam_P_world_; }
+    if (follow_cam_) { 
+      virtual_cam_P_world_ = SE3<float>(cam_P_world_.GetR(), 
+                                        cam_P_world_.GetT() + Vector3<float>(0, 0, 1)); 
+    }
     // render
     if (!img_depth_.empty() && !img_rgb_.empty()) {
       const CameraParams virtual_cam(intrinsics_, img_depth_.rows, img_depth_.cols);
@@ -210,7 +216,7 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  ImageRenderer renderer("tsdf", logdir->value(), 100, 100);
+  ImageRenderer renderer("tsdf", logdir->value());
   renderer.Run();
 
   return EXIT_SUCCESS;

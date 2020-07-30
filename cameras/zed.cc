@@ -3,11 +3,11 @@
 ZED::ZED() {
   sl::InitParameters init_params;
   init_params.camera_resolution = sl::RESOLUTION::VGA;
-  init_params.camera_fps = 60; 
+  init_params.camera_fps = 30; 
   init_params.coordinate_units = sl::UNIT::MILLIMETER;
   init_params.depth_mode = sl::DEPTH_MODE::QUALITY;
   zed_.open(init_params);
-  zed_.setCameraSettings(sl::VIDEO_SETTINGS::EXPOSURE, 90);
+  zed_.setCameraSettings(sl::VIDEO_SETTINGS::EXPOSURE, 100);
   rt_params_ = zed_.getRuntimeParameters();
   rt_params_.confidence_threshold = 50;
   config_ = zed_.getCameraInformation().camera_configuration;

@@ -61,6 +61,8 @@ class VoxelHashTable : public VoxelMemPool {
 
   __device__ void Delete(const Vector3<short> &block_pos);
 
+  __device__ float RetrieveTSDF(const Vector3<float> &point, VoxelBlock &cache) const;
+
   __device__ Voxel Retrieve(const Vector3<short> &point, VoxelBlock &cache) const;
 
   __device__ Voxel* RetrieveMutable(const Vector3<short> &point, VoxelBlock &cache) const;
