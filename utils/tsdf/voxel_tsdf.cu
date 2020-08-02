@@ -219,10 +219,13 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
       );
       const float diffusivity = fmaxf(norm_raw_grid.dot(-ray_dir_world) / 
                                 sqrtf(norm_raw_grid.dot(norm_raw_grid)), 0);
+      const Vector3<float> norm_raw_cam = cam_P_world.GetR() * norm_raw_grid;
+      const Vector3<float> norm_cam = norm_raw_cam / sqrtf(norm_raw_cam.dot(norm_raw_cam));
+      const Vector3<float> norm_img = norm_cam *.5 + .5;
       img_tsdf_rgba[idx] = make_uchar4(
           voxel.rgb.x, voxel.rgb.y, voxel.rgb.z, 255);
       img_tsdf_normal[idx] = make_uchar4(
-          diffusivity * 255, diffusivity * 255, diffusivity * 255, 255);
+          diffusivity * norm_img.x * 255,  diffusivity * norm_img.y * 255, diffusivity * norm_img.z * 255, 255);
       return;
     }
     voxel_prev = voxel_curr;
