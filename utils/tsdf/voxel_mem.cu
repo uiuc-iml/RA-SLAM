@@ -26,45 +26,50 @@ VoxelMemPool::VoxelMemPool() {
   // initialize free block counter
   CUDA_SAFE_CALL(cudaMallocManaged(&num_free_blocks_, sizeof(int)));
   *num_free_blocks_ = NUM_BLOCK;
+  // intialize voxel data buffer
+  CUDA_SAFE_CALL(cudaMalloc(&voxels_rgbw_, sizeof(VoxelRGBW) * NUM_BLOCK * BLOCK_VOLUME));
+  CUDA_SAFE_CALL(cudaMalloc(&voxels_tsdf_, sizeof(VoxelTSDF) * NUM_BLOCK * BLOCK_VOLUME));
+  CUDA_SAFE_CALL(cudaMalloc(&voxels_segm_, sizeof(VoxelSEGM) * NUM_BLOCK * BLOCK_VOLUME));
   // initialize heap array
   CUDA_SAFE_CALL(cudaMalloc(&heap_, sizeof(int) * NUM_BLOCK));
   heap_init<<<NUM_BLOCK / 256, 256>>>(heap_);
   CUDA_CHECK_ERROR;
-  // initialize voxels
-  CUDA_SAFE_CALL(cudaMalloc(&voxels_, sizeof(Voxel) * NUM_BLOCK * BLOCK_VOLUME));
-  CUDA_SAFE_CALL(cudaMemset(voxels_, 0, sizeof(Voxel) * NUM_BLOCK * BLOCK_VOLUME));
   CUDA_SAFE_CALL(cudaDeviceSynchronize());
 }
 
 void VoxelMemPool::ReleaseMemory() {
+  CUDA_SAFE_CALL(cudaFree(voxels_rgbw_));
+  CUDA_SAFE_CALL(cudaFree(voxels_tsdf_));
+  CUDA_SAFE_CALL(cudaFree(voxels_segm_));
   CUDA_SAFE_CALL(cudaFree(num_free_blocks_));
   CUDA_SAFE_CALL(cudaFree(heap_));
-  CUDA_SAFE_CALL(cudaFree(voxels_));
 }
 
-__device__ Voxel* VoxelMemPool::AquireBlock() {
+__device__ int VoxelMemPool::AquireBlock() {
   const int idx = atomicSub(num_free_blocks_, 1);
   assert(idx >= 1);
 
-  const int block_idx = heap_[idx - 1];
-  const int voxel_idx = block_idx << BLOCK_VOLUME_BITS;
+  const VoxelBlock block(heap_[idx - 1]);
 
   #pragma unroll
   for (int i = 0; i < BLOCK_VOLUME; ++i) {
-    voxels_[i + voxel_idx].weight = 0;
-    voxels_[i + voxel_idx].tsdf = 1;
+    VoxelRGBW &voxel_rgbw = GetVoxel<VoxelRGBW>(i, block);
+    VoxelTSDF &voxel_tsdf = GetVoxel<VoxelTSDF>(i, block);
+    voxel_rgbw.weight = 0;
+    voxel_tsdf.tsdf = 1;
   }
 
-  return &voxels_[voxel_idx]; 
+  return block.idx;
 }
 
-__device__ void VoxelMemPool::ReleaseBlock(const Voxel *voxel_block) {
+__device__ void VoxelMemPool::ReleaseBlock(const int block_idx) {
   const int idx = atomicAdd(num_free_blocks_, 1);
   assert(idx < NUM_BLOCK);
 
-  const int voxel_idx = (int)(voxel_block - voxels_);
-  assert((voxel_idx & (BLOCK_VOLUME - 1)) == 0);
+  heap_[idx] = block_idx;
+}
 
-  heap_[idx] = voxel_idx >> BLOCK_VOLUME_BITS;
+__device__ __host__ int VoxelMemPool::NumFreeBlocks() const {
+  return *num_free_blocks_;
 }
 

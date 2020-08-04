@@ -16,11 +16,11 @@ __global__ static void check_visibility_kernel(const VoxelHashTable hash_table,
                                                int *visible_mask) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   const VoxelBlock &block = hash_table.GetBlock(idx);
-  if (!block.voxels) {
+  if (block.idx < 0) {
     visible_mask[idx] = 0;
     return;
   }
-  const Vector3<float> pos_world = block.block_pos.cast<float>() * (voxel_size * BLOCK_LEN);
+  const Vector3<float> pos_world = block.position.cast<float>() * (voxel_size * BLOCK_LEN);
   const Vector3<float> pos_cam = cam_P_world.Apply(pos_world);
   const Vector3<float> pos_img_h = cam_params.intrinsics * pos_cam;
   const Vector3<float> pos_img = pos_img_h / pos_img_h.z;
@@ -40,6 +40,7 @@ __global__ static void gather_visible_blocks_kernel(const VoxelHashTable hash_ta
 }
 
 __global__ static void tsdf_integrate_kernel(VoxelBlock *blocks, 
+                                             VoxelMemPool voxel_mem,
                                              const SE3<float> cam_P_world,
                                              const CameraParams cam_params,
                                              const int num_visible_blocks,
@@ -54,7 +55,7 @@ __global__ static void tsdf_integrate_kernel(VoxelBlock *blocks,
   }
   const Vector3<short> pos_grid_rel(threadIdx.x, threadIdx.y, threadIdx.z);
   // transform to camera / image coordinates
-  const Vector3<short> pos_grid_abs = (blocks[blockIdx.x].block_pos << BLOCK_LEN_BITS) 
+  const Vector3<short> pos_grid_abs = (blocks[blockIdx.x].position << BLOCK_LEN_BITS) 
                                       + pos_grid_rel;
   const Vector3<float> pos_world = pos_grid_abs.cast<float>() * voxel_size;
   const Vector3<float> pos_cam = cam_P_world.Apply(pos_world);
@@ -73,20 +74,21 @@ __global__ static void tsdf_integrate_kernel(VoxelBlock *blocks,
     if (sdf > -truncation) {
       const float tsdf = fminf(1, sdf / truncation);
       const unsigned int idx = offset2index(pos_grid_rel);
-      Voxel &voxel = blocks[blockIdx.x].GetVoxelMutable(idx);
+      VoxelTSDF &voxel_tsdf = voxel_mem.GetVoxel<VoxelTSDF>(idx, blocks[blockIdx.x]);
+      VoxelRGBW &voxel_rgbw = voxel_mem.GetVoxel<VoxelRGBW>(idx, blocks[blockIdx.x]);
       // weight running average
       const float weight_new = 1; // TODO(alvin): add better weighting here
-      const float weight_old = voxel.weight;
+      const float weight_old = voxel_rgbw.weight;
       const float weight_combined = weight_old + weight_new;
       // rgb running average
       const uchar3 rgb = img_rgb[img_idx];
-      const Vector3<float> rgb_old = voxel.rgb.cast<float>();
+      const Vector3<float> rgb_old = voxel_rgbw.rgb.cast<float>();
       const Vector3<float> rgb_new(rgb.x, rgb.y, rgb.z);
       const Vector3<float> rgb_combined = 
         (rgb_old * weight_old + rgb_new * weight_new) / weight_combined;
-      voxel.tsdf = (voxel.tsdf * weight_old + tsdf * weight_new) / weight_combined;
-      voxel.weight = fminf(roundf(weight_combined), 200); // TODO(alvin): don't hardcode
-      voxel.rgb = (rgb_combined + .5).cast<unsigned char>(); // rounding
+      voxel_tsdf.tsdf = (voxel_tsdf.tsdf * weight_old + tsdf * weight_new) / weight_combined;
+      voxel_rgbw.weight = fminf(roundf(weight_combined), 200); // TODO(alvin): don't hardcode
+      voxel_rgbw.rgb = (rgb_combined + .5).cast<unsigned char>(); // rounding
     } 
   }
 }
@@ -147,8 +149,9 @@ __global__ static void space_carving_kernel(VoxelHashTable hash_table,
   __shared__ float tsdf_abs[BLOCK_VOLUME];
   // load shared buffer
   const int tx = threadIdx.x;
-  tsdf_abs[tx] = fabs(blocks[blockIdx.x].GetVoxel(tx).tsdf);
-  tsdf_abs[tx + BLOCK_VOLUME/2] = fabs(blocks[blockIdx.x].GetVoxel(tx + BLOCK_VOLUME/2).tsdf);
+  const int tx2 = tx + BLOCK_VOLUME/2;
+  tsdf_abs[tx] = fabs(hash_table.mem.GetVoxel<VoxelTSDF>(tx, blocks[blockIdx.x]).tsdf);
+  tsdf_abs[tx2] = fabs(hash_table.mem.GetVoxel<VoxelTSDF>(tx2, blocks[blockIdx.x]).tsdf);
   // reduce min
   for (int stride = BLOCK_VOLUME/2; stride > 0; stride >>= 1) {
     __syncthreads();
@@ -157,7 +160,7 @@ __global__ static void space_carving_kernel(VoxelHashTable hash_table,
   }
   // de-allocate block
   if (tx == 0 && tsdf_abs[0] >= min_tsdf_threshold) {
-    hash_table.Delete(blocks[blockIdx.x].block_pos);
+    hash_table.Delete(blocks[blockIdx.x].position);
   }
 }
 
@@ -185,21 +188,23 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
   const int max_step = ceil(max_depth / step_size);
   Vector3<float> pos_world = world_P_cam.GetT();
   VoxelBlock cache;
-  Voxel voxel_prev = hash_table.Retrieve((pos_world / voxel_size + .5).cast<short>(), cache);
+  float tsdf_prev = hash_table.Retrieve<VoxelTSDF>(
+      (pos_world / voxel_size + .5).cast<short>(), cache).tsdf;
   pos_world += ray_step_world;
   for (int i = 1; i < max_step; ++i, pos_world += ray_step_world) {
     const Vector3<short> pos_grid = (pos_world / voxel_size + .5).cast<short>();
-    const Voxel voxel_curr = hash_table.Retrieve(pos_grid, cache);
+    const float tsdf_curr = hash_table.Retrieve<VoxelTSDF>(pos_grid, cache).tsdf;
     // ray hit surface
-    if (voxel_prev.tsdf > 0 && voxel_curr.tsdf <= 0 && voxel_prev.tsdf - voxel_curr.tsdf <= 1.5) {
+    if (tsdf_prev > 0 && tsdf_curr <= 0 && tsdf_prev - tsdf_curr <= 1.5) {
       Vector3<float> pos1_grid = (pos_world - ray_step_world) / voxel_size;
       Vector3<float> pos2_grid = pos_world / voxel_size;
       Vector3<float> pos_mid_grid;
       // binary search refinement
       while((pos1_grid - pos2_grid).dot(pos1_grid - pos2_grid) > 1) {
         pos_mid_grid = (pos1_grid + pos2_grid) / 2;
-        const Voxel voxel = hash_table.Retrieve((pos_mid_grid+.5).cast<short>(), cache);
-        if (voxel.tsdf < 0) {
+        const float tsdf_mid = hash_table.Retrieve<VoxelTSDF>(
+          (pos_mid_grid+.5).cast<short>(), cache).tsdf;
+        if (tsdf_mid < 0) {
           pos2_grid = pos_mid_grid;
         }
         else {
@@ -207,15 +212,21 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
         }
       }
       const Vector3<short> final_grid = (pos_mid_grid + .5).cast<short>();
-      const Voxel voxel = hash_table.Retrieve(final_grid, cache);
+      const VoxelRGBW voxel_rgbw = hash_table.Retrieve<VoxelRGBW>(final_grid, cache);
       // calculate gradient
       const Vector3<float> norm_raw_grid(
-        hash_table.Retrieve({ final_grid.x + 1, final_grid.y, final_grid.z }, cache).tsdf - 
-        hash_table.Retrieve({ final_grid.x - 1, final_grid.y, final_grid.z }, cache).tsdf,
-        hash_table.Retrieve({ final_grid.x, final_grid.y + 1, final_grid.z }, cache).tsdf - 
-        hash_table.Retrieve({ final_grid.x, final_grid.y - 1, final_grid.z }, cache).tsdf,
-        hash_table.Retrieve({ final_grid.x, final_grid.y, final_grid.z + 1 }, cache).tsdf - 
-        hash_table.Retrieve({ final_grid.x, final_grid.y, final_grid.z - 1 }, cache).tsdf
+        hash_table.Retrieve<VoxelTSDF>(
+          { final_grid.x + 1, final_grid.y, final_grid.z }, cache).tsdf - 
+        hash_table.Retrieve<VoxelTSDF>(
+          { final_grid.x - 1, final_grid.y, final_grid.z }, cache).tsdf,
+        hash_table.Retrieve<VoxelTSDF>(
+          { final_grid.x, final_grid.y + 1, final_grid.z }, cache).tsdf - 
+        hash_table.Retrieve<VoxelTSDF>(
+          { final_grid.x, final_grid.y - 1, final_grid.z }, cache).tsdf,
+        hash_table.Retrieve<VoxelTSDF>(
+          { final_grid.x, final_grid.y, final_grid.z + 1 }, cache).tsdf - 
+        hash_table.Retrieve<VoxelTSDF>(
+          { final_grid.x, final_grid.y, final_grid.z - 1 }, cache).tsdf
       );
       const float diffusivity = fmaxf(norm_raw_grid.dot(-ray_dir_world) / 
                                 sqrtf(norm_raw_grid.dot(norm_raw_grid)), 0);
@@ -223,12 +234,12 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
       const Vector3<float> norm_cam = norm_raw_cam / sqrtf(norm_raw_cam.dot(norm_raw_cam));
       const Vector3<float> norm_img = norm_cam *.5 + .5;
       img_tsdf_rgba[idx] = make_uchar4(
-          voxel.rgb.x, voxel.rgb.y, voxel.rgb.z, 255);
+          voxel_rgbw.rgb.x, voxel_rgbw.rgb.y, voxel_rgbw.rgb.z, 255);
       img_tsdf_normal[idx] = make_uchar4(
           diffusivity * norm_img.x * 255,  diffusivity * norm_img.y * 255, diffusivity * norm_img.z * 255, 255);
       return;
     }
-    voxel_prev = voxel_curr;
+    tsdf_prev = tsdf_curr;
   }
   // no surface intersection found
   img_tsdf_rgba[idx] = make_uchar4(0, 0, 0, 0);
@@ -327,8 +338,9 @@ void TSDFGrid::UpdateTSDF(int num_visible_blocks, float max_depth,
                           const CameraParams &cam_params, const SE3<float> &cam_P_world) {
   const dim3 VOXEL_BLOCK_DIM(BLOCK_LEN, BLOCK_LEN, BLOCK_LEN);
   tsdf_integrate_kernel<<<num_visible_blocks, VOXEL_BLOCK_DIM, 0, stream_>>>(
-    visible_blocks_, cam_P_world, cam_params, num_visible_blocks, 
-    max_depth, truncation_, voxel_size_, img_rgb_, img_depth_, img_depth_to_range_);
+    visible_blocks_, hash_table_.mem, cam_P_world, cam_params, num_visible_blocks, 
+    max_depth, truncation_, voxel_size_, 
+    img_rgb_, img_depth_, img_depth_to_range_);
   CUDA_STREAM_CHECK_ERROR(stream_);
 }
 

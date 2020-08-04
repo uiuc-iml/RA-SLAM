@@ -40,7 +40,7 @@ class TSDFGrid {
   const float voxel_size_;
   const float truncation_;
 
-  // voxel data buffer
+  // visibility buffer
   VoxelBlock *visible_blocks_;
   int *visible_mask_;
   int *visible_indics_;
