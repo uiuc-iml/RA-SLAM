@@ -13,7 +13,9 @@ class TSDFGrid {
   TSDFGrid(float voxel_size, float truncation);
   ~TSDFGrid();
 
-  void Integrate(const cv::Mat &img_rgb, const cv::Mat &img_depth, float max_depth,
+  void Integrate(const cv::Mat &img_rgb, const cv::Mat &img_depth, 
+                 const cv::Mat &img_ht, const cv::Mat &img_lt,
+                 float max_depth,
                  const CameraIntrinsics<float> &intrinsics, 
                  const SE3<float> &cam_P_world);
 
@@ -48,6 +50,8 @@ class TSDFGrid {
   // image data buffer
   uchar3 *img_rgb_;
   float *img_depth_;
+  float *img_ht_;
+  float *img_lt_;
   float *img_depth_to_range_;
   // renderer buffer
   uchar4 *img_tsdf_rgba_;

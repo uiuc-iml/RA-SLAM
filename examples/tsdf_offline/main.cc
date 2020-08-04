@@ -58,14 +58,21 @@ const std::vector<LogEntry> parse_log_entries(const std::string &logdir) {
   return log_entries;
 }
 
-void get_images_by_id(int id, cv::Mat *img_rgb, cv::Mat *img_depth, 
+void get_images_by_id(int id, 
+                      cv::Mat *img_rgb, cv::Mat *img_depth, cv::Mat *img_ht, cv::Mat *img_lt,
                       const std::string &logdir) {
   const std::string rgb_path = logdir + "/" + std::to_string(id) + "_rgb.png";
   const std::string depth_path = logdir + "/" + std::to_string(id) + "_depth.png";
+  const std::string ht_path = logdir + "/" + std::to_string(id) + "_ht.png";
+  const std::string lt_path = logdir + "/" + std::to_string(id) + "_no_ht.png";
 
   *img_rgb = cv::imread(rgb_path);
   const cv::Mat img_depth_raw = cv::imread(depth_path, cv::IMREAD_UNCHANGED);
+  const cv::Mat img_ht_raw = cv::imread(ht_path, cv::IMREAD_UNCHANGED);
+  const cv::Mat img_lt_raw = cv::imread(lt_path, cv::IMREAD_UNCHANGED);
   img_depth_raw.convertTo(*img_depth, CV_32FC1, 1./1000);
+  img_ht_raw.convertTo(*img_ht, CV_32FC1, 1./65535); 
+  img_lt_raw.convertTo(*img_lt, CV_32FC1, 1./65535); 
 }
 
 class ImageRenderer : public RendererBase {
@@ -139,14 +146,15 @@ class ImageRenderer : public RendererBase {
     if (running_) {
       const LogEntry &log_entry = log_entries_[(cnt_++) % log_entries_.size()];
       cam_P_world_ = log_entry.cam_P_world;
-      get_images_by_id(log_entry.id, &img_rgb_, &img_depth_, logdir_);
+      get_images_by_id(log_entry.id, &img_rgb_, &img_depth_, &img_ht_, &img_lt_, logdir_);
       cv::imshow("rgb", img_rgb_);
       if (!tsdf_rgba_.height || !tsdf_rgba_.width || !tsdf_normal_.height || !tsdf_normal_.width) {
         tsdf_rgba_.BindImage(img_depth_.rows, img_depth_.cols, nullptr);
         tsdf_normal_.BindImage(img_depth_.rows, img_depth_.cols, nullptr);
       }
       cv::cvtColor(img_rgb_, img_rgb_, cv::COLOR_BGR2RGB);
-      tsdf_.Integrate(img_rgb_, img_depth_, 4, intrinsics_, log_entry.cam_P_world);
+      tsdf_.Integrate(img_rgb_, img_depth_, img_ht_, img_lt_, 
+                      4, intrinsics_, log_entry.cam_P_world);
       img_depth_.convertTo(img_depth_, CV_32FC1, 1./4);
       cv::imshow("depth", img_depth_);
       cv::waitKey(1);
@@ -176,7 +184,7 @@ class ImageRenderer : public RendererBase {
   GLImage8UC4 tsdf_rgba_;
   GLImage8UC4 tsdf_normal_;
   TSDFGrid tsdf_;
-  cv::Mat img_rgb_, img_depth_;
+  cv::Mat img_rgb_, img_depth_, img_ht_, img_lt_;
   SE3<float> cam_P_world_ = SE3<float>::Identity();
   SE3<float> virtual_cam_P_world_ = SE3<float>::Identity();
   SE3<float> virtual_cam_P_world_old_ = SE3<float>::Identity();

@@ -49,6 +49,8 @@ __global__ static void tsdf_integrate_kernel(VoxelBlock *blocks,
                                              const float voxel_size,
                                              const uchar3 *img_rgb,
                                              const float *img_depth,
+                                             const float *img_ht,
+                                             const float *img_lt,
                                              const float *img_depth_to_range) {
   if (blockIdx.x >= num_visible_blocks) {
     return;
@@ -76,6 +78,7 @@ __global__ static void tsdf_integrate_kernel(VoxelBlock *blocks,
       const unsigned int idx = offset2index(pos_grid_rel);
       VoxelTSDF &voxel_tsdf = voxel_mem.GetVoxel<VoxelTSDF>(idx, blocks[blockIdx.x]);
       VoxelRGBW &voxel_rgbw = voxel_mem.GetVoxel<VoxelRGBW>(idx, blocks[blockIdx.x]);
+      VoxelSEGM &voxel_segm = voxel_mem.GetVoxel<VoxelSEGM>(idx, blocks[blockIdx.x]);
       // weight running average
       const float weight_new = 1; // TODO(alvin): add better weighting here
       const float weight_old = voxel_rgbw.weight;
@@ -89,6 +92,10 @@ __global__ static void tsdf_integrate_kernel(VoxelBlock *blocks,
       voxel_tsdf.tsdf = (voxel_tsdf.tsdf * weight_old + tsdf * weight_new) / weight_combined;
       voxel_rgbw.weight = fminf(roundf(weight_combined), 200); // TODO(alvin): don't hardcode
       voxel_rgbw.rgb = (rgb_combined + .5).cast<unsigned char>(); // rounding
+      // high touch / low touch
+      const float positive = voxel_segm.probability * img_ht[img_idx];
+      const float negative = (1 - voxel_segm.probability) * img_lt[img_idx];
+      voxel_segm.probability = positive / (positive + negative);
     } 
   }
 }
@@ -213,6 +220,7 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
       }
       const Vector3<short> final_grid = (pos_mid_grid + .5).cast<short>();
       const VoxelRGBW voxel_rgbw = hash_table.Retrieve<VoxelRGBW>(final_grid, cache);
+      const VoxelSEGM voxel_segm = hash_table.Retrieve<VoxelSEGM>(final_grid, cache);
       // calculate gradient
       const Vector3<float> norm_raw_grid(
         hash_table.Retrieve<VoxelTSDF>(
@@ -233,10 +241,13 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
       const Vector3<float> norm_raw_cam = cam_P_world.GetR() * norm_raw_grid;
       const Vector3<float> norm_cam = norm_raw_cam / sqrtf(norm_raw_cam.dot(norm_raw_cam));
       const Vector3<float> norm_img = norm_cam *.5 + .5;
-      img_tsdf_rgba[idx] = make_uchar4(
-          voxel_rgbw.rgb.x, voxel_rgbw.rgb.y, voxel_rgbw.rgb.z, 255);
-      img_tsdf_normal[idx] = make_uchar4(
-          diffusivity * norm_img.x * 255,  diffusivity * norm_img.y * 255, diffusivity * norm_img.z * 255, 255);
+      const float alpha = voxel_segm.probability * .5;
+      img_tsdf_rgba[idx] = make_uchar4(alpha * 255 + (1 - alpha) * voxel_rgbw.rgb.x,
+                                       (1 - alpha) * voxel_rgbw.rgb.y,
+                                       (1 - alpha) * voxel_rgbw.rgb.z, 255);
+      img_tsdf_normal[idx] = make_uchar4(diffusivity * norm_img.x * 255,
+                                         diffusivity * norm_img.y * 255,
+                                         diffusivity * norm_img.z * 255, 255);
       return;
     }
     tsdf_prev = tsdf_curr;
@@ -255,6 +266,8 @@ TSDFGrid::TSDFGrid(float voxel_size, float truncation)
   CUDA_SAFE_CALL(cudaMalloc(&visible_blocks_, sizeof(VoxelBlock) * NUM_ENTRY));
   CUDA_SAFE_CALL(cudaMalloc(&img_rgb_, sizeof(uint3) * MAX_IMG_SIZE));
   CUDA_SAFE_CALL(cudaMalloc(&img_depth_, sizeof(float) * MAX_IMG_SIZE));
+  CUDA_SAFE_CALL(cudaMalloc(&img_ht_, sizeof(float) * MAX_IMG_SIZE));
+  CUDA_SAFE_CALL(cudaMalloc(&img_lt_, sizeof(float) * MAX_IMG_SIZE));
   CUDA_SAFE_CALL(cudaMalloc(&img_depth_to_range_, sizeof(float) * MAX_IMG_SIZE));
   CUDA_SAFE_CALL(cudaMalloc(&img_tsdf_rgba_, sizeof(uchar4) * MAX_IMG_SIZE));
   CUDA_SAFE_CALL(cudaMalloc(&img_tsdf_normal_, sizeof(uchar4) * MAX_IMG_SIZE));
@@ -271,6 +284,8 @@ TSDFGrid::~TSDFGrid() {
   CUDA_SAFE_CALL(cudaFree(visible_blocks_));
   CUDA_SAFE_CALL(cudaFree(img_rgb_));
   CUDA_SAFE_CALL(cudaFree(img_depth_));
+  CUDA_SAFE_CALL(cudaFree(img_ht_));
+  CUDA_SAFE_CALL(cudaFree(img_lt_));
   CUDA_SAFE_CALL(cudaFree(img_depth_to_range_));
   CUDA_SAFE_CALL(cudaFree(img_tsdf_rgba_));
   CUDA_SAFE_CALL(cudaFree(img_tsdf_normal_));
@@ -278,7 +293,9 @@ TSDFGrid::~TSDFGrid() {
   CUDA_SAFE_CALL(cudaStreamDestroy(stream_));
 }
 
-void TSDFGrid::Integrate(const cv::Mat &img_rgb, const cv::Mat &img_depth, float max_depth,
+void TSDFGrid::Integrate(const cv::Mat &img_rgb, const cv::Mat &img_depth, 
+                         const cv::Mat &img_ht, const cv::Mat &img_lt,
+                         float max_depth,
                          const CameraIntrinsics<float> &intrinsics, 
                          const SE3<float> &cam_P_world) {
   assert(img_rgb.type() == CV_8UC3);
@@ -288,6 +305,16 @@ void TSDFGrid::Integrate(const cv::Mat &img_rgb, const cv::Mat &img_depth, float
 
   const CameraParams cam_params(intrinsics, img_rgb.rows, img_rgb.cols);
 
+  // data transfer
+  CUDA_SAFE_CALL(cudaMemcpyAsync(img_rgb_, img_rgb.data, 
+    sizeof(uchar3)*img_rgb.total(), cudaMemcpyHostToDevice, stream_));
+  CUDA_SAFE_CALL(cudaMemcpyAsync(img_depth_, img_depth.data, 
+    sizeof(float)*img_depth.total(), cudaMemcpyHostToDevice, stream_));
+  CUDA_SAFE_CALL(cudaMemcpyAsync(img_ht_, img_ht.data, 
+    sizeof(float)*img_depth.total(), cudaMemcpyHostToDevice, stream_));
+  CUDA_SAFE_CALL(cudaMemcpyAsync(img_lt_, img_lt.data, 
+    sizeof(float)*img_depth.total(), cudaMemcpyHostToDevice, stream_));
+  // compute
   Allocate(img_rgb, img_depth, max_depth, cam_params, cam_P_world);
   const int num_visible_blocks = GatherVisible(max_depth, cam_params, cam_P_world);
   UpdateTSDF(num_visible_blocks, max_depth, cam_params, cam_P_world);
@@ -296,10 +323,6 @@ void TSDFGrid::Integrate(const cv::Mat &img_rgb, const cv::Mat &img_depth, float
 
 void TSDFGrid::Allocate(const cv::Mat &img_rgb, const cv::Mat &img_depth, float max_depth,
                         const CameraParams &cam_params, const SE3<float> &cam_P_world) {
-  CUDA_SAFE_CALL(cudaMemcpyAsync(img_rgb_, img_rgb.data, 
-    sizeof(uchar3)*img_rgb.total(), cudaMemcpyHostToDevice, stream_));
-  CUDA_SAFE_CALL(cudaMemcpyAsync(img_depth_, img_depth.data, 
-    sizeof(float)*img_depth.total(), cudaMemcpyHostToDevice, stream_));
   const dim3 IMG_BLOCK_DIM(ceil((float)cam_params.img_w/32), ceil((float)cam_params.img_h/16));
   const dim3 IMG_THREAD_DIM(32, 16);
   block_allocate_kernel<<<IMG_BLOCK_DIM, IMG_THREAD_DIM, 0, stream_>>>(
@@ -340,7 +363,7 @@ void TSDFGrid::UpdateTSDF(int num_visible_blocks, float max_depth,
   tsdf_integrate_kernel<<<num_visible_blocks, VOXEL_BLOCK_DIM, 0, stream_>>>(
     visible_blocks_, hash_table_.mem, cam_P_world, cam_params, num_visible_blocks, 
     max_depth, truncation_, voxel_size_, 
-    img_rgb_, img_depth_, img_depth_to_range_);
+    img_rgb_, img_depth_, img_ht_, img_lt_, img_depth_to_range_);
   CUDA_STREAM_CHECK_ERROR(stream_);
 }
 

@@ -55,8 +55,10 @@ __device__ int VoxelMemPool::AquireBlock() {
   for (int i = 0; i < BLOCK_VOLUME; ++i) {
     VoxelRGBW &voxel_rgbw = GetVoxel<VoxelRGBW>(i, block);
     VoxelTSDF &voxel_tsdf = GetVoxel<VoxelTSDF>(i, block);
+    VoxelSEGM &voxel_segm = GetVoxel<VoxelSEGM>(i, block);
     voxel_rgbw.weight = 0;
     voxel_tsdf.tsdf = 1;
+    voxel_segm.probability = .5;
   }
 
   return block.idx;
