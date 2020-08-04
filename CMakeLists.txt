@@ -1,14 +1,19 @@
 cmake_minimum_required(VERSION 3.10)
-project(disinfslam LANGUAGES CUDA CXX C)
+
+project(disinfslam LANGUAGES CXX C)
+include(CheckLanguage)
+check_language(CUDA)
+if (CMAKE_CUDA_COMPILER)
+    enable_language(CUDA)
+    set(CMAKE_CUDA_STANDARD 14)
+    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+    set(CMAKE_CUDA_FLAGS "-arch=sm_35 -use_fast_math ${CMAKE_CUDA_FLAGS}")
+    set(CMAKE_CUDA_FLAGS_DEBUG "-G ${CMAKE_CUDA_FLAGS_DEBUG}")
+endif ()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CUDA_STANDARD 14)
-set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-set(CMAKE_CUDA_FLAGS "-arch=sm_35 -use_fast_math ${CMAKE_CUDA_FLAGS}")
-set(CMAKE_CUDA_FLAGS_DEBUG "-G ${CMAKE_CUDA_FLAGS_DEBUG}")
 
 # OpenGL
 find_package(GLEW REQUIRED)
@@ -61,4 +66,6 @@ if (${ZED_FOUND})
     target_link_libraries(run_zed PRIVATE zed modules)
 endif (${ZED_FOUND})
 
-add_subdirectory(examples)
+if (CMAKE_CUDA_COMPILER)
+    add_subdirectory(examples)
+endif ()
