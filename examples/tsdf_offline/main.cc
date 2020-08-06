@@ -11,8 +11,10 @@
 #include <opencv2/opencv.hpp>
 #include <popl.hpp>
 #include <spdlog/spdlog.h>
+#include <yaml-cpp/yaml.h>
 
 #include "cameras/zed.h"
+#include "cameras/l515.h"
 #include "imgui.h"
 #include "utils/gl/image.h"
 #include "utils/gl/renderer_base.h"
@@ -22,23 +24,31 @@
 #include "utils/time.hpp"
 #include "utils/tsdf/voxel_tsdf.cuh"
 
-CameraIntrinsics<float> get_zed_intrinsics() {
-  ZED camera;
-  const auto cam_config = camera.get_camera_config();
-  const CameraIntrinsics<float> intrinsics(cam_config.calibration_parameters.left_cam.fx,
-                                           cam_config.calibration_parameters.left_cam.fy,
-                                           cam_config.calibration_parameters.left_cam.cx,
-                                           cam_config.calibration_parameters.left_cam.cy);
-  return intrinsics;
-}
-
 struct LogEntry {
   int id;
   SE3<float> cam_P_world;
 };
 
-const std::vector<LogEntry> parse_log_entries(const std::string &logdir) {
+CameraIntrinsics<float> get_intrinsics(const YAML::Node &config) {
+  return CameraIntrinsics<float>(config["Camera.fx"].as<float>(),
+                                 config["Camera.fy"].as<float>(),
+                                 config["Camera.cx"].as<float>(),
+                                 config["Camera.cy"].as<float>());
+}
+
+SE3<float> get_extrinsics(const YAML::Node &config) {
+  const auto extrinsics = config["Extrinsics"].as<std::vector<float>>(std::vector<float>());
+  if (extrinsics.empty()) { return SE3<float>::Identity(); }
+  return SE3<float>(extrinsics[0], extrinsics[1], extrinsics[2], extrinsics[3],
+                    extrinsics[4], extrinsics[5], extrinsics[6], extrinsics[7],
+                    extrinsics[8], extrinsics[9], extrinsics[10], extrinsics[11],
+                    extrinsics[12], extrinsics[13], extrinsics[14], extrinsics[15]);
+}
+
+const std::vector<LogEntry> parse_log_entries(const std::string &logdir,
+                                              const YAML::Node &config) {
   const std::string trajectory_path = logdir + "/trajectory.txt";
+  const SE3<float> extrinsics = get_extrinsics(config);
   int id;
   float m00, m01, m02, m03;
   float m10, m11, m12, m13;
@@ -49,16 +59,16 @@ const std::vector<LogEntry> parse_log_entries(const std::string &logdir) {
   while (fin >> id >> m00 >> m01 >> m02 >> m03
                    >> m10 >> m11 >> m12 >> m13
                    >> m20 >> m21 >> m22 >> m23) {
-    log_entries.push_back({id, SE3<float>(m00, m01, m02, m03, 
-                                          m10, m11, m12, m13,
-                                          m20, m21, m22, m23,
-                                          0, 0, 0, 1)});
+    log_entries.push_back({id, extrinsics * SE3<float>(m00, m01, m02, m03,
+                                                       m10, m11, m12, m13,
+                                                       m20, m21, m22, m23,
+                                                       0, 0, 0, 1)});
   }
 
   return log_entries;
 }
 
-void get_images_by_id(int id, 
+void get_images_by_id(int id, float depth_scale,
                       cv::Mat *img_rgb, cv::Mat *img_depth, cv::Mat *img_ht, cv::Mat *img_lt,
                       const std::string &logdir) {
   const std::string rgb_path = logdir + "/" + std::to_string(id) + "_rgb.png";
@@ -70,20 +80,31 @@ void get_images_by_id(int id,
   const cv::Mat img_depth_raw = cv::imread(depth_path, cv::IMREAD_UNCHANGED);
   const cv::Mat img_ht_raw = cv::imread(ht_path, cv::IMREAD_UNCHANGED);
   const cv::Mat img_lt_raw = cv::imread(lt_path, cv::IMREAD_UNCHANGED);
-  img_depth_raw.convertTo(*img_depth, CV_32FC1, 1./1000);
-  img_ht_raw.convertTo(*img_ht, CV_32FC1, 1./65535); 
-  img_lt_raw.convertTo(*img_lt, CV_32FC1, 1./65535); 
+  img_depth_raw.convertTo(*img_depth, CV_32FC1, 1./depth_scale);
+  if (!img_ht_raw.empty()) {
+    img_ht_raw.convertTo(*img_ht, CV_32FC1, 1./65535);
+    img_lt_raw.convertTo(*img_lt, CV_32FC1, 1./65535);
+  }
+  else {
+    *img_ht = cv::Mat::zeros(img_depth->rows, img_depth->cols, img_depth->type());
+    *img_lt = cv::Mat::ones(img_depth->rows, img_depth->cols, img_depth->type());
+  }
 }
 
 class ImageRenderer : public RendererBase {
  public:
-  ImageRenderer(const std::string &name, const std::string &logdir)
+  ImageRenderer(const std::string &name,
+                const std::string &logdir,
+                const YAML::Node &config)
      : RendererBase(name), logdir_(logdir),
        tsdf_(0.01, 0.06),
-       intrinsics_(get_zed_intrinsics()),
-       log_entries_(parse_log_entries(logdir)) {
+       intrinsics_(get_intrinsics(config)),
+       log_entries_(parse_log_entries(logdir, config)),
+       depth_scale_(config["depthmap_factor"].as<float>()) {
     ImGuiIO &io = ImGui::GetIO();
     io.FontGlobalScale = 2;
+    spdlog::debug("[RGBD Intrinsics] fx: {} fy: {} cx: {} cy: {}",
+      intrinsics_.m00, intrinsics_.m11, intrinsics_.m02, intrinsics_.m12);
   }
 
  protected:
@@ -92,16 +113,16 @@ class ImageRenderer : public RendererBase {
     if (io.MouseWheel != 0) {
       follow_cam_ = false;
       const Vector3<float> move_cam(0, 0, io.MouseWheel * .1);
-      const SO3<float> virtual_cam_R_world = virtual_cam_P_world_.GetR(); 
+      const SO3<float> virtual_cam_R_world = virtual_cam_P_world_.GetR();
       const Vector3<float> virtual_cam_T_world = virtual_cam_P_world_.GetT();
       virtual_cam_P_world_ = SE3<float>(virtual_cam_R_world, virtual_cam_T_world - move_cam);
     }
     if (!io.WantCaptureMouse && ImGui::IsMouseDragging(0) && tsdf_rgba_.width) {
       follow_cam_ = false;
       const ImVec2 delta = ImGui::GetMouseDragDelta(0);
-      const Vector2<float> delta_img(delta.x / io.DisplaySize.x * tsdf_rgba_.width, 
+      const Vector2<float> delta_img(delta.x / io.DisplaySize.x * tsdf_rgba_.width,
                                      delta.y / io.DisplaySize.y * tsdf_rgba_.height);
-      const Vector2<float> pos_new_img(io.MousePos.x / io.DisplaySize.x * tsdf_rgba_.width, 
+      const Vector2<float> pos_new_img(io.MousePos.x / io.DisplaySize.x * tsdf_rgba_.width,
                                        io.MousePos.y / io.DisplaySize.y * tsdf_rgba_.height);
       const Vector2<float> pos_old_img = pos_new_img - delta_img;
       const Vector3<float> pos_new_cam = intrinsics_.Inverse() * Vector3<float>(pos_new_img);
@@ -112,8 +133,8 @@ class ImageRenderer : public RendererBase {
       const float theta = acos(pos_new_norm_cam.dot(pos_old_norm_cam));
       const Vector3<float> w = rot_axis_cross_cam / sin(theta) * theta;
       const Matrix3<float> w_x(0, -w.z, w.y, w.z, 0, -w.x, -w.y, w.x, 0);
-      const Matrix3<float> R = Matrix3<float>::Identity() + 
-                               sin(theta) / theta * w_x + 
+      const Matrix3<float> R = Matrix3<float>::Identity() +
+                               sin(theta) / theta * w_x +
                                (1 - cos(theta)) / (theta * theta) * w_x * w_x;
       const SE3<float> pose_cam1_P_cam2(R, Vector3<float>(0));
       virtual_cam_P_world_ = pose_cam1_P_cam2.Inverse() * virtual_cam_P_world_old_;
@@ -146,37 +167,48 @@ class ImageRenderer : public RendererBase {
     if (running_) {
       const LogEntry &log_entry = log_entries_[(cnt_++) % log_entries_.size()];
       cam_P_world_ = log_entry.cam_P_world;
-      get_images_by_id(log_entry.id, &img_rgb_, &img_depth_, &img_ht_, &img_lt_, logdir_);
+      get_images_by_id(log_entry.id, depth_scale_,
+                       &img_rgb_, &img_depth_, &img_ht_, &img_lt_, logdir_);
       cv::imshow("rgb", img_rgb_);
-      if (!tsdf_rgba_.height || !tsdf_rgba_.width || !tsdf_normal_.height || !tsdf_normal_.width) {
+      if (!tsdf_rgba_.height || !tsdf_rgba_.width ||
+          !tsdf_normal_.height || !tsdf_normal_.width) {
         tsdf_rgba_.BindImage(img_depth_.rows, img_depth_.cols, nullptr);
         tsdf_normal_.BindImage(img_depth_.rows, img_depth_.cols, nullptr);
       }
       cv::cvtColor(img_rgb_, img_rgb_, cv::COLOR_BGR2RGB);
-      tsdf_.Integrate(img_rgb_, img_depth_, img_ht_, img_lt_, 
+      const auto st = get_timestamp<std::chrono::milliseconds>();
+      tsdf_.Integrate(img_rgb_, img_depth_, img_ht_, img_lt_,
                       4, intrinsics_, log_entry.cam_P_world);
+      const auto end = get_timestamp<std::chrono::milliseconds>();
+      CUDA_SAFE_CALL(cudaDeviceSynchronize());
+      ImGui::Text("Integration takes %lu ms", end - st);
       img_depth_.convertTo(img_depth_, CV_32FC1, 1./4);
       cv::imshow("depth", img_depth_);
       cv::waitKey(1);
     }
-    if (follow_cam_) { 
-      virtual_cam_P_world_ = SE3<float>(cam_P_world_.GetR(), 
-                                        cam_P_world_.GetT() + Vector3<float>(0, 0, 1)); 
+    if (follow_cam_) {
+      static float step = 0;
+      ImGui::SliderFloat("behind actual camera", &step, 0.0f, 3.0f);
+      virtual_cam_P_world_ = SE3<float>(cam_P_world_.GetR(),
+                                        cam_P_world_.GetT() + Vector3<float>(0, 0, step));
     }
     // render
     if (!img_depth_.empty() && !img_rgb_.empty()) {
       const CameraParams virtual_cam(intrinsics_, img_depth_.rows, img_depth_.cols);
+      const auto st = get_timestamp<std::chrono::milliseconds>();
       tsdf_.RayCast(10, virtual_cam, virtual_cam_P_world_, &tsdf_rgba_, &tsdf_normal_);
+      CUDA_SAFE_CALL(cudaDeviceSynchronize());
+      const auto end = get_timestamp<std::chrono::milliseconds>();
+      ImGui::Text("Rendering takes %lu ms", end - st);
       static int render_mode = 0;
       ImGui::RadioButton("rgb", &render_mode, 0); ImGui::SameLine();
       ImGui::RadioButton("normal", &render_mode, 1);
       if (render_mode == 0) { tsdf_rgba_.Draw(); }
       else if (render_mode == 1) { tsdf_normal_.Draw(); }
     }
-    ImGui::Text("Frame Rate: %.1f FPS", ImGui::GetIO().Framerate);
     ImGui::End();
   }
- 
+
  private:
   int cnt_ = 0;
   bool running_ = false;
@@ -191,6 +223,7 @@ class ImageRenderer : public RendererBase {
   const std::string logdir_;
   const CameraIntrinsics<float> intrinsics_;
   const std::vector<LogEntry> log_entries_;
+  const float depth_scale_;
 };
 
 int main(int argc, char *argv[]) {
@@ -198,6 +231,7 @@ int main(int argc, char *argv[]) {
   auto help = op.add<popl::Switch>("h", "help", "produce help message");
   auto debug_mode = op.add<popl::Switch>("", "debug", "debug mode");
   auto logdir = op.add<popl::Value<std::string>>("", "logdir", "directory to the log files");
+  auto config = op.add<popl::Value<std::string>>("c", "config", "path to the config file");
 
   spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] %^[%L] %v%$");
   try {
@@ -218,13 +252,14 @@ int main(int argc, char *argv[]) {
   else
     spdlog::set_level(spdlog::level::info);
 
-  if (!logdir->is_set()) {
+  if (!logdir->is_set() || !config->is_set()) {
     spdlog::error("Invalid arguments");
     std::cerr << op << std::endl;
     return EXIT_FAILURE;
   }
 
-  ImageRenderer renderer("tsdf", logdir->value());
+  const auto yaml_node = YAML::LoadFile(config->value());
+  ImageRenderer renderer("tsdf", logdir->value(), yaml_node);
   renderer.Run();
 
   return EXIT_SUCCESS;

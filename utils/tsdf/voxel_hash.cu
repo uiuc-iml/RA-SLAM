@@ -45,11 +45,23 @@ void VoxelHashTable::ReleaseMemory() {
 __device__ void VoxelHashTable::Allocate(const Vector3<short> &block_pos) {
   const unsigned int bucket_idx = hash(block_pos);
   const unsigned int entry_idx = (bucket_idx << NUM_ENTRY_PER_BUCKET_BITS);
+  // check for existence
+  #pragma unroll
+  for (int i = 0; i < NUM_ENTRY_PER_BUCKET; ++i) {
+    const VoxelBlock &block = hash_table_[entry_idx + i];
+    if (block.position == block_pos && block.idx >= 0) { return; }
+  }
+  // traverse list
+  unsigned int entry_idx_last = entry_idx + NUM_ENTRY_PER_BUCKET - 1;
+  while (hash_table_[entry_idx_last].offset) {
+    entry_idx_last = (entry_idx_last + hash_table_[entry_idx_last].offset) & ENTRY_MASK;
+    const VoxelBlock &block = hash_table_[entry_idx_last];
+    if (block.position == block_pos && block.idx >= 0) { return; }
+  }
   // check for current bucket
   #pragma unroll
   for(int i = 0; i < NUM_ENTRY_PER_BUCKET; ++i) {
     VoxelBlock &block = hash_table_[entry_idx + i];
-    if (block.position == block_pos && block.idx >= 0) { return; }
     if (block.idx < 0) {
       if (atomicExch(&bucket_locks_[bucket_idx], LOCKED) == FREE) { // lock bucket
         block.position = block_pos;
@@ -59,12 +71,10 @@ __device__ void VoxelHashTable::Allocate(const Vector3<short> &block_pos) {
       return;
     }
   }
-  // traverse list
-  unsigned int entry_idx_last = entry_idx + NUM_ENTRY_PER_BUCKET - 1;
+  // traverse list again
+  entry_idx_last = entry_idx + NUM_ENTRY_PER_BUCKET - 1;
   while (hash_table_[entry_idx_last].offset) {
     entry_idx_last = (entry_idx_last + hash_table_[entry_idx_last].offset) & ENTRY_MASK;
-    const VoxelBlock &block = hash_table_[entry_idx_last];
-    if (block.position == block_pos && block.idx >= 0) { return; }
   }
   const unsigned int bucket_idx_last = entry_idx_last >> NUM_ENTRY_PER_BUCKET_BITS;
   // append to list
@@ -74,19 +84,18 @@ __device__ void VoxelHashTable::Allocate(const Vector3<short> &block_pos) {
     // not last position of the bucket && hash entry empty
     if ((entry_idx_next & ENTRY_PER_BUCKET_MASK) != ENTRY_PER_BUCKET_MASK &&
         hash_table_[entry_idx_next].idx < 0) { 
-      if (atomicExch(&bucket_locks_[bucket_idx_last], LOCKED) == FREE) { // lock last bucket
-        const unsigned int bucket_idx_next = entry_idx_next >> NUM_ENTRY_PER_BUCKET_BITS;
-        if (atomicExch(&bucket_locks_[bucket_idx_next], LOCKED) == FREE) { // lock next bucket
-          VoxelBlock &block_last = hash_table_[entry_idx_last];
-          VoxelBlock &block_next = hash_table_[entry_idx_next];
-          // link new node to previous list tail
-          const unsigned int wrap = entry_idx_next > entry_idx_last ? 0 : NUM_ENTRY;
-          block_last.offset = entry_idx_next + wrap - entry_idx_last;
-          // allocate new hash entry
-          block_next.position = block_pos;
-          block_next.offset = 0;
-          block_next.idx = mem.AquireBlock();
-        }
+      const unsigned int bucket_idx_next = entry_idx_next >> NUM_ENTRY_PER_BUCKET_BITS;
+      if (atomicExch(&bucket_locks_[bucket_idx_last], LOCKED) == FREE && // lock last bucket
+          atomicExch(&bucket_locks_[bucket_idx_next], LOCKED) == FREE) { // lock next bucket
+        VoxelBlock &block_last = hash_table_[entry_idx_last];
+        VoxelBlock &block_next = hash_table_[entry_idx_next];
+        // link new node to previous list tail
+        const unsigned int wrap = entry_idx_next > entry_idx_last ? 0 : NUM_ENTRY;
+        block_last.offset = entry_idx_next + wrap - entry_idx_last;
+        // allocate new hash entry
+        block_next.position = block_pos;
+        block_next.offset = 0;
+        block_next.idx = mem.AquireBlock();
       }
       return;
     }

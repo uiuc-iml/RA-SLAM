@@ -16,12 +16,19 @@ Camera.p2: 0.0
 Camera.k3: 0.0
 
 # extrinsics from l515 to zed
-Extrinsics.l515Pzed: [
+Extrinsics: [
      0.999341967852478,  0.023949483682345, -0.027240659318140, -0.041231395353206,
     -0.024160125756201,  0.999680491240074, -0.007429923111954,  0.017616902061403,
      0.027054012866531,  0.008083171738501,  0.999601291877148, -0.028592838366674,
      0                ,  0                ,  0                ,  1
 ]
+
+# reconstruction params (L515 image downsampled by half)
+Camera.fx: 456.8617
+Camera.fy: 456.77127
+Camera.cx: 322.1042
+Camera.cy: 187.79485
+depthmap_factor: 4000
 
 # Raw Camera Calibration
 Calibration.left.fx: 3.487076003817052e+02
