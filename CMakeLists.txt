@@ -1,14 +1,19 @@
-cmake_minimum_required(VERSION 3.10)
-project(disinfslam LANGUAGES CUDA CXX C)
+cmake_minimum_required(VERSION 3.8)
+
+project(disinfslam LANGUAGES CXX C)
+include(CheckLanguage)
+check_language(CUDA)
+if (CMAKE_CUDA_COMPILER)
+    enable_language(CUDA)
+    set(CMAKE_CUDA_STANDARD 14)
+    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+    set(CMAKE_CUDA_FLAGS "-arch=sm_35 -use_fast_math ${CMAKE_CUDA_FLAGS}")
+    set(CMAKE_CUDA_FLAGS_DEBUG "-G ${CMAKE_CUDA_FLAGS_DEBUG}")
+endif ()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CUDA_STANDARD 14)
-set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-set(CMAKE_CUDA_FLAGS "-arch=sm_35 -use_fast_math ${CMAKE_CUDA_FLAGS}")
-set(CMAKE_CUDA_FLAGS_DEBUG "-G ${CMAKE_CUDA_FLAGS_DEBUG}")
 
 # OpenGL
 find_package(GLEW REQUIRED)
@@ -47,16 +52,20 @@ add_subdirectory(utils)
 add_subdirectory(cameras)
 add_subdirectory(modules)
 
-
 add_executable(run_sr300 run_sr300.cc)
 target_link_libraries(run_sr300 PRIVATE sr300 modules)
 
 add_executable(run_zed_native run_zed_native.cc)
 target_link_libraries(run_zed_native PRIVATE zed_native modules)
 
+add_executable(run_zed_native_l515 run_zed_native_l515.cc)
+target_link_libraries(run_zed_native_l515 PRIVATE zed_native l515 modules)
+
 if (${ZED_FOUND})
     add_executable(run_zed run_zed.cc)
     target_link_libraries(run_zed PRIVATE zed modules)
 endif (${ZED_FOUND})
 
-add_subdirectory(examples)
+if (CMAKE_CUDA_COMPILER)
+    add_subdirectory(examples)
+endif ()
