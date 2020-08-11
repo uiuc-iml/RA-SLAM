@@ -8,7 +8,7 @@
 #define MAX_IMG_W     1080
 #define MAX_IMG_SIZE  (MAX_IMG_H * MAX_IMG_W)
 
-__global__ static void check_visibility_kernel(const VoxelHashTable hash_table, 
+__global__ static void check_visibility_kernel(const VoxelHashTable hash_table,
                                                const float voxel_size,
                                                const float max_depth,
                                                const CameraParams cam_params,
@@ -40,7 +40,7 @@ __global__ static void gather_visible_blocks_kernel(const VoxelHashTable hash_ta
 }
 
 __global__ static void block_allocate_kernel(VoxelHashTable hash_table,
-                                             const float *img_depth, 
+                                             const float *img_depth,
                                              const CameraParams cam_params,
                                              const SE3<float> world_P_cam,
                                              const float voxel_size,
@@ -69,7 +69,7 @@ __global__ static void block_allocate_kernel(VoxelHashTable hash_table,
   const Vector3<float> ray_start_grid = ray_start_world / voxel_size;
   const Vector3<float> ray_grid = 2 * truncation * ray_dir_grid; // start -> end vector
   // DDA for finding ray / block intersection
-  const int step_grid = 
+  const int step_grid =
     ceilf(fmaxf(fmaxf(fabsf(ray_grid.x), fabsf(ray_grid.y)), fabsf(ray_grid.z)) / BLOCK_LEN);
   const Vector3<float> ray_step_grid = ray_grid / fmaxf((float)step_grid, 0);
   Vector3<float> pos_grid = ray_start_grid;
@@ -79,7 +79,7 @@ __global__ static void block_allocate_kernel(VoxelHashTable hash_table,
   }
 }
 
-__global__ static void tsdf_integrate_kernel(VoxelBlock *blocks, 
+__global__ static void tsdf_integrate_kernel(VoxelBlock *blocks,
                                              VoxelMemPool voxel_mem,
                                              const SE3<float> cam_P_world,
                                              const CameraParams cam_params,
@@ -97,7 +97,7 @@ __global__ static void tsdf_integrate_kernel(VoxelBlock *blocks,
   }
   const Vector3<short> pos_grid_rel(threadIdx.x, threadIdx.y, threadIdx.z);
   // transform to camera / image coordinates
-  const Vector3<short> pos_grid_abs = (blocks[blockIdx.x].position << BLOCK_LEN_BITS) 
+  const Vector3<short> pos_grid_abs = (blocks[blockIdx.x].position << BLOCK_LEN_BITS)
                                       + pos_grid_rel;
   const Vector3<float> pos_world = pos_grid_abs.cast<float>() * voxel_size;
   const Vector3<float> pos_cam = cam_P_world.Apply(pos_world);
@@ -125,7 +125,7 @@ __global__ static void tsdf_integrate_kernel(VoxelBlock *blocks,
       const uchar3 rgb = img_rgb[img_idx];
       const Vector3<float> rgb_old = voxel_rgbw.rgb.cast<float>();
       const Vector3<float> rgb_new(rgb.x, rgb.y, rgb.z);
-      const Vector3<float> rgb_combined = 
+      const Vector3<float> rgb_combined =
         (rgb_old * weight_old + rgb_new * weight_new) / weight_combined;
       voxel_tsdf.tsdf = (voxel_tsdf.tsdf * weight_old + tsdf * weight_new) / weight_combined;
       voxel_rgbw.weight = fminf(roundf(weight_combined), 255);
@@ -139,7 +139,7 @@ __global__ static void tsdf_integrate_kernel(VoxelBlock *blocks,
 }
 
 __global__ static void space_carving_kernel(VoxelHashTable hash_table,
-                                            const VoxelBlock *blocks, 
+                                            const VoxelBlock *blocks,
                                             const int num_visible_blocks,
                                             const float min_tsdf_threshold) {
   if (blockIdx.x >= num_visible_blocks) {
@@ -156,7 +156,7 @@ __global__ static void space_carving_kernel(VoxelHashTable hash_table,
   #pragma unroll
   for (int stride = BLOCK_VOLUME/2; stride > 0; stride >>= 1) {
     __syncthreads();
-    if (tx < stride) 
+    if (tx < stride)
       tsdf_abs[tx] = fminf(tsdf_abs[tx], tsdf_abs[tx + stride]);
   }
   // de-allocate block
@@ -169,7 +169,7 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
                                        const CameraParams cam_params,
                                        const SE3<float> cam_P_world,
                                        const SE3<float> world_P_cam,
-                                       const float step_size, 
+                                       const float step_size,
                                        const float max_depth,
                                        const float voxel_size,
                                        uchar4 *img_tsdf_rgba,
@@ -218,19 +218,19 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
       // calculate gradient
       const Vector3<float> norm_raw_grid(
         hash_table.Retrieve<VoxelTSDF>(
-          { final_grid.x + 1, final_grid.y, final_grid.z }, cache).tsdf - 
+          { final_grid.x + 1, final_grid.y, final_grid.z }, cache).tsdf -
         hash_table.Retrieve<VoxelTSDF>(
           { final_grid.x - 1, final_grid.y, final_grid.z }, cache).tsdf,
         hash_table.Retrieve<VoxelTSDF>(
-          { final_grid.x, final_grid.y + 1, final_grid.z }, cache).tsdf - 
+          { final_grid.x, final_grid.y + 1, final_grid.z }, cache).tsdf -
         hash_table.Retrieve<VoxelTSDF>(
           { final_grid.x, final_grid.y - 1, final_grid.z }, cache).tsdf,
         hash_table.Retrieve<VoxelTSDF>(
-          { final_grid.x, final_grid.y, final_grid.z + 1 }, cache).tsdf - 
+          { final_grid.x, final_grid.y, final_grid.z + 1 }, cache).tsdf -
         hash_table.Retrieve<VoxelTSDF>(
           { final_grid.x, final_grid.y, final_grid.z - 1 }, cache).tsdf
       );
-      const float diffusivity = fmaxf(norm_raw_grid.dot(-ray_dir_world) / 
+      const float diffusivity = fmaxf(norm_raw_grid.dot(-ray_dir_world) /
                                 sqrtf(norm_raw_grid.dot(norm_raw_grid)), 0);
       const float alpha = fmaxf(voxel_segm.probability - 0.45, 0) / .55;
       img_tsdf_rgba[idx] = make_uchar4(alpha * 255 + (1 - alpha) * voxel_rgbw.rgb.x,
@@ -248,7 +248,7 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
   img_tsdf_normal[idx] = make_uchar4(0, 0, 0, 0);
 }
 
-TSDFGrid::TSDFGrid(float voxel_size, float truncation) 
+TSDFGrid::TSDFGrid(float voxel_size, float truncation)
   : voxel_size_(voxel_size), truncation_(truncation) {
   // memory allocation
   CUDA_SAFE_CALL(cudaMalloc(&visible_mask_, sizeof(int) * NUM_ENTRY));
@@ -284,10 +284,10 @@ TSDFGrid::~TSDFGrid() {
   CUDA_SAFE_CALL(cudaStreamDestroy(stream_));
 }
 
-void TSDFGrid::Integrate(const cv::Mat &img_rgb, const cv::Mat &img_depth, 
+void TSDFGrid::Integrate(const cv::Mat &img_rgb, const cv::Mat &img_depth,
                          const cv::Mat &img_ht, const cv::Mat &img_lt,
                          float max_depth,
-                         const CameraIntrinsics<float> &intrinsics, 
+                         const CameraIntrinsics<float> &intrinsics,
                          const SE3<float> &cam_P_world) {
   assert(img_rgb.type() == CV_8UC3);
   assert(img_depth.type() == CV_32FC1);
@@ -297,13 +297,13 @@ void TSDFGrid::Integrate(const cv::Mat &img_rgb, const cv::Mat &img_depth,
   const CameraParams cam_params(intrinsics, img_rgb.rows, img_rgb.cols);
 
   // data transfer
-  CUDA_SAFE_CALL(cudaMemcpyAsync(img_rgb_, img_rgb.data, 
+  CUDA_SAFE_CALL(cudaMemcpyAsync(img_rgb_, img_rgb.data,
     sizeof(uchar3)*img_rgb.total(), cudaMemcpyHostToDevice, stream_));
-  CUDA_SAFE_CALL(cudaMemcpyAsync(img_depth_, img_depth.data, 
+  CUDA_SAFE_CALL(cudaMemcpyAsync(img_depth_, img_depth.data,
     sizeof(float)*img_depth.total(), cudaMemcpyHostToDevice, stream_));
-  CUDA_SAFE_CALL(cudaMemcpyAsync(img_ht_, img_ht.data, 
+  CUDA_SAFE_CALL(cudaMemcpyAsync(img_ht_, img_ht.data,
     sizeof(float)*img_depth.total(), cudaMemcpyHostToDevice, stream_));
-  CUDA_SAFE_CALL(cudaMemcpyAsync(img_lt_, img_lt.data, 
+  CUDA_SAFE_CALL(cudaMemcpyAsync(img_lt_, img_lt.data,
     sizeof(float)*img_depth.total(), cudaMemcpyHostToDevice, stream_));
   // compute
   Allocate(img_rgb, img_depth, max_depth, cam_params, cam_P_world);
@@ -317,7 +317,7 @@ void TSDFGrid::Allocate(const cv::Mat &img_rgb, const cv::Mat &img_depth, float 
   const dim3 IMG_BLOCK_DIM(ceil((float)cam_params.img_w/32), ceil((float)cam_params.img_h/16));
   const dim3 IMG_THREAD_DIM(32, 16);
   block_allocate_kernel<<<IMG_BLOCK_DIM, IMG_THREAD_DIM, 0, stream_>>>(
-    hash_table_, img_depth_, cam_params, cam_P_world.Inverse(), 
+    hash_table_, img_depth_, cam_params, cam_P_world.Inverse(),
     voxel_size_, max_depth, truncation_, img_depth_to_range_);
   CUDA_STREAM_CHECK_ERROR(stream_);
   hash_table_.ResetLocks(stream_);
@@ -352,15 +352,15 @@ void TSDFGrid::UpdateTSDF(int num_visible_blocks, float max_depth,
                           const CameraParams &cam_params, const SE3<float> &cam_P_world) {
   const dim3 VOXEL_BLOCK_DIM(BLOCK_LEN, BLOCK_LEN, BLOCK_LEN);
   tsdf_integrate_kernel<<<num_visible_blocks, VOXEL_BLOCK_DIM, 0, stream_>>>(
-    visible_blocks_, hash_table_.mem, cam_P_world, cam_params, num_visible_blocks, 
-    max_depth, truncation_, voxel_size_, 
+    visible_blocks_, hash_table_.mem, cam_P_world, cam_params, num_visible_blocks,
+    max_depth, truncation_, voxel_size_,
     img_rgb_, img_depth_, img_ht_, img_lt_, img_depth_to_range_);
   CUDA_STREAM_CHECK_ERROR(stream_);
 }
 
 void TSDFGrid::SpaceCarving(int num_visible_blocks) {
   space_carving_kernel<<<num_visible_blocks, BLOCK_VOLUME/2, 0, stream_>>>(
-    hash_table_, visible_blocks_, num_visible_blocks, .9); 
+    hash_table_, visible_blocks_, num_visible_blocks, .9);
   CUDA_STREAM_CHECK_ERROR(stream_);
   hash_table_.ResetLocks(stream_);
   spdlog::debug("[TSDF] {} active blocks after carving", hash_table_.NumActiveBlock());
@@ -370,7 +370,7 @@ void TSDFGrid::RayCast(float max_depth,
                        const CameraParams &virtual_cam,
                        const SE3<float> &cam_P_world,
                        GLImage8UC4 *tsdf_rgba, GLImage8UC4 *tsdf_normal) {
-  const dim3 IMG_BLOCK_DIM(ceil((float)virtual_cam.img_w/32), 
+  const dim3 IMG_BLOCK_DIM(ceil((float)virtual_cam.img_w/32),
                            ceil((float)virtual_cam.img_h/16));
   const dim3 IMG_THREAD_DIM(32, 16);
   ray_cast_kernel<<<IMG_BLOCK_DIM, IMG_THREAD_DIM, 0, stream_>>>(

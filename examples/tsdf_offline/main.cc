@@ -200,7 +200,7 @@ class ImageRenderer : public RendererBase {
       CUDA_SAFE_CALL(cudaDeviceSynchronize());
       const auto end = get_timestamp<std::chrono::milliseconds>();
       ImGui::Text("Rendering takes %lu ms", end - st);
-      static int render_mode = 0;
+      static int render_mode = 1;
       ImGui::RadioButton("rgb", &render_mode, 0); ImGui::SameLine();
       ImGui::RadioButton("normal", &render_mode, 1);
       if (render_mode == 0) { tsdf_rgba_.Draw(); }
