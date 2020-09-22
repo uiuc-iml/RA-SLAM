@@ -18,7 +18,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # OpenGL
 find_package(GLEW REQUIRED)
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(GLM REQUIRED glm)
 find_package(glfw3 REQUIRED)
 find_package(OpenGL REQUIRED)
 # Slam

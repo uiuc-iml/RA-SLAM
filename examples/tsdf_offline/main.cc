@@ -134,8 +134,8 @@ class ImageRenderer : public RendererBase {
       const Vector3<float> w = rot_axis_cross_cam / sin(theta) * theta;
       const Matrix3<float> w_x(0, -w.z, w.y, w.z, 0, -w.x, -w.y, w.x, 0);
       const Matrix3<float> R = Matrix3<float>::Identity() +
-                               sin(theta) / theta * w_x +
-                               (1 - cos(theta)) / (theta * theta) * w_x * w_x;
+                               (float)sin(theta) / theta * w_x +
+                               (float)(1 - cos(theta)) / (theta * theta) * w_x * w_x;
       const SE3<float> pose_cam1_P_cam2(R, Vector3<float>(0));
       virtual_cam_P_world_ = pose_cam1_P_cam2.Inverse() * virtual_cam_P_world_old_;
     }
