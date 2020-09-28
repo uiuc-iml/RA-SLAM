@@ -18,7 +18,7 @@ class Vector2 {
  public:
   __device__ __host__ Vector2<T>() {}
 
-  __device__ __host__ Vector2<T>(const T &x_, const T &y_) 
+  __device__ __host__ Vector2<T>(const T &x_, const T &y_)
       : x(x_), y(y_) {}
 
   __device__ __host__ explicit Vector2<T>(const T &scalar)
@@ -73,22 +73,22 @@ class Vector2 {
   }
 
   __device__ __host__ inline Vector2<T> operator+(const Vector2<T> &rhs) const {
-    Vector2<T> ret(*this); 
+    Vector2<T> ret(*this);
     return ret += rhs;
   }
 
   __device__ __host__ inline Vector2<T> operator+(const T &rhs) const {
-    Vector2<T> ret(*this); 
+    Vector2<T> ret(*this);
     return ret += rhs;
   }
 
   __device__ __host__ inline Vector2<T> operator-(const Vector2<T> &rhs) const {
-    Vector2<T> ret(*this); 
+    Vector2<T> ret(*this);
     return ret -= rhs;
   }
 
   __device__ __host__ inline Vector2<T> operator-(const T &rhs) const {
-    Vector2<T> ret(*this); 
+    Vector2<T> ret(*this);
     return ret -= rhs;
   }
 
@@ -137,24 +137,33 @@ class Vector2 {
   __device__ __host__ inline Vector2<Tout> cast() const {
     return Vector2<Tout>(static_cast<Tout>(x), static_cast<Tout>(y));
   }
+
+  template<typename Tout>
+  __device__ __host__ inline Vector2<Tout> round() const;
 };
 
 template<typename T>
 __device__ __host__ inline Vector2<T> operator+(const T &lhs, const Vector2<T> &rhs) {
-  Vector2<T> ret(lhs); 
+  Vector2<T> ret(lhs);
   return ret += rhs;
 }
 
 template<typename T>
 __device__ __host__ inline Vector2<T> operator-(const T &lhs, const Vector2<T> &rhs) {
-  Vector2<T> ret(lhs); 
+  Vector2<T> ret(lhs);
   return ret -= rhs;
 }
 
 template<typename T>
 __device__ __host__ inline Vector2<T> operator*(const T &lhs, const Vector2<T> &rhs) {
-  Vector2<T> ret(rhs); 
+  Vector2<T> ret(rhs);
   return ret *= lhs;
+}
+
+template<>
+template<typename Tout>
+__device__ __host__ inline Vector2<Tout> Vector2<float>::round() const {
+  return Vector2<Tout>(roundf(x), roundf(y));
 }
 
 template<typename T>
@@ -164,7 +173,7 @@ class Vector3 {
  public:
   __device__ __host__ Vector3<T>() {}
 
-  __device__ __host__ Vector3<T>(const T &x_, const T &y_, const T &z_) 
+  __device__ __host__ Vector3<T>(const T &x_, const T &y_, const T &z_)
       : x(x_), y(y_), z(z_) {}
 
   __device__ __host__ explicit Vector3<T>(const Vector2<T> &vec2)
@@ -222,22 +231,22 @@ class Vector3 {
   }
 
   __device__ __host__ inline Vector3<T> operator+(const Vector3<T> &rhs) const {
-    Vector3<T> ret(*this); 
+    Vector3<T> ret(*this);
     return ret += rhs;
   }
 
   __device__ __host__ inline Vector3<T> operator+(const T &rhs) const {
-    Vector3<T> ret(*this); 
+    Vector3<T> ret(*this);
     return ret += rhs;
   }
 
   __device__ __host__ inline Vector3<T> operator-(const Vector3<T> &rhs) const {
-    Vector3<T> ret(*this); 
+    Vector3<T> ret(*this);
     return ret -= rhs;
   }
 
   __device__ __host__ inline Vector3<T> operator-(const T &rhs) const {
-    Vector3<T> ret(*this); 
+    Vector3<T> ret(*this);
     return ret -= rhs;
   }
 
@@ -290,24 +299,33 @@ class Vector3 {
   __device__ __host__ inline Vector3<Tout> cast() const {
     return Vector3<Tout>(static_cast<Tout>(x), static_cast<Tout>(y), static_cast<Tout>(z));
   }
+
+  template<typename Tout>
+  __device__ __host__ inline Vector3<Tout> round() const;
 };
 
 template<typename T>
 __device__ __host__ inline Vector3<T> operator+(const T &lhs, const Vector3<T> &rhs) {
-  Vector3<T> ret(lhs); 
+  Vector3<T> ret(lhs);
   return ret += rhs;
 }
 
 template<typename T>
 __device__ __host__ inline Vector3<T> operator-(const T &lhs, const Vector3<T> &rhs) {
-  Vector3<T> ret(lhs); 
+  Vector3<T> ret(lhs);
   return ret -= rhs;
 }
 
 template<typename T>
 __device__ __host__ inline Vector3<T> operator*(const T &lhs, const Vector3<T> &rhs) {
-  Vector3<T> ret(rhs); 
+  Vector3<T> ret(rhs);
   return ret *= lhs;
+}
+
+template<>
+template<typename Tout>
+__device__ __host__ inline Vector3<Tout> Vector3<float>::round() const {
+  return Vector3<Tout>(roundf(x), roundf(y), roundf(z));
 }
 
 template<typename T>
@@ -317,13 +335,13 @@ class Vector4 {
  public:
   __device__ __host__ Vector4<T>() {}
 
-  __device__ __host__ Vector4<T>(const T &x_, const T &y_, const T &z_, const T &w_) 
+  __device__ __host__ Vector4<T>(const T &x_, const T &y_, const T &z_, const T &w_)
       : x(x_), y(y_), z(z_), w(w_) {}
 
   __device__ __host__ explicit Vector4<T>(const T &scalar)
       : Vector4<T>(scalar, scalar, scalar, scalar) {}
 
-  __device__ __host__ explicit Vector4<T>(const Vector3<T> &vec3) 
+  __device__ __host__ explicit Vector4<T>(const Vector3<T> &vec3)
       : Vector4<T>(vec3.x, vec3.y, vec3.z, 1) {}
 
   __device__ __host__ inline Vector4<T>& operator+=(const Vector4<T> &rhs) {
@@ -352,22 +370,22 @@ class Vector4 {
   }
 
   __device__ __host__ inline Vector4<T> operator+(const Vector4<T> &rhs) const {
-    Vector4<T> ret(*this); 
+    Vector4<T> ret(*this);
     return ret += rhs;
   }
 
   __device__ __host__ inline Vector4<T> operator+(const T &rhs) const {
-    Vector4<T> ret(*this); 
+    Vector4<T> ret(*this);
     return ret += rhs;
   }
 
   __device__ __host__ inline Vector4<T> operator-(const Vector4<T> &rhs) const {
-    Vector4<T> ret(*this); 
+    Vector4<T> ret(*this);
     return ret -= rhs;
   }
 
   __device__ __host__ inline Vector4<T> operator-(const T &rhs) const {
-    Vector4<T> ret(*this); 
+    Vector4<T> ret(*this);
     return ret -= rhs;
   }
 
@@ -394,26 +412,34 @@ class Vector4 {
 
   template<typename Tout>
   __device__ __host__ inline Vector4<Tout> cast() const {
-    return Vector4<Tout>(static_cast<Tout>(x), static_cast<Tout>(y), 
+    return Vector4<Tout>(static_cast<Tout>(x), static_cast<Tout>(y),
                          static_cast<Tout>(z), static_cast<Tout>(w));
   }
+
+  template<typename Tout>
+  __device__ __host__ inline Vector4<Tout> round() const;
 };
 
 template<typename T>
 __device__ __host__ inline Vector4<T> operator+(const T &lhs, const Vector4<T> &rhs) {
-  Vector4<T> ret(lhs); 
+  Vector4<T> ret(lhs);
   return ret += rhs;
 }
 
 template<typename T>
 __device__ __host__ inline Vector4<T> operator-(const T &lhs, const Vector4<T> &rhs) {
-  Vector4<T> ret(lhs); 
+  Vector4<T> ret(lhs);
   return ret -= rhs;
 }
 
 template<typename T>
 __device__ __host__ inline Vector4<T> operator*(const T &lhs, const Vector4<T> &rhs) {
-  Vector4<T> ret(rhs); 
+  Vector4<T> ret(rhs);
   return ret *= lhs;
 }
 
+template<>
+template<typename Tout>
+__device__ __host__ inline Vector4<Tout> Vector4<float>::round() const {
+  return Vector4<Tout>(roundf(x), roundf(y), roundf(z), roundf(w));
+}

@@ -1,13 +1,15 @@
 #include <chrono>
+#include <cmath>
 #include <exception>
 #include <fstream>
 #include <iostream>
-#include <cmath>
-#include <opencv2/imgproc.hpp>
+#include <memory>
 #include <string>
 #include <vector>
+
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>
 #include <popl.hpp>
 #include <spdlog/spdlog.h>
@@ -191,6 +193,13 @@ class ImageRenderer : public RendererBase {
       ImGui::SliderFloat("behind actual camera", &step, 0.0f, 3.0f);
       virtual_cam_P_world_ = SE3<float>(cam_P_world_.GetR(),
                                         cam_P_world_.GetT() + Vector3<float>(0, 0, step));
+    }
+    if (ImGui::Button("Save TSDF")) {
+      const auto voxel_pos_tsdf = tsdf_.GatherValid();
+      spdlog::debug("{}", voxel_pos_tsdf.size());
+      std::ofstream fout("/tmp/data.bin", std::ios::out | std::ios::binary);
+      fout.write((char*)voxel_pos_tsdf.data(), voxel_pos_tsdf.size() * sizeof(Vector4<float>));
+      fout.close();
     }
     // render
     if (!img_depth_.empty() && !img_rgb_.empty()) {

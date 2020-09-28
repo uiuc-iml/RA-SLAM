@@ -11,7 +11,7 @@
 
 #define BLOCK_LEN_BITS    3
 #define BLOCK_AREA_BITS   (BLOCK_LEN_BITS * 2)
-#define BLOCK_VOLUME_BITS (BLOCK_LEN_BITS * 3) 
+#define BLOCK_VOLUME_BITS (BLOCK_LEN_BITS * 3)
 #define BLOCK_LEN         (1 << BLOCK_LEN_BITS)
 #define BLOCK_AREA        (1 << BLOCK_AREA_BITS)
 #define BLOCK_VOLUME      (1 << BLOCK_VOLUME_BITS)
@@ -49,15 +49,16 @@ class VoxelMemPool {
 
   template<typename Voxel>
   __device__ Voxel& GetVoxel(const Vector3<short> &point, const VoxelBlock &block) const {
-    assert(block.idx >= 0);
+    assert(block.idx >= 0 && block.idx < NUM_BLOCK);
     assert(point2block(point) == block.position);
     const Vector3<short> offset = point2offset(point);
-    const unsigned short idx = offset2index(offset); 
+    const unsigned short idx = offset2index(offset);
     return GetVoxel<Voxel>(idx, block);
   }
 
   template<typename Voxel>
   __device__ Voxel& GetVoxel(const int idx, const VoxelBlock &block) const {
+    assert(idx >= 0 && idx < BLOCK_VOLUME);
     Voxel *voxels = GetVoxelData<Voxel>();
     return voxels[(block.idx << BLOCK_VOLUME_BITS) + idx];
   }
