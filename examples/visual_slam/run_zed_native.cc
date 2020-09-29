@@ -42,7 +42,7 @@ class StereoData {
 
 class StereoLogger : public DataLogger<StereoData> {
  public:
-  StereoLogger(const std::string &logdir) 
+  StereoLogger(const std::string &logdir)
       : logdir_(logdir),
         DataLogger<StereoData>() {}
 
@@ -70,7 +70,7 @@ void tracking(const std::shared_ptr<openvslam::config> &cfg,
               const std::string &map_db_path,
               const std::string &logdir,
               ZEDNative *camera) {
-  slam_system SLAM(cfg, vocab_file_path);
+  SLAMSystem SLAM(cfg, vocab_file_path);
   SLAM.startup();
 
   pangolin_viewer::viewer viewer(
@@ -128,7 +128,7 @@ int main(int argc, char *argv[]) {
   auto debug_mode = op.add<popl::Switch>("", "debug", "debug mode");
   auto map_db_path = op.add<popl::Value<std::string>>("p", "map-db",
                             "path to store the map database", "");
-  auto log_dir = op.add<popl::Value<std::string>>("", "logdir", 
+  auto log_dir = op.add<popl::Value<std::string>>("", "logdir",
                             "directory to store logged data", "./log");
   auto device_id = op.add<popl::Value<int>>("", "devid", "camera device id", 0);
 
@@ -171,7 +171,7 @@ int main(int argc, char *argv[]) {
 
   ZEDNative camera(*cfg, device_id->value());
 
-  tracking(cfg, 
+  tracking(cfg,
       vocab_file_path->value(), map_db_path->value(), log_dir->value(), &camera);
 
   return EXIT_SUCCESS;

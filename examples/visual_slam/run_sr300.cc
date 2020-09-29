@@ -25,9 +25,9 @@ class DepthData {
  public:
   DepthData() = default;
 
-  DepthData(const DepthData &others) 
+  DepthData(const DepthData &others)
     : img_rgb(others.img_rgb.clone()),
-      img_depth(others.img_depth.clone()), 
+      img_depth(others.img_depth.clone()),
       id(others.id) {}
 
   cv::Mat img_rgb;
@@ -37,7 +37,7 @@ class DepthData {
 
 class DepthLogger : public DataLogger<DepthData> {
  public:
-  DepthLogger(const std::string &logdir) 
+  DepthLogger(const std::string &logdir)
       : logdir_(logdir),
         DataLogger<DepthData>() {}
 
@@ -64,7 +64,7 @@ void tracking(const std::shared_ptr<openvslam::config> &cfg,
               const std::string &map_db_path,
               const std::string &logdir,
               bool use_depth = true) {
-  slam_system SLAM(cfg, vocab_file_path);
+  SLAMSystem SLAM(cfg, vocab_file_path);
   SLAM.startup();
 
   pangolin_viewer::viewer viewer(
@@ -114,7 +114,7 @@ std::shared_ptr<openvslam::config> get_and_set_config(const std::string &config_
   yaml_node["Camera.fps"] = SR300::FPS;
   yaml_node["Camera.cols"] = SR300::WIDTH;
   yaml_node["Camera.rows"] = SR300::HEIGHT;
-  yaml_node["Camera.color_order"] = "RGB"; 
+  yaml_node["Camera.color_order"] = "RGB";
   // camera intrinsics
   rs2_intrinsics i = camera->get_camera_intrinsics();
   yaml_node["Camera.fx"] = i.fx;
@@ -130,9 +130,9 @@ std::shared_ptr<openvslam::config> get_and_set_config(const std::string &config_
   // depth factor
   yaml_node["depthmap_factor"] = camera->get_depth_scale();
   // realsense depth camera options
-  camera->set_depth_sensor_option(RS2_OPTION_FILTER_OPTION, 
+  camera->set_depth_sensor_option(RS2_OPTION_FILTER_OPTION,
                                   yaml_node["RS.filter_option"].as<float>());
-  camera->set_depth_sensor_option(RS2_OPTION_MOTION_RANGE, 
+  camera->set_depth_sensor_option(RS2_OPTION_MOTION_RANGE,
                                   yaml_node["RS.motion_range"].as<float>());
 
   return std::make_shared<openvslam::config>(yaml_node, config_file_path);
@@ -149,7 +149,7 @@ int main(int argc, char *argv[]) {
   auto depth = op.add<popl::Switch>("", "depth", "use depth information");
   auto map_db_path = op.add<popl::Value<std::string>>("p", "map-db",
                             "path to store the map database", "");
-  auto log_dir = op.add<popl::Value<std::string>>("", "logdir", 
+  auto log_dir = op.add<popl::Value<std::string>>("", "logdir",
                             "directory to store logged data", "./log");
   try {
     op.parse(argc, argv);
@@ -188,7 +188,7 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  tracking(cfg, 
+  tracking(cfg,
       vocab_file_path->value(), camera, map_db_path->value(), log_dir->value(), depth->is_set());
 
   return EXIT_SUCCESS;

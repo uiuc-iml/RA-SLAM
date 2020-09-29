@@ -24,9 +24,9 @@ class DepthData {
  public:
   DepthData() = default;
 
-  DepthData(const DepthData &others) 
+  DepthData(const DepthData &others)
     : img_rgb(others.img_rgb.clone()),
-      img_depth(others.img_depth.clone()), 
+      img_depth(others.img_depth.clone()),
       id(others.id) {}
 
   cv::Mat img_rgb;
@@ -36,7 +36,7 @@ class DepthData {
 
 class DepthLogger : public DataLogger<DepthData> {
  public:
-  DepthLogger(const std::string &logdir) 
+  DepthLogger(const std::string &logdir)
       : logdir_(logdir),
         DataLogger<DepthData>() {}
 
@@ -62,7 +62,7 @@ void tracking(const std::shared_ptr<openvslam::config> &cfg,
               const std::string &map_db_path,
               const std::string &logdir,
               ZED *camera) {
-  slam_system SLAM(cfg, vocab_file_path);
+  SLAMSystem SLAM(cfg, vocab_file_path);
   SLAM.startup();
 
   pangolin_viewer::viewer viewer(
@@ -111,13 +111,13 @@ std::shared_ptr<openvslam::config> get_config(const std::string &config_file_pat
   yaml_node["Camera.fps"] = cam_config.fps;
   yaml_node["Camera.cols"] = cam_config.resolution.width;
   yaml_node["Camera.rows"] = cam_config.resolution.height;
-  yaml_node["Camera.color_order"] = "Gray"; 
+  yaml_node["Camera.color_order"] = "Gray";
   // camera intrinsics
   yaml_node["Camera.fx"] = cam_config.calibration_parameters.left_cam.fx;
   yaml_node["Camera.fy"] = cam_config.calibration_parameters.left_cam.fy;
   yaml_node["Camera.cx"] = cam_config.calibration_parameters.left_cam.cx;
   yaml_node["Camera.cy"] = cam_config.calibration_parameters.left_cam.cy;
-  yaml_node["Camera.focal_x_baseline"] = 
+  yaml_node["Camera.focal_x_baseline"] =
     cam_config.calibration_parameters.stereo_transform.getTranslation().x *
     cam_config.calibration_parameters.left_cam.fx / 1e3; // unit [mm] to [m]
   // zero camera distortion
@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
   auto debug_mode = op.add<popl::Switch>("", "debug", "debug mode");
   auto map_db_path = op.add<popl::Value<std::string>>("p", "map-db",
                             "path to store the map database", "");
-  auto log_dir = op.add<popl::Value<std::string>>("", "logdir", 
+  auto log_dir = op.add<popl::Value<std::string>>("", "logdir",
                             "directory to store logged data", "./log");
   try {
     op.parse(argc, argv);
@@ -179,7 +179,7 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  tracking(cfg, 
+  tracking(cfg,
       vocab_file_path->value(), map_db_path->value(), log_dir->value(), &camera);
 
   return EXIT_SUCCESS;

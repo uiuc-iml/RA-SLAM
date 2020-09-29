@@ -15,22 +15,22 @@
 
 #include <opencv2/core/core.hpp>
 
-class slam_system : public openvslam::system {
+class SLAMSystem : public openvslam::system {
  public:
   //! Constructor
-  slam_system(const std::shared_ptr<openvslam::config> &cfg,
+  SLAMSystem(const std::shared_ptr<openvslam::config> &cfg,
               const std::string &vocab_file_path);
 
   //! Feed a stereo frame to SLAM system
   //! (Note: Left and Right images must be stereo-rectified)
-  unsigned int feed_stereo_images(const cv::Mat &img_left, const cv::Mat &img_right, 
+  unsigned int feed_stereo_images(const cv::Mat &img_left, const cv::Mat &img_right,
                                   const double timestamp, const cv::Mat &mask = cv::Mat{});
 
   unsigned int feed_rgbd_images(const cv::Mat &img_rgb, const cv::Mat &img_depth,
                                 const double timestamp, const cv::Mat &mask = cv::Mat{});
 
   //! Save the frame trajectory in the specified format
-  void save_matched_trajectory(const std::string &path, 
-                               const std::vector<unsigned int> &frame_ids) const; 
+  void save_matched_trajectory(const std::string &path,
+                               const std::vector<unsigned int> &frame_ids) const;
 };
 

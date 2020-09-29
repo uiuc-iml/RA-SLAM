@@ -31,9 +31,9 @@ class DepthData {
  public:
   DepthData() = default;
 
-  DepthData(const DepthData &others) 
+  DepthData(const DepthData &others)
     : img_rgb(others.img_rgb.clone()),
-      img_depth(others.img_depth.clone()), 
+      img_depth(others.img_depth.clone()),
       id(others.id) {}
 
   cv::Mat img_rgb;
@@ -43,7 +43,7 @@ class DepthData {
 
 class DepthLogger : public DataLogger<DepthData> {
  public:
-  DepthLogger(const std::string &logdir) 
+  DepthLogger(const std::string &logdir)
       : logdir_(logdir),
         DataLogger<DepthData>() {}
 
@@ -70,7 +70,7 @@ void tracking(const std::shared_ptr<openvslam::config> &cfg,
               const std::string &logdir,
               const L515 &l515,
               const ZEDNative &zed_native) {
-  slam_system SLAM(cfg, vocab_file_path);
+  SLAMSystem SLAM(cfg, vocab_file_path);
   SLAM.startup();
 
   pangolin_viewer::viewer viewer(
@@ -130,7 +130,7 @@ int main(int argc, char *argv[]) {
   auto debug_mode = op.add<popl::Switch>("", "debug", "debug mode");
   auto map_db_path = op.add<popl::Value<std::string>>("p", "map-db",
                             "path to store the map database", "");
-  auto log_dir = op.add<popl::Value<std::string>>("", "logdir", 
+  auto log_dir = op.add<popl::Value<std::string>>("", "logdir",
                             "directory to store logged data", "./log");
   auto device_id = op.add<popl::Value<int>>("", "devid", "camera device id", 0);
 
@@ -174,7 +174,7 @@ int main(int argc, char *argv[]) {
   ZEDNative zed_native(*cfg, device_id->value());
   L515 l515;
 
-  tracking(cfg, 
+  tracking(cfg,
       vocab_file_path->value(), map_db_path->value(), log_dir->value(), l515, zed_native);
 
   return EXIT_SUCCESS;

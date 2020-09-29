@@ -1,11 +1,3 @@
-# simple_renderer
-add_executable(simple_renderer simple_renderer/main.cc)
-target_link_libraries(simple_renderer gl_utils)
-get_filename_component(VERTEX_SHADER_PATH simple_renderer/shader.vert ABSOLUTE)
-get_filename_component(FRAGMENT_SHADER_PATH simple_renderer/shader.frag ABSOLUTE)
-target_compile_definitions(simple_renderer PRIVATE
-    VERTEX_SHADER_PATH="${VERTEX_SHADER_PATH}" FRAGMENT_SHADER_PATH="${FRAGMENT_SHADER_PATH}")
-
-add_executable(tsdf_offline tsdf_offline/main.cc)
-target_link_libraries(tsdf_offline PRIVATE gl_utils tsdf_utils popl spdlog zed l515 ${OpenCV_LIBS})
-target_include_directories(tsdf_offline PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+add_subdirectory(simple_renderer)
+add_subdirectory(tsdf_offline)
+add_subdirectory(visual_slam)

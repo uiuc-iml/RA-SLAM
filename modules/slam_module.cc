@@ -1,4 +1,4 @@
-#include "slam_module.h"
+#include "modules/slam_module.h"
 
 #include <iostream>
 #include <iomanip>
@@ -13,11 +13,11 @@
 
 using namespace openvslam;
 
-slam_system::slam_system(const std::shared_ptr<config> &cfg, 
+SLAMSystem::SLAMSystem(const std::shared_ptr<config> &cfg,
                          const std::string &vocab_file_path)
     : openvslam::system(cfg, vocab_file_path) {}
 
-void slam_system::save_matched_trajectory(const std::string &path,
+void SLAMSystem::save_matched_trajectory(const std::string &path,
                                           const std::vector<unsigned int> &frame_ids) const {
   pause_other_threads();
 
@@ -66,8 +66,8 @@ void slam_system::save_matched_trajectory(const std::string &path,
   resume_other_threads();
 }
 
-unsigned int slam_system::feed_stereo_images(
-    const cv::Mat& img_left, const cv::Mat& img_right, 
+unsigned int SLAMSystem::feed_stereo_images(
+    const cv::Mat& img_left, const cv::Mat& img_right,
     const double timestamp, const cv::Mat& mask) {
   assert(camera_->setup_type_ == camera::setup_type_t::Stereo);
 
@@ -83,8 +83,8 @@ unsigned int slam_system::feed_stereo_images(
   return tracker_->curr_frm_.id_;
 }
 
-unsigned int slam_system::feed_rgbd_images(
-    const cv::Mat& img_rgb, const cv::Mat& img_depth, 
+unsigned int SLAMSystem::feed_rgbd_images(
+    const cv::Mat& img_rgb, const cv::Mat& img_depth,
     const double timestamp, const cv::Mat& mask) {
   assert(camera_->setup_type_ == camera::setup_type_t::RGBD);
 

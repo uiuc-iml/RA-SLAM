@@ -1,0 +1,5 @@
+if (CMAKE_CUDA_COMPILER)
+    add_executable(tsdf_offline main.cc)
+    target_link_libraries(tsdf_offline PRIVATE gl_utils tsdf_utils popl spdlog zed l515 ${OpenCV_LIBS})
+    target_include_directories(tsdf_offline PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+endif ()
