@@ -79,6 +79,7 @@ void tracking(const std::shared_ptr<openvslam::config> &cfg,
   DepthLogger logger(logdir);
 
   std::thread t([&]() {
+    const auto start = std::chrono::steady_clock::now();
     DepthData data;
     cv::Mat img_left, img_right;
     while (true) {
@@ -159,6 +160,8 @@ int main(int argc, char *argv[]) {
     spdlog::set_level(spdlog::level::debug);
   else
     spdlog::set_level(spdlog::level::info);
+
+  YAML::Node yaml_node = YAML::LoadFile(config_file_path->value());
 
   std::shared_ptr<openvslam::config> cfg;
   try {

@@ -25,10 +25,10 @@ class Matrix3 {
       m10(a10), m11(a11), m12(a12),
       m20(a20), m21(a21), m22(a22) {}
 
-  __device__ __host__ static inline Matrix3<T> Identity() {
+  __device__ __host__ static inline Matrix3<T> Identity() { 
     Matrix3<T> mat(0);
     mat.m00 = mat.m11 = mat.m22 = 1;
-    return mat;
+    return mat; 
   }
 
   template<typename Tout>
@@ -197,10 +197,10 @@ class Matrix4 {
       m20(a20), m21(a21), m22(a22), m23(a23),
       m30(a30), m31(a31), m32(a32), m33(a33) {}
 
-  __device__ __host__ static inline Matrix4<T> Identity() {
+  __device__ __host__ static inline Matrix4<T> Identity() { 
     Matrix4<T> mat(0);
     mat.m00 = mat.m11 = mat.m22 = mat.m33 = 1;
-    return mat;
+    return mat; 
   }
 
   template<typename Tout>

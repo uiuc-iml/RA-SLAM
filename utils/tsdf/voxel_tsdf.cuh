@@ -41,7 +41,6 @@ class TSDFGrid {
   void SpaceCarving(int num_visible_blocks);
 
   cudaStream_t stream_;
-  cudaStream_t stream2_;
   // voxel grid params
   VoxelHashTable hash_table_;
   const float voxel_size_;
