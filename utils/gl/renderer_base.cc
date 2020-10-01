@@ -24,7 +24,7 @@ RendererBase::RendererBase(const std::string &name, int width, int height) {
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, GL_VERSION_MAJOR);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, GL_VERSION_MINOR);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-  
+
   // window creation
   window_ = glfwCreateWindow(width, height, name.c_str(), NULL, NULL);
   if (window_ == NULL) {
@@ -74,9 +74,12 @@ void RendererBase::Run() {
     // double buffer swap
     glfwSwapBuffers(window_);
   }
+  RenderExit();
 }
 
 void RendererBase::DispatchInput() {}
+
+void RendererBase::RenderExit() {}
 
 void RendererBase::GLFWErrorHandler(int error, const char *desc) {
   spdlog::error("glfw error {}: {}", error, desc);

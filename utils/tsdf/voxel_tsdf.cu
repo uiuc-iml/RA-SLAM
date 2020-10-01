@@ -192,7 +192,7 @@ __global__ static void tsdf_integrate_kernel(VoxelBlock *blocks,
       const Vector3<float> rgb_combined =
         (rgb_old * weight_old + rgb_new * weight_new) / weight_combined;
       voxel_tsdf.tsdf = (voxel_tsdf.tsdf * weight_old + tsdf * weight_new) / weight_combined;
-      voxel_rgbw.weight = fminf(roundf(weight_combined), 255);
+      voxel_rgbw.weight = fminf(roundf(weight_combined), 40);
       voxel_rgbw.rgb = rgb_combined.round<unsigned char>();
       // high touch / low touch
       const float positive = expf((weight_old * logf(voxel_segm.probability) +
@@ -297,7 +297,7 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
       );
       const float diffusivity = fmaxf(norm_raw_grid.dot(-ray_dir_world) /
                                 sqrtf(norm_raw_grid.dot(norm_raw_grid)), 0);
-      const float alpha = fmaxf(voxel_segm.probability - 0.45, 0) / .55;
+      const float alpha = fmaxf(voxel_segm.probability - 0.5, 0) / .5;
       img_tsdf_rgba[idx] = make_uchar4(alpha * 255 + (1 - alpha) * voxel_rgbw.rgb.x,
                                        (1 - alpha) * voxel_rgbw.rgb.y,
                                        (1 - alpha) * voxel_rgbw.rgb.z, 255);
@@ -329,6 +329,7 @@ TSDFGrid::TSDFGrid(float voxel_size, float truncation)
   CUDA_SAFE_CALL(cudaMalloc(&img_tsdf_normal_, sizeof(uchar4) * MAX_IMG_SIZE));
   // stream init
   CUDA_SAFE_CALL(cudaStreamCreate(&stream_));
+  CUDA_SAFE_CALL(cudaStreamCreate(&stream2_));
 }
 
 TSDFGrid::~TSDFGrid() {
@@ -347,6 +348,7 @@ TSDFGrid::~TSDFGrid() {
   CUDA_SAFE_CALL(cudaFree(img_tsdf_normal_));
   // release cuda stream
   CUDA_SAFE_CALL(cudaStreamDestroy(stream_));
+  CUDA_SAFE_CALL(cudaStreamDestroy(stream2_));
 }
 
 void TSDFGrid::Integrate(const cv::Mat &img_rgb, const cv::Mat &img_depth,
@@ -367,13 +369,14 @@ void TSDFGrid::Integrate(const cv::Mat &img_rgb, const cv::Mat &img_depth,
   CUDA_SAFE_CALL(cudaMemcpyAsync(img_depth_, img_depth.data,
     sizeof(float)*img_depth.total(), cudaMemcpyHostToDevice, stream_));
   CUDA_SAFE_CALL(cudaMemcpyAsync(img_ht_, img_ht.data,
-    sizeof(float)*img_depth.total(), cudaMemcpyHostToDevice, stream_));
+    sizeof(float)*img_depth.total(), cudaMemcpyHostToDevice, stream2_));
   CUDA_SAFE_CALL(cudaMemcpyAsync(img_lt_, img_lt.data,
-    sizeof(float)*img_depth.total(), cudaMemcpyHostToDevice, stream_));
+    sizeof(float)*img_depth.total(), cudaMemcpyHostToDevice, stream2_));
   // compute
   spdlog::debug("[TSDF] pre integrate: {} active blocks", hash_table_.NumActiveBlock());
   Allocate(img_rgb, img_depth, max_depth, cam_params, cam_P_world);
   const int num_visible_blocks = GatherVisible(max_depth, cam_params, cam_P_world);
+  CUDA_SAFE_CALL(cudaStreamSynchronize(stream2_)); // synchronize ht / lt img copy
   UpdateTSDF(num_visible_blocks, max_depth, cam_params, cam_P_world);
   SpaceCarving(num_visible_blocks);
   CUDA_SAFE_CALL(cudaStreamSynchronize(stream_));

@@ -1,6 +1,6 @@
 # Camera Model
 Camera.name: "ZED Rev 1"
-Camera.setup: "stereo" 
+Camera.setup: "stereo"
 Camera.model: "perspective"
 
 Camera.fps: 60
@@ -36,7 +36,7 @@ Calibration.left.fy: 3.488764359986724e+02
 Calibration.left.cx: 3.406248547355793e+02
 Calibration.left.cy: 1.965738170547168e+02
 Calibration.left.distortion: [-0.167523746742601, 0.017655521050795, -9.201156510274841e-05, 1.732261137383475e-04, 0.005184740535757]
-Calibration.right.fx: 3.479528432208166e+02 
+Calibration.right.fx: 3.479528432208166e+02
 Calibration.right.fy: 3.481548470530499e+02
 Calibration.right.cx: 3.419864978256713e+02
 Calibration.right.cy: 1.814489012207199e+02
