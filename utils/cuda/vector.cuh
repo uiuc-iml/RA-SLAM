@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef __CUDA_ARCH__
+#include <cmath>
+#endif
+
 #include <cuda_runtime.h>
 
 template<typename T>

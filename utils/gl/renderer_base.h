@@ -20,9 +20,10 @@ class RendererBase {
   void Run();
 
  protected:
-  GLFWwindow *window_; 
+  GLFWwindow *window_;
   virtual void Render() = 0;
   virtual void DispatchInput();
+  virtual void RenderExit();
 
  private:
   static void GLFWErrorHandler(int error, const char *desc);

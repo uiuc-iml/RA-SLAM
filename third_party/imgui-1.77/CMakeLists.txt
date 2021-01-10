@@ -7,5 +7,5 @@ target_link_libraries(imgui PUBLIC GLEW::GLEW glfw OpenGL::GL)
 target_compile_definitions(imgui PUBLIC IMGUI_IMPL_OPENGL_LOADER_GLEW)
 
 # Official Examples for glfw3 + glew + OpenGL3
-add_executable(imgui_example_glfw_opengl3 example_glfw_opengl3/main.cpp)
-target_link_libraries(imgui_example_glfw_opengl3 imgui)
+# add_executable(imgui_example_glfw_opengl3 example_glfw_opengl3/main.cpp)
+# target_link_libraries(imgui_example_glfw_opengl3 imgui)

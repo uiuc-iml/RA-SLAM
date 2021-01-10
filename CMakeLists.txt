@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.11)
 
 project(disinfslam LANGUAGES CXX C)
 include(CheckLanguage)
@@ -9,6 +9,7 @@ if (CMAKE_CUDA_COMPILER)
     set(CMAKE_CUDA_STANDARD_REQUIRED ON)
     set(CMAKE_CUDA_FLAGS "-arch=sm_35 -use_fast_math ${CMAKE_CUDA_FLAGS}")
     set(CMAKE_CUDA_FLAGS_DEBUG "-G ${CMAKE_CUDA_FLAGS_DEBUG}")
+    set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 endif ()
 
 set(CMAKE_CXX_STANDARD 17)

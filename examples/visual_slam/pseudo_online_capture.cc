@@ -27,36 +27,45 @@
 #include "utils/data_logger.hpp"
 #include "utils/time.hpp"
 
-class DepthData {
+class SemanticSLAMData {
  public:
-  DepthData() = default;
+  SemanticSLAMData() = default;
 
-  DepthData(const DepthData &others)
-    : img_rgb(others.img_rgb.clone()),
-      img_depth(others.img_depth.clone()),
+  SemanticSLAMData(const SemanticSLAMData &others)
+    : zed_img_left(others.zed_img_left.clone()),
+      zed_img_right(others.zed_img_right.clone()),
+      l515_img_rgb(others.l515_img_rgb.clone()),
+      l515_img_depth(others.l515_img_depth.clone()),
       id(others.id) {}
 
-  cv::Mat img_rgb;
-  cv::Mat img_depth;
+  cv::Mat zed_img_left;
+  cv::Mat zed_img_right;
+  cv::Mat l515_img_rgb;
+  cv::Mat l515_img_depth;
   unsigned int id;
 };
 
-class DepthLogger : public DataLogger<DepthData> {
+class SemanticSLAMLogger : public DataLogger<SemanticSLAMData> {
  public:
-  DepthLogger(const std::string &logdir)
+  SemanticSLAMLogger(const std::string &logdir) 
       : logdir_(logdir),
-        DataLogger<DepthData>() {}
+        DataLogger<SemanticSLAMData>() {}
 
   std::vector<unsigned int> logged_ids;
 
  protected:
-  void save_data(const DepthData &data) override {
+  void save_data(const SemanticSLAMData &data) override {
     const std::string rgb_path = logdir_ + "/" + std::to_string(data.id) + "_rgb.png";
     const std::string depth_path = logdir_ + "/" + std::to_string(data.id) + "_depth.png";
-    cv::Mat img_depth_uint16;
-    data.img_depth.convertTo(img_depth_uint16, CV_16UC1);
-    cv::imwrite(rgb_path, data.img_rgb);
-    cv::imwrite(depth_path, img_depth_uint16);
+    const std::string left_path = logdir_ + "/" + std::to_string(data.id) + "_left.png";
+    const std::string right_path = logdir_ + "/" + std::to_string(data.id) + "_right.png";
+    cv::Mat l515_depth_uint16;
+    data.l515_img_depth.convertTo(l515_depth_uint16, CV_16UC1);
+    // write!
+    cv::imwrite(rgb_path, data.l515_img_rgb);
+    cv::imwrite(depth_path, l515_depth_uint16);
+    cv::imwrite(left_path, data.zed_img_left);
+    cv::imwrite(right_path, data.zed_img_right);
     logged_ids.push_back(data.id);
   }
 
@@ -76,21 +85,21 @@ void tracking(const std::shared_ptr<openvslam::config> &cfg,
   pangolin_viewer::viewer viewer(
       cfg, &SLAM, SLAM.get_frame_publisher(), SLAM.get_map_publisher());
 
-  DepthLogger logger(logdir);
+  SemanticSLAMLogger logger(logdir);
 
   std::thread t([&]() {
-    DepthData data;
-    cv::Mat img_left, img_right;
+    const auto start = std::chrono::steady_clock::now();
+    SemanticSLAMData data;
     while (true) {
       if (SLAM.terminate_is_requested())
         break;
 
-      zed_native.get_stereo_img(&img_left, &img_right);
-      l515.get_rgbd_frame(&data.img_rgb, &data.img_depth);
+      zed_native.get_stereo_img(&data.zed_img_left, &data.zed_img_right);
+      l515.get_rgbd_frame(&data.l515_img_rgb, &data.l515_img_depth);
       const auto timestamp = get_timestamp<std::chrono::microseconds>();
 
       data.id = SLAM.feed_stereo_images(
-          img_left, img_right, timestamp / 1e6);
+          data.zed_img_left, data.zed_img_right, timestamp / 1e6);
 
       logger.log_data(data);
     }
@@ -129,7 +138,7 @@ int main(int argc, char *argv[]) {
   auto debug_mode = op.add<popl::Switch>("", "debug", "debug mode");
   auto map_db_path = op.add<popl::Value<std::string>>("p", "map-db",
                             "path to store the map database", "");
-  auto log_dir = op.add<popl::Value<std::string>>("", "logdir",
+  auto log_dir = op.add<popl::Value<std::string>>("", "logdir", 
                             "directory to store logged data", "./log");
   auto device_id = op.add<popl::Value<int>>("", "devid", "camera device id", 0);
 
@@ -160,6 +169,8 @@ int main(int argc, char *argv[]) {
   else
     spdlog::set_level(spdlog::level::info);
 
+  YAML::Node yaml_node = YAML::LoadFile(config_file_path->value());
+
   std::shared_ptr<openvslam::config> cfg;
   try {
     cfg = get_and_set_config(config_file_path->value());
@@ -171,7 +182,7 @@ int main(int argc, char *argv[]) {
   ZEDNative zed_native(*cfg, device_id->value());
   L515 l515;
 
-  tracking(cfg,
+  tracking(cfg, 
       vocab_file_path->value(), map_db_path->value(), log_dir->value(), l515, zed_native);
 
   return EXIT_SUCCESS;
