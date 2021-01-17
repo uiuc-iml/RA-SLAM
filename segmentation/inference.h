@@ -15,7 +15,7 @@ class inference_engine {
 
         // ret[0]: ht map
         // ret[1]: lt map
-        std::vector<cv::Mat> infer_one(const cv::Mat & rgb_img);
+        std::vector<cv::Mat> infer_one(const cv::Mat & rgb_img, bool ret_uint8_flag);
     
     private:
         torch::jit::script::Module engine;

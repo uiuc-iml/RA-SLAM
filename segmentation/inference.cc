@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-// gpumat to tensor
+// mat to tensor
 torch::Tensor mat_to_tensor(cv::Mat & my_mat) {
     // sizes: (1, C, H, W)
     //normalization
@@ -15,12 +15,24 @@ torch::Tensor mat_to_tensor(cv::Mat & my_mat) {
 }
 
 // (CPU) float32 tensor to float32 mat
-cv::Mat tensor_to_mat(const torch::Tensor & my_tensor) {
+cv::Mat float_tensor_to_float_mat(const torch::Tensor & my_tensor) {
     torch::Tensor temp_tensor;
-    temp_tensor = temp_tensor.to(torch::kCPU);
-    cv::Mat ret(352, 640, CV_32FC1);
+    temp_tensor = my_tensor.to(torch::kCPU);
+    cv::Mat ret(temp_tensor.sizes()[0], temp_tensor.sizes()[1], CV_32FC1);
     //copy the data from out_tensor to resultImg
-    std::memcpy((void *) ret.data, temp_tensor.data_ptr(), sizeof(torch::kFloat32) * temp_tensor.numel());
+    std::memcpy((void *) ret.data, temp_tensor.data_ptr(), sizeof(float) * temp_tensor.numel());
+    cv::resize(ret, ret, cv::Size(640, 360));
+    return ret;
+}
+
+// (CPU) float32 tensor to uint8 mat
+cv::Mat float_tensor_to_uint8_mat(const torch::Tensor & my_tensor) {
+    torch::Tensor temp_tensor;
+    temp_tensor = my_tensor.mul(255).clamp(0, 255).to(torch::kU8);
+    temp_tensor = temp_tensor.to(torch::kCPU);
+    cv::Mat ret(temp_tensor.sizes()[0], temp_tensor.sizes()[1], CV_8UC1);
+    //copy the data from out_tensor to resultImg
+    std::memcpy((void *) ret.data, temp_tensor.data_ptr(), sizeof(uint8_t) * temp_tensor.numel());
     return ret;
 }
 
@@ -31,7 +43,7 @@ inference_engine::inference_engine(const std::string & compiled_engine_path) {
     std::cout << "Model loaded." << std::endl;
 }
 
-std::vector<cv::Mat> inference_engine::infer_one(const cv::Mat & rgb_img) {
+std::vector<cv::Mat> inference_engine::infer_one(const cv::Mat & rgb_img, bool ret_uint8_flag) {
     cv::Mat downsized_rgb_img;
     std::vector<cv::Mat> ret;
     cv::resize(rgb_img, downsized_rgb_img, cv::Size(640, 352));
@@ -43,9 +55,14 @@ std::vector<cv::Mat> inference_engine::infer_one(const cv::Mat & rgb_img) {
     this->input_buffer.push_back(downsized_rgb_img_tensor_cuda);
 
     torch::Tensor ht_lt_prob_map = this->engine.forward(this->input_buffer).toTensor().squeeze().detach();
-    
-    ret.push_back(tensor_to_mat(ht_lt_prob_map[0]));
-    ret.push_back(tensor_to_mat(ht_lt_prob_map[1]));
+
+    if (ret_uint8_flag) {
+        ret.push_back(float_tensor_to_uint8_mat(ht_lt_prob_map[0]));
+        ret.push_back(float_tensor_to_uint8_mat(ht_lt_prob_map[1]));
+    } else {
+        ret.push_back(float_tensor_to_float_mat(ht_lt_prob_map[0]));
+        ret.push_back(float_tensor_to_float_mat(ht_lt_prob_map[1]));
+    }
 
     return ret;
 }
