@@ -4,6 +4,7 @@
 #include <openvslam/config.h>
 
 #include "utils/stereo_rectifier.h"
+#include "utils/time.hpp"
 
 #include <memory>
 
@@ -16,7 +17,7 @@ class ZEDNative {
   ZEDNative(const openvslam::config &cfg, int dev_id = 0);
   ~ZEDNative();
 
-  void get_stereo_img(cv::Mat *left_img, cv::Mat* right_img) const ;
+  int64_t get_stereo_img(cv::Mat *left_img, cv::Mat* right_img) const ;
 
   void get_rectified_intrinsics(double *fx, double *fy, double *cx, double *cy, 
                                 double *focal_x_baseline) const;

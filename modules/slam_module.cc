@@ -100,3 +100,44 @@ unsigned int SLAMSystem::feed_rgbd_images(
   return tracker_->curr_frm_.id_;
 }
 
+pose_valid_tuple SLAMSystem::feed_stereo_images_w_feedback(
+    const cv::Mat& img_left, const cv::Mat& img_right,
+    const double timestamp, const cv::Mat& mask) {
+  assert(camera_->setup_type_ == camera::setup_type_t::Stereo);
+
+  check_reset_request();
+
+  pose_valid_tuple ret;
+  ret.first = tracker_->track_stereo_image(img_left, img_right, timestamp, mask);
+
+  frame_publisher_->update(tracker_);
+  if (tracker_->tracking_state_ == tracker_state_t::Tracking) {
+    map_publisher_->set_current_cam_pose(ret.first);
+    ret.second = true;
+  } else {
+    ret.second = false;
+  }
+
+  return ret;
+}
+
+pose_valid_tuple SLAMSystem::feed_RGBD_images_w_feedback(
+    const cv::Mat& img_rgb, const cv::Mat& img_depth,
+    const double timestamp, const cv::Mat& mask) {
+  assert(camera_->setup_type_ == camera::setup_type_t::RGBD);
+
+  check_reset_request();
+
+  pose_valid_tuple ret;
+  ret.first = tracker_->track_RGBD_image(img_rgb, img_depth, timestamp, mask);
+
+  frame_publisher_->update(tracker_);
+  if (tracker_->tracking_state_ == tracker_state_t::Tracking) {
+    map_publisher_->set_current_cam_pose(ret.first);
+    ret.second = true;
+  } else {
+    ret.second = false;
+  }
+
+  return ret;
+}

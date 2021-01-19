@@ -1,4 +1,6 @@
 add_subdirectory(simple_renderer)
 add_subdirectory(tsdf)
 add_subdirectory(visual_slam)
-add_subdirectory(segmentation_inference)
+if (TORCH_FOUND)
+    add_subdirectory(segmentation_inference)
+endif ()

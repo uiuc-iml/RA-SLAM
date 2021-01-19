@@ -64,4 +64,16 @@ class SE3 : public Matrix4<T> {
       this->m20 * vec3.x + this->m21 * vec3.y + this->m22 * vec3.z + this->m23
     );
   }
+
+  __device__ __host__ SE3<T> operator*(const SE3<T> others) const {
+    const SO3<T> R1 = GetR();
+    const SO3<T> R2 = others.GetR();
+    const Vector3<T> T1 = GetT();
+    const Vector3<T> T2 = others.GetT();
+    return SE3<T>(R1 * R2, R1 * T2 + T1);
+  }
+
+  __device__ __host__ Vector4<T> operator*(const Vector4<T> &others) const {
+    return Vector4<T>(Apply(Vector3<T>(others)));
+  }
 };

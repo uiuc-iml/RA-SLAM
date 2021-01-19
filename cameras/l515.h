@@ -12,7 +12,7 @@ class L515 {
 
   rs2_intrinsics get_camera_intrinsics() const;
 
-  void get_rgbd_frame(cv::Mat *color_img, cv::Mat *depth_img) const; 
+  int64_t get_rgbd_frame(cv::Mat *color_img, cv::Mat *depth_img) const; 
 
   void set_depth_sensor_option(const rs2_option option, const float value);
 

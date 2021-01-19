@@ -57,3 +57,12 @@ To run with ZED SDK (CUDA and ZED SDK is required)
 ## Running Reconstruction
 
 This section is still WIP
+
+## TODO
+
+- Update installation.md
+- Add a sciprt folder for easier user access
+- Update segmentation inference example to take in custom images
+- Add rotation arthimetics (e.g. rotation matrices interpolation)
+- Use pre-processer to allow online.cc to compile without libtorch
+- TensorRT for saving GPU memory

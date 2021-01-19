@@ -46,7 +46,6 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=native -march=native")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mtune=native -march=native")
 
 include_directories(${CMAKE_SOURCE_DIR})
-
 # Interface wrapper lib for OpenVSLAM
 add_library(openvslam INTERFACE)
 target_link_libraries(openvslam

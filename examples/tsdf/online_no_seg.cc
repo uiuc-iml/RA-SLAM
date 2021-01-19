@@ -12,7 +12,6 @@
 #include "cameras/zed_native.h"
 #include "modules/slam_module.h"
 #include "modules/tsdf_module.h"
-#include "segmentation/inference.h"
 #include "utils/time.hpp"
 #include "utils/gl/renderer_base.h"
 #include "utils/cuda/errors.cuh"
@@ -165,7 +164,6 @@ class ImageRenderer : public RendererBase {
 
 void reconstruct(const ZEDNative &zed_native, const L515 &l515,
                  const std::shared_ptr<SLAMSystem> &SLAM,
-                 const std::shared_ptr<inference_engine> &segmentation_engine,
                  const std::string &config_file_path) {
   // initialize TSDF
   auto TSDF = std::make_shared<TSDFSystem>(0.01, 0.06, 4,
@@ -207,10 +205,7 @@ void reconstruct(const ZEDNative &zed_native, const L515 &l515,
       cv::resize(img_rgb, img_rgb, cv::Size(), .5, .5);
       cv::resize(img_depth, img_depth, cv::Size(), .5, .5);
       img_depth.convertTo(img_depth, CV_32FC1, 1. / l515.get_depth_scale());
-      std::vector<cv::Mat> prob_map = segmentation_engine->infer_one(img_rgb, false);
-      TSDF->Integrate(posecam_P_world, img_rgb, img_depth, prob_map[0], prob_map[1]);
-      spdlog::debug("[Main] Frame integration takes {} ms",
-        get_timestamp<std::chrono::milliseconds>() - timestamp);
+      TSDF->Integrate(posecam_P_world, img_rgb, img_depth);
     }
   });
 
@@ -226,8 +221,6 @@ int main(int argc, char *argv[]) {
   auto vocab_file_path = op.add<popl::Value<std::string>>("v", "vocab", "vocabulary file path");
   auto config_file_path = op.add<popl::Value<std::string>>("c", "config",
                                                            "config file path");
-  auto seg_model_path = op.add<popl::Value<std::string>>("m", "model",
-                                                            "PyTorch JIT traced model path");
   auto debug_mode = op.add<popl::Switch>("", "debug", "debug mode");
   auto device_id = op.add<popl::Value<int>>("", "devid", "camera device id", 0);
 
@@ -245,7 +238,7 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  if (!vocab_file_path->is_set() || !config_file_path->is_set() ||!seg_model_path->is_set()) {
+  if (!vocab_file_path->is_set() || !config_file_path->is_set()) {
     std::cerr << "Invalid Arguments" << std::endl;
     std::cerr << std::endl;
     std::cerr << op << std::endl;
@@ -270,8 +263,7 @@ int main(int argc, char *argv[]) {
   L515 l515;
   // initialize slam
   auto SLAM = std::make_shared<SLAMSystem>(cfg, vocab_file_path->value());
-  auto my_engine = std::make_shared<inference_engine>(seg_model_path->value());
-  reconstruct(zed_native, l515, SLAM, my_engine, config_file_path->value());
+  reconstruct(zed_native, l515, SLAM, config_file_path->value());
 
   return EXIT_SUCCESS;
 }
