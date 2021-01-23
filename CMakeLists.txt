@@ -57,6 +57,7 @@ add_subdirectory(cameras)
 add_subdirectory(modules)
 if (TORCH_FOUND)
     add_subdirectory(segmentation)
+    add_subdirectory(disinfect_slam)
 endif ()
 add_subdirectory(examples)
 

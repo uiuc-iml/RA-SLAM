@@ -3,7 +3,6 @@
 #include <thread>
 
 #include <openvslam/system.h>
-#include <openvslam/publish/map_publisher.h>
 #include <popl.hpp>
 #include <spdlog/spdlog.h>
 #include <yaml-cpp/yaml.h>
@@ -12,64 +11,35 @@
 #include "cameras/zed_native.h"
 #include "modules/slam_module.h"
 #include "modules/tsdf_module.h"
+#include "segmentation/inference.h"
 #include "utils/time.hpp"
-#include "utils/gl/renderer_base.h"
 #include "utils/cuda/errors.cuh"
 #include "utils/rotation_math/pose_manager.h"
 #include "utils/config_reader.hpp"
-#include "modules/renderer_module.h"
+#include "disinfect_slam/disinfect_slam.h"
 
-void reconstruct(const ZEDNative &zed_native, const L515 &l515,
-                 const std::shared_ptr<SLAMSystem> &SLAM,
-                 const std::string &config_file_path) {
+void run(const ZEDNative &zed_native, const L515 &l515, std::shared_ptr<DISINFSystem> my_sys) {
   // initialize TSDF
-  auto TSDF = std::make_shared<TSDFSystem>(0.01, 0.06, 4,
-      get_intrinsics_from_file(config_file_path), get_extrinsics_from_file(config_file_path));
-  SLAM->startup();
-
-  ImageRenderer renderer("tsdf", SLAM, TSDF, config_file_path);
-
-  auto POSE_MANAGER = std::make_shared<pose_manager>();
 
   std::thread t_slam([&]() {
-    cv::Mat img_left, img_right;
     while (true) {
-      if (SLAM->terminate_is_requested())
-        break;
-      // get sensor readings
+      cv::Mat img_left, img_right;
       const int64_t timestamp = zed_native.get_stereo_img(&img_left, &img_right);
-      // visual slam
-      const pose_valid_tuple m = SLAM->feed_stereo_images_w_feedback(img_left, img_right, timestamp / 1e3);
-      const SE3<float> posecam_P_world(
-        m.first(0, 0), m.first(0, 1), m.first(0, 2), m.first(0, 3),
-        m.first(1, 0), m.first(1, 1), m.first(1, 2), m.first(1, 3),
-        m.first(2, 0), m.first(2, 1), m.first(2, 2), m.first(2, 3),
-        m.first(3, 0), m.first(3, 1), m.first(3, 2), m.first(3, 3)
-      );
-      if (m.second)
-        POSE_MANAGER->register_valid_pose(timestamp, posecam_P_world);
+      my_sys->feed_stereo_frame(img_left, img_right, timestamp);
     }
   });
 
   std::thread t_tsdf([&]() {
-    const auto map_publisher = SLAM->get_map_publisher();
     while (true) {
       cv::Mat img_rgb, img_depth;
-      if (SLAM->terminate_is_requested())
-        break;
       const int64_t timestamp = l515.get_rgbd_frame(&img_rgb, &img_depth);
-      const SE3<float> posecam_P_world = POSE_MANAGER->query_pose(timestamp);
-      cv::resize(img_rgb, img_rgb, cv::Size(), .5, .5);
-      cv::resize(img_depth, img_depth, cv::Size(), .5, .5);
-      img_depth.convertTo(img_depth, CV_32FC1, 1. / l515.get_depth_scale());
-      TSDF->Integrate(posecam_P_world, img_rgb, img_depth);
+      my_sys->feed_rgbd_frame(img_rgb, img_depth, timestamp);
     }
   });
 
-  renderer.Run();
+  my_sys->run();
   t_slam.join();
   t_tsdf.join();
-  SLAM->shutdown();
 }
 
 int main(int argc, char *argv[]) {
@@ -78,6 +48,8 @@ int main(int argc, char *argv[]) {
   auto vocab_file_path = op.add<popl::Value<std::string>>("v", "vocab", "vocabulary file path");
   auto config_file_path = op.add<popl::Value<std::string>>("c", "config",
                                                            "config file path");
+  auto seg_model_path = op.add<popl::Value<std::string>>("m", "model",
+                                                            "PyTorch JIT traced model path");
   auto debug_mode = op.add<popl::Switch>("", "debug", "debug mode");
   auto device_id = op.add<popl::Value<int>>("", "devid", "camera device id", 0);
 
@@ -95,7 +67,7 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  if (!vocab_file_path->is_set() || !config_file_path->is_set()) {
+  if (!vocab_file_path->is_set() || !config_file_path->is_set() ||!seg_model_path->is_set()) {
     std::cerr << "Invalid Arguments" << std::endl;
     std::cerr << std::endl;
     std::cerr << op << std::endl;
@@ -119,8 +91,14 @@ int main(int argc, char *argv[]) {
   ZEDNative zed_native(*cfg, device_id->value());
   L515 l515;
   // initialize slam
-  auto SLAM = std::make_shared<SLAMSystem>(cfg, vocab_file_path->value());
-  reconstruct(zed_native, l515, SLAM, config_file_path->value());
+  std::shared_ptr<DISINFSystem> my_system = std::make_shared<DISINFSystem>(
+      config_file_path->value(),
+      vocab_file_path->value(),
+      seg_model_path->value(),
+      true
+  );
+
+  run(zed_native, l515, my_system);
 
   return EXIT_SUCCESS;
 }
