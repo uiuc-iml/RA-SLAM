@@ -17,7 +17,7 @@
 #define NUM_ENTRY_PER_BUCKET      (1 << NUM_ENTRY_PER_BUCKET_BITS)
 #define ENTRY_PER_BUCKET_MASK     (NUM_ENTRY_PER_BUCKET - 1)
 
-#define NUM_ENTRY_BITS            (NUM_BUCKET_BITS + NUM_ENTRY_PER_BUCKET_BITS) 
+#define NUM_ENTRY_BITS            (NUM_BUCKET_BITS + NUM_ENTRY_PER_BUCKET_BITS)
 #define NUM_ENTRY                 (1 << NUM_ENTRY_BITS)
 #define ENTRY_MASK                (NUM_ENTRY - 1)
 
@@ -66,7 +66,7 @@ class VoxelHashTable {
     #pragma unroll
     for(int i = 0; i < NUM_ENTRY_PER_BUCKET; ++i) {
       VoxelBlock &block = hash_table_[entry_idx + i];
-      if (block.position == block_pos && block.idx >= 0) { 
+      if (block.position == block_pos && block.idx >= 0) {
         cache = block;
         return &(mem.GetVoxel<Voxel>(point, cache));
       }
@@ -76,7 +76,7 @@ class VoxelHashTable {
     while (hash_table_[entry_idx_last].offset) {
       entry_idx_last = (entry_idx_last + hash_table_[entry_idx_last].offset) & ENTRY_MASK;
       const VoxelBlock &block = hash_table_[entry_idx_last];
-      if (block.position == block_pos && block.idx >= 0) { 
+      if (block.position == block_pos && block.idx >= 0) {
         cache = block;
         return &(mem.GetVoxel<Voxel>(point, cache));
       }
@@ -90,14 +90,14 @@ class VoxelHashTable {
 
   __device__ const VoxelBlock& GetBlock(const int idx) const;
 
-  __device__ __host__ int NumActiveBlock() const;
+  __host__ int NumActiveBlock() const;
 
  public:
   VoxelMemPool mem;
 
  private:
   template <typename Voxel>
-  __device__ Voxel* RetrieveMutable(const Vector3<short> &point, 
+  __device__ Voxel* RetrieveMutable(const Vector3<short> &point,
                                     Voxel *voxels, VoxelBlock &cache) const {
   }
 

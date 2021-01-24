@@ -19,7 +19,7 @@ __global__ static void init_hash_table(VoxelBlock *voxel_blocks) {
 __device__ __host__ uint hash(const Vector3<short> &block_pos) {
   return (((uint)block_pos.x * 73856093u) ^
           ((uint)block_pos.y * 19349669u) ^
-          ((uint)block_pos.z * 83492791u)) & BUCKET_MASK; 
+          ((uint)block_pos.z * 83492791u)) & BUCKET_MASK;
 }
 
 VoxelHashTable::VoxelHashTable() {
@@ -29,6 +29,7 @@ VoxelHashTable::VoxelHashTable() {
   // initialize bucket locks
   CUDA_SAFE_CALL(cudaMalloc(&bucket_locks_, sizeof(BucketLock) * NUM_BUCKET));
   CUDA_SAFE_CALL(cudaMemset(bucket_locks_, FREE, sizeof(BucketLock) * NUM_BUCKET));
+  CUDA_SAFE_CALL(cudaDeviceSynchronize());
 }
 
 void VoxelHashTable::ResetLocks(cudaStream_t stream) {
@@ -83,7 +84,7 @@ __device__ void VoxelHashTable::Allocate(const Vector3<short> &block_pos) {
     entry_idx_next = (entry_idx_next + 1) & ENTRY_MASK;
     // not last position of the bucket && hash entry empty
     if ((entry_idx_next & ENTRY_PER_BUCKET_MASK) != ENTRY_PER_BUCKET_MASK &&
-        hash_table_[entry_idx_next].idx < 0) { 
+        hash_table_[entry_idx_next].idx < 0) {
       const unsigned int bucket_idx_next = entry_idx_next >> NUM_ENTRY_PER_BUCKET_BITS;
       if (atomicExch(&bucket_locks_[bucket_idx_last], LOCKED) == FREE && // lock last bucket
           atomicExch(&bucket_locks_[bucket_idx_next], LOCKED) == FREE) { // lock next bucket
@@ -109,11 +110,11 @@ __device__ void VoxelHashTable::Delete(const Vector3<short> &block_pos) {
   #pragma unroll
   for(int i = 0; i < NUM_ENTRY_PER_BUCKET - 1; ++i) {
     VoxelBlock &block = hash_table_[entry_idx + i];
-    if (block.position == block_pos && block.idx >= 0) { 
+    if (block.position == block_pos && block.idx >= 0) {
       mem.ReleaseBlock(block.idx);
       block.offset = 0;
       block.idx = -1;
-      return; 
+      return;
     }
   }
   // special handling for list head
@@ -153,7 +154,7 @@ __device__ void VoxelHashTable::Delete(const Vector3<short> &block_pos) {
   }
 }
 
-__device__ float VoxelHashTable::RetrieveTSDF(const Vector3<float> &point, 
+__device__ float VoxelHashTable::RetrieveTSDF(const Vector3<float> &point,
                                               VoxelBlock &cache) const {
   const Vector3<float> pl = point.cast<short>().cast<float>();
   const Vector3<float> ph = pl + 1;
@@ -183,6 +184,6 @@ __device__ const VoxelBlock& VoxelHashTable::GetBlock(const int idx) const {
   return hash_table_[idx];
 }
 
-__device__ __host__ int VoxelHashTable::NumActiveBlock() const {
+__host__ int VoxelHashTable::NumActiveBlock() const {
   return NUM_BLOCK - mem.NumFreeBlocks();
 }

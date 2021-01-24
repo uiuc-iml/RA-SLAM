@@ -24,8 +24,9 @@ __device__ __host__ unsigned int offset2index(const Vector3<short> &point_offset
 
 VoxelMemPool::VoxelMemPool() {
   // initialize free block counter
-  CUDA_SAFE_CALL(cudaMallocManaged(&num_free_blocks_, sizeof(int)));
-  *num_free_blocks_ = NUM_BLOCK;
+  CUDA_SAFE_CALL(cudaMalloc(&num_free_blocks_, sizeof(int)));
+  const int tmp = NUM_BLOCK;
+  CUDA_SAFE_CALL(cudaMemcpy(num_free_blocks_, &tmp, sizeof(int), cudaMemcpyHostToDevice));
   // intialize voxel data buffer
   CUDA_SAFE_CALL(cudaMalloc(&voxels_rgbw_, sizeof(VoxelRGBW) * NUM_BLOCK * BLOCK_VOLUME));
   CUDA_SAFE_CALL(cudaMalloc(&voxels_tsdf_, sizeof(VoxelTSDF) * NUM_BLOCK * BLOCK_VOLUME));
@@ -71,7 +72,9 @@ __device__ void VoxelMemPool::ReleaseBlock(const int block_idx) {
   heap_[idx] = block_idx;
 }
 
-__device__ __host__ int VoxelMemPool::NumFreeBlocks() const {
-  return *num_free_blocks_;
+__host__ int VoxelMemPool::NumFreeBlocks() const {
+  int tmp;
+  CUDA_SAFE_CALL(cudaMemcpy(&tmp, num_free_blocks_, sizeof(int), cudaMemcpyDeviceToHost));
+  return tmp;
 }
 

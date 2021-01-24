@@ -63,7 +63,7 @@ class VoxelMemPool {
     return voxels[(block.idx << BLOCK_VOLUME_BITS) + idx];
   }
 
-  __device__ __host__ int NumFreeBlocks() const;
+  __host__ int NumFreeBlocks() const;
 
  private:
   template <typename Voxel>

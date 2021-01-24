@@ -32,8 +32,8 @@ void reconstruct(const ZEDNative &zed_native, const L515 &l515,
   auto POSE_MANAGER = std::make_shared<pose_manager>();
 
   std::thread t_slam([&]() {
-    cv::Mat img_left, img_right;
     while (true) {
+      cv::Mat img_left, img_right;
       if (SLAM->terminate_is_requested())
         break;
       // get sensor readings

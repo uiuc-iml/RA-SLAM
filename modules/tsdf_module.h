@@ -49,8 +49,6 @@ class TSDFSystem {
   const CameraIntrinsics<float> intrinsics_;
   // extrinsics w.r.t. pose camera
   const SE3<float> cam_P_posecam_;
-  // main integration thread
-  std::thread t_;
   // input queue lock
   std::mutex mtx_queue_;
   std::queue<std::unique_ptr<TSDFSystemInput>> inputs_;
@@ -59,4 +57,6 @@ class TSDFSystem {
   // termination lock
   std::mutex mtx_terminate_;
   bool terminate_ = false;
+  // main integration thread
+  std::thread t_;
 };
