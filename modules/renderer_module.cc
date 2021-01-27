@@ -84,6 +84,28 @@ void ImageRenderer::Render() {
         virtual_cam_P_world_ = SE3<float>(cam_P_world_.GetR(),
                                         cam_P_world_.GetT() + Vector3<float>(0, 0, step));
     }
+    // bounding cube query
+    static unsigned int last_query_time = 0;
+    static size_t last_query_amount = 0;
+    static float x_range[2] = {-1., 1.};
+    static float y_range[2] = {-1., 1.};
+    static float z_range[2] = {-1., 1.};
+    ImGui::DragFloat2("x range", x_range);
+    ImGui::DragFloat2("y range", y_range);
+    ImGui::DragFloat2("z range", z_range);
+    if (ImGui::Button("Save TSDF")) {
+      const BoundingCube<float> volumn = {
+        x_range[0], x_range[1], y_range[0], y_range[1], z_range[0], z_range[1]};
+      const auto st = get_timestamp<std::chrono::milliseconds>();
+      const auto voxel_pos_tsdf = tsdf_->Query(volumn);
+      const auto end = get_timestamp<std::chrono::milliseconds>();
+      last_query_time = end - st;
+      last_query_amount = voxel_pos_tsdf.size();
+      std::ofstream fout("/tmp/data.bin", std::ios::out | std::ios::binary);
+      fout.write((char*)voxel_pos_tsdf.data(), voxel_pos_tsdf.size() * sizeof(VoxelSpatialTSDF));
+      fout.close();
+    }
+    ImGui::Text("Last queried %lu voxels, took %u ms", last_query_amount, last_query_time);
     // render
     const auto st = get_timestamp<std::chrono::milliseconds>();
     tsdf_->Render(virtual_cam_, virtual_cam_P_world_, &tsdf_normal_);

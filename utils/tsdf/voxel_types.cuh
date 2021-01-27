@@ -28,3 +28,12 @@ class VoxelSEGM {
   __device__ __host__ VoxelSEGM(float probability);
 };
 
+class VoxelSpatialTSDF {
+ public:
+  Vector3<float> position;
+  float tsdf;
+ public:
+  __device__ __host__ VoxelSpatialTSDF();
+  __device__ __host__ VoxelSpatialTSDF(const Vector3<float> &position);
+  __device__ __host__ VoxelSpatialTSDF(const Vector3<float> &position, float tsdf);
+};

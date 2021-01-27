@@ -9,12 +9,7 @@
 
 #include "cameras/l515.h"
 #include "cameras/zed_native.h"
-#include "modules/slam_module.h"
-#include "modules/tsdf_module.h"
-#include "segmentation/inference.h"
 #include "utils/time.hpp"
-#include "utils/cuda/errors.cuh"
-#include "utils/rotation_math/pose_manager.h"
 #include "utils/config_reader.hpp"
 #include "disinfect_slam/disinfect_slam.h"
 

@@ -9,3 +9,9 @@ __device__ __host__ VoxelTSDF::VoxelTSDF(float tsdf) : tsdf(tsdf) {}
 
 __device__ __host__ VoxelSEGM::VoxelSEGM() : probability(0.) {}
 __device__ __host__ VoxelSEGM::VoxelSEGM(float probability) : probability(probability) {}
+
+__device__ __host__ VoxelSpatialTSDF::VoxelSpatialTSDF() {} ;
+__device__ __host__ VoxelSpatialTSDF::VoxelSpatialTSDF(const Vector3<float> &position)
+  : VoxelSpatialTSDF(position, 1.) {}
+__device__ __host__ VoxelSpatialTSDF::VoxelSpatialTSDF(const Vector3<float> &position, float tsdf)
+  : position(position), tsdf(tsdf) {}

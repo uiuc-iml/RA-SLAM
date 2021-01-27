@@ -35,6 +35,8 @@ class TSDFSystem {
                  const cv::Mat &img_rgb, const cv::Mat &img_depth,
                  const cv::Mat &img_ht = {}, const cv::Mat &img_lt = {});
 
+  std::vector<VoxelSpatialTSDF> Query(const BoundingCube<float> &volumn);
+
   void Render(const CameraParams &virtual_cam,
               const SE3<float> cam_P_world,
               GLImage8UC4 *img_normal);

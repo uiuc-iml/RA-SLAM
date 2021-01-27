@@ -36,6 +36,11 @@ void TSDFSystem::Integrate(const SE3<float> &posecam_P_world,
   }
 }
 
+std::vector<VoxelSpatialTSDF> TSDFSystem::Query(const BoundingCube<float> &volumn) {
+  std::lock_guard<std::mutex> lock(mtx_read_);
+  return tsdf_.GatherVoxels(volumn);
+}
+
 void TSDFSystem::Render(const CameraParams &virtual_cam,
                         const SE3<float> cam_P_world,
                         GLImage8UC4 *img_normal) {

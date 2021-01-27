@@ -15,8 +15,6 @@
 #include <spdlog/spdlog.h>
 #include <yaml-cpp/yaml.h>
 
-#include "cameras/l515.h"
-#include "cameras/zed_native.h"
 #include "modules/slam_module.h"
 #include "modules/tsdf_module.h"
 #include "segmentation/inference.h"
@@ -41,6 +39,10 @@ class DISINFSystem {
     void feed_rgbd_frame(const cv::Mat & img_rgb, const cv::Mat & img_depth, int64_t timestamp);
 
     void feed_stereo_frame(const cv::Mat & img_left, const cv::Mat & img_right, int64_t timestamp);
+
+    std::vector<VoxelSpatialTSDF> query_tsdf(const BoundingCube<float> &volumn);
+
+    SE3<float> query_camera_pose(const int64_t timestamp);
 
     void run();
 

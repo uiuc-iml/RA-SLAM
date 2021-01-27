@@ -60,6 +60,7 @@ This section is still WIP
 
 ## TODO
 
+- Add logic to not update TSDF when tracking is lost
 - Update installation.md
 - Add a sciprt folder for easier user access
 - Update segmentation inference example to take in custom images

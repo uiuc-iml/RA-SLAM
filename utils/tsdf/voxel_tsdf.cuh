@@ -8,6 +8,25 @@
 #include "utils/gl/image.h"
 #include "utils/tsdf/voxel_hash.cuh"
 
+template <typename T>
+struct BoundingCube {
+  T xmin;
+  T xmax;
+  T ymin;
+  T ymax;
+  T zmin;
+  T zmax;
+
+  template <typename Tout = T>
+  BoundingCube<Tout> Scale(T scale) const {
+    return BoundingCube<Tout>({
+      static_cast<Tout>(xmin * scale), static_cast<Tout>(xmax * scale),
+      static_cast<Tout>(ymin * scale), static_cast<Tout>(ymax * scale),
+      static_cast<Tout>(zmin * scale), static_cast<Tout>(zmax * scale)});
+  }
+};
+
+
 class TSDFGrid {
  public:
   TSDFGrid(float voxel_size, float truncation);
@@ -24,7 +43,9 @@ class TSDFGrid {
                const SE3<float> &cam_P_world,
                GLImage8UC4 *tsdf_rgba = NULL, GLImage8UC4 *tsdf_normal = NULL);
 
-  std::vector<Vector4<float>> GatherValid();
+  std::vector<VoxelSpatialTSDF> GatherValid();
+
+  std::vector<VoxelSpatialTSDF> GatherVoxels(const BoundingCube<float> &volumn);
 
  protected:
   void Allocate(const cv::Mat &img_rgb, const cv::Mat &img_depth, float max_depth,

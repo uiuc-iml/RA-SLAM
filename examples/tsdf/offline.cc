@@ -198,7 +198,7 @@ class ImageRenderer : public RendererBase {
       const auto voxel_pos_tsdf = tsdf_.GatherValid();
       spdlog::debug("{}", voxel_pos_tsdf.size());
       std::ofstream fout("/tmp/data.bin", std::ios::out | std::ios::binary);
-      fout.write((char*)voxel_pos_tsdf.data(), voxel_pos_tsdf.size() * sizeof(Vector4<float>));
+      fout.write((char*)voxel_pos_tsdf.data(), voxel_pos_tsdf.size() * sizeof(VoxelSpatialTSDF));
       fout.close();
     }
     // render

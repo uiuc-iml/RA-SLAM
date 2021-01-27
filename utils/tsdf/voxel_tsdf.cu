@@ -8,17 +8,32 @@
 #define MAX_IMG_W     1080
 #define MAX_IMG_SIZE  (MAX_IMG_H * MAX_IMG_W)
 
+__global__ static void check_bound_kernel(const VoxelHashTable hash_table,
+                                          const BoundingCube<short> volumn_grid,
+                                          int *visible_mask) {
+  const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  const VoxelBlock &block = hash_table.GetBlock(idx);
+  visible_mask[idx] = (block.idx >= 0 &&
+      block.position.x >= volumn_grid.xmin &&
+      block.position.y >= volumn_grid.ymin &&
+      block.position.z >= volumn_grid.zmin &&
+      block.position.x + BLOCK_LEN - 1 <= volumn_grid.xmax &&
+      block.position.y + BLOCK_LEN - 1 <= volumn_grid.ymax &&
+      block.position.z + BLOCK_LEN - 1 <= volumn_grid.zmax);
+}
+
 __global__ static void check_valid_kernel(const VoxelHashTable hash_table,
                                           int *visible_mask) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   const VoxelBlock &block = hash_table.GetBlock(idx);
+  const Vector3<short> pos_grid = block.position << BLOCK_LEN_BITS;
   visible_mask[idx] = (int)(block.idx >= 0);
 }
 
 __global__ static void download_tsdf_kernel(const VoxelHashTable hash_table,
                                             const VoxelBlock *blocks,
                                             const float voxel_size,
-                                            Vector4<float> *voxel_pos_tsdf) {
+                                            VoxelSpatialTSDF *voxel_pos_tsdf) {
   const VoxelBlock &block = blocks[blockIdx.x];
   const Vector3<short> offset_grid(threadIdx.x, threadIdx.y, threadIdx.z);
   const Vector3<short> pos_grid = (block.position << BLOCK_LEN_BITS) + offset_grid;
@@ -27,7 +42,7 @@ __global__ static void download_tsdf_kernel(const VoxelHashTable hash_table,
 
   const int idx = blockIdx.x * BLOCK_VOLUME + thread_idx;
   const VoxelTSDF &tsdf = hash_table.mem.GetVoxel<VoxelTSDF>(thread_idx, block);
-  voxel_pos_tsdf[idx] = { pos_world.x, pos_world.y, pos_world.z, tsdf.tsdf };
+  voxel_pos_tsdf[idx] = VoxelSpatialTSDF(pos_world, tsdf.tsdf);
 }
 
 __device__ static bool is_voxel_visible(const Vector3<short> &pos_grid,
@@ -406,7 +421,7 @@ int TSDFGrid::GatherVisible(float max_depth,
   return GatherBlock();
 }
 
-std::vector<Vector4<float>> TSDFGrid::GatherValid() {
+std::vector<VoxelSpatialTSDF> TSDFGrid::GatherValid() {
   spdlog::debug("[TSDF] {} active blocks before download", hash_table_.NumActiveBlock());
 
   constexpr int GATHER_BLOCK_DIM = NUM_ENTRY / BLOCK_VOLUME;
@@ -416,11 +431,11 @@ std::vector<Vector4<float>> TSDFGrid::GatherValid() {
   CUDA_STREAM_CHECK_ERROR(stream_);
 
   const int num_visible_blocks = GatherBlock();
-  std::vector<Vector4<float>> ret(num_visible_blocks * BLOCK_VOLUME);
+  std::vector<VoxelSpatialTSDF> ret(num_visible_blocks * BLOCK_VOLUME);
 
-  Vector4<float> *voxel_pos_tsdf;
+  VoxelSpatialTSDF *voxel_pos_tsdf;
   CUDA_SAFE_CALL(cudaMalloc(&voxel_pos_tsdf,
-    sizeof(Vector4<float>) * num_visible_blocks * BLOCK_VOLUME));
+    sizeof(VoxelSpatialTSDF) * num_visible_blocks * BLOCK_VOLUME));
 
   constexpr dim3 DOWNLOAD_THREAD_DIM(BLOCK_LEN, BLOCK_LEN, BLOCK_LEN);
   download_tsdf_kernel<<<num_visible_blocks, DOWNLOAD_THREAD_DIM, 0, stream_>>>(
@@ -428,7 +443,37 @@ std::vector<Vector4<float>> TSDFGrid::GatherValid() {
   CUDA_STREAM_CHECK_ERROR(stream_);
 
   CUDA_SAFE_CALL(cudaMemcpyAsync(ret.data(), voxel_pos_tsdf,
-    sizeof(Vector4<float>) * num_visible_blocks * BLOCK_VOLUME, cudaMemcpyDeviceToHost, stream_));
+    sizeof(VoxelSpatialTSDF) * num_visible_blocks * BLOCK_VOLUME,
+    cudaMemcpyDeviceToHost, stream_));
+  CUDA_SAFE_CALL(cudaFree(voxel_pos_tsdf));
+
+  return ret;
+}
+
+std::vector<VoxelSpatialTSDF> TSDFGrid::GatherVoxels(const BoundingCube<float> &volumn) {
+  // convert bounds to grid coordinates
+  const BoundingCube<short> volumn_grid = volumn.Scale<short>(1. / voxel_size_);
+
+  constexpr int GATHER_BLOCK_DIM = NUM_ENTRY / BLOCK_VOLUME;
+  check_bound_kernel<<<GATHER_BLOCK_DIM, BLOCK_VOLUME, 0, stream_>>>(
+    hash_table_, volumn_grid, visible_mask_);
+  CUDA_STREAM_CHECK_ERROR(stream_);
+
+  const int num_visible_blocks = GatherBlock();
+  std::vector<VoxelSpatialTSDF> ret(num_visible_blocks * BLOCK_VOLUME);
+
+  VoxelSpatialTSDF *voxel_pos_tsdf;
+  CUDA_SAFE_CALL(cudaMalloc(&voxel_pos_tsdf,
+    sizeof(VoxelSpatialTSDF) * num_visible_blocks * BLOCK_VOLUME));
+
+  constexpr dim3 DOWNLOAD_THREAD_DIM(BLOCK_LEN, BLOCK_LEN, BLOCK_LEN);
+  download_tsdf_kernel<<<num_visible_blocks, DOWNLOAD_THREAD_DIM, 0, stream_>>>(
+    hash_table_, visible_blocks_, voxel_size_, voxel_pos_tsdf);
+  CUDA_STREAM_CHECK_ERROR(stream_);
+
+  CUDA_SAFE_CALL(cudaMemcpyAsync(ret.data(), voxel_pos_tsdf,
+    sizeof(VoxelSpatialTSDF) * num_visible_blocks * BLOCK_VOLUME,
+    cudaMemcpyDeviceToHost, stream_));
   CUDA_SAFE_CALL(cudaFree(voxel_pos_tsdf));
 
   return ret;
