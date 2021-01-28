@@ -8,7 +8,7 @@ static const auto start = std::chrono::steady_clock::now();
 // get timestamp from steady clock
 // this is preferred
 template <typename UNIT>
-inline int64_t get_timestamp() {
+inline int64_t GetTimestamp() {
   const auto now = std::chrono::steady_clock::now();
   return std::chrono::duration_cast<UNIT>(now - start).count();
 }
@@ -16,7 +16,7 @@ inline int64_t get_timestamp() {
 // get timestamp from unsteady system clock
 // have to have this function because librealsense is using system clock...
 template <typename UNIT>
-inline int64_t get_system_timestamp() {
+inline int64_t GetSystemTimestamp() {
   const auto tp = std::chrono::system_clock::now().time_since_epoch();
   return std::chrono::duration_cast<UNIT>(tp).count();
 }
@@ -24,7 +24,7 @@ inline int64_t get_system_timestamp() {
 template <typename UNIT>
 class LocalClock {
  public:
-  LocalClock(int64_t local_tick_now) : offset_(get_timestamp<UNIT>() - local_tick_now) {}
+  LocalClock(int64_t local_tick_now) : offset_(GetTimestamp<UNIT>() - local_tick_now) {}
 
   int64_t convert_timestamp(int64_t local_tick) const {
     return local_tick + offset_;

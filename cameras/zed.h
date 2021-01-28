@@ -3,19 +3,32 @@
 #include <opencv2/opencv.hpp>
 #include <sl/Camera.hpp>
 
+/**
+ * @brief ZED camera interface using ZED SDK
+ */
 class ZED {
  public:
   ZED();
-
   ~ZED();
 
-  sl::CameraConfiguration get_camera_config() const;
+  /**
+   * @return camera config including image specs and calibration parameters
+   */
+  sl::CameraConfiguration GetConfig() const;
 
-  void get_stereo_img(cv::Mat *left_img, cv::Mat *right_img, 
-                      cv::Mat *rgb_img, cv::Mat *depth_img);
+  /**
+   * @brief read both stereo and RGBD frames
+   *
+   * @param left_img    left image of stereo frame
+   * @param right_img   right image of stereo frame
+   * @param rgb_img     rgb image of RGBD frame
+   * @param depth_img   depth image of RGBD frame
+   */
+  void GetStereoAndRGBDFrame(cv::Mat *left_img, cv::Mat *right_img,
+                             cv::Mat *rgb_img, cv::Mat *depth_img);
 
  private:
-  void allocate_if_needed(cv::Mat *img, int type) const;
+  void AllocateIfNeeded(cv::Mat *img, int type) const;
 
   sl::Camera zed_;
   sl::CameraConfiguration config_;

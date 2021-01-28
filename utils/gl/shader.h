@@ -7,15 +7,37 @@
 
 class Shader {
  public:
-  Shader(const std::string &vertex_shader, 
+  /**
+   * @brief abstraction of OpenGL shader programs
+   *
+   * @param vertex_shader   vertex shader
+   * @param fragment_shader fragment shader
+   * @param load_file       if true
+   *                          both shaders are interpreted as path to shader program
+   *                        otherwise
+   *                          both shaders are interpreted as shader program strings
+   */
+  Shader(const std::string &vertex_shader,
          const std::string &fragment_shader,
          bool load_file = true);
+
+  /**
+   * @brief delete shader program from GL
+   */
   ~Shader();
-  
+
+  /**
+   * @brief bind GL to this shader
+   */
   void Bind() const;
+
+  /**
+   * @brief unbind GL from this shader
+   */
   void Unbind() const;
-  
+
   // TODO(alvin): extend type support when needed
+  // Set uniform attributes by name
   void SetUniform3f(const std::string &name, float x, float y, float z) const;
   void SetUniform4f(const std::string &name, float x, float y, float z, float w) const;
 

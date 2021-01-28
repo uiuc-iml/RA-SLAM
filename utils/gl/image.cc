@@ -47,8 +47,8 @@ void main() {
 }
 )END";
 
-GLImageBase::GLImageBase(const char *fragment_shader)
-    : height(0), width(0), shader_(vertex_shader, fragment_shader, false) {
+GLImageBase::GLImageBase(const std::string& fragment_shader)
+    : height_(0), width_(0), shader_(vertex_shader, fragment_shader, false) {
   // vertices stuff
   glGenVertexArrays(1, &vao_);
   glGenBuffers(1, &vbo_);
@@ -58,7 +58,7 @@ GLImageBase::GLImageBase(const char *fragment_shader)
   glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0); 
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
   glEnableVertexAttribArray(0);
   // texture stuff
   glGenTextures(1, &texture_);
@@ -81,8 +81,8 @@ void GLImageBase::BindImage(int height, int width, const void *data) {
   if (cuda_resrc_) {
     CUDA_SAFE_CALL(cudaGraphicsUnregisterResource(cuda_resrc_));
   }
-  this->height = height;
-  this->width = width;
+  this->height_ = height;
+  this->width_ = width;
   glBindTexture(GL_TEXTURE_2D, texture_);
   GLTex2D(height, width, data);
   CUDA_SAFE_CALL(cudaGraphicsGLRegisterImage(
@@ -104,8 +104,8 @@ void GLImageBase::LoadCuda(const void *data, cudaStream_t stream) {
   cudaArray_t array;
   CUDA_SAFE_CALL(cudaGraphicsMapResources(1, &cuda_resrc_, stream));
   CUDA_SAFE_CALL(cudaGraphicsSubResourceGetMappedArray(&array, cuda_resrc_, 0, 0));
-  CUDA_SAFE_CALL(cudaMemcpy2DToArrayAsync(array, 0, 0, data, 
-    width * ElementSize(), width * ElementSize(), height, cudaMemcpyDeviceToDevice, stream));
+  CUDA_SAFE_CALL(cudaMemcpy2DToArrayAsync(array, 0, 0, data,
+    width_ * ElementSize(), width_ * ElementSize(), height_, cudaMemcpyDeviceToDevice, stream));
   CUDA_SAFE_CALL(cudaGraphicsUnmapResources(1, &cuda_resrc_, stream));
 }
 

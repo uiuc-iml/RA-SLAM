@@ -22,7 +22,7 @@ __global__ void AquireBlocks(VoxelMemPool voxel_mem, VoxelRGBW **voxel_blocks, i
 
 __global__ void AssignBlocks(VoxelMemPool voxel_mem, int *block_indics, int num_blocks) {
   const Vector3<short> thread_pos(threadIdx.x, threadIdx.y, threadIdx.z);
-  const int idx = offset2index(thread_pos);
+  const int idx = OffsetToIndex(thread_pos);
   for (int i = 0; i < num_blocks; ++i) {
     const VoxelBlock block(block_indics[i]);
     VoxelRGBW &voxel = voxel_mem.GetVoxel<VoxelRGBW>(idx, block);

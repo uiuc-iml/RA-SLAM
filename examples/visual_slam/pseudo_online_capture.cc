@@ -47,14 +47,14 @@ class SemanticSLAMData {
 
 class SemanticSLAMLogger : public DataLogger<SemanticSLAMData> {
  public:
-  SemanticSLAMLogger(const std::string &logdir) 
+  SemanticSLAMLogger(const std::string &logdir)
       : logdir_(logdir),
         DataLogger<SemanticSLAMData>() {}
 
   std::vector<unsigned int> logged_ids;
 
  protected:
-  void save_data(const SemanticSLAMData &data) override {
+  void SaveData(const SemanticSLAMData &data) override {
     const std::string rgb_path = logdir_ + "/" + std::to_string(data.id) + "_rgb.png";
     const std::string depth_path = logdir_ + "/" + std::to_string(data.id) + "_depth.png";
     const std::string left_path = logdir_ + "/" + std::to_string(data.id) + "_left.png";
@@ -94,14 +94,14 @@ void tracking(const std::shared_ptr<openvslam::config> &cfg,
       if (SLAM.terminate_is_requested())
         break;
 
-      zed_native.get_stereo_img(&data.zed_img_left, &data.zed_img_right);
-      l515.get_rgbd_frame(&data.l515_img_rgb, &data.l515_img_depth);
-      const auto timestamp = get_timestamp<std::chrono::microseconds>();
+      zed_native.GetStereoFrame(&data.zed_img_left, &data.zed_img_right);
+      l515.GetRGBDFrame(&data.l515_img_rgb, &data.l515_img_depth);
+      const auto timestamp = GetTimestamp<std::chrono::microseconds>();
 
-      data.id = SLAM.feed_stereo_images(
+      data.id = SLAM.FeedStereoImages(
           data.zed_img_left, data.zed_img_right, timestamp / 1e6);
 
-      logger.log_data(data);
+      logger.LogData(data);
     }
   });
 
@@ -113,13 +113,13 @@ void tracking(const std::shared_ptr<openvslam::config> &cfg,
     SLAM.save_map_database(map_db_path);
 
   const std::string traj_path = logdir + "/trajectory.txt";
-  SLAM.save_matched_trajectory(traj_path, logger.logged_ids);
+  SLAM.SaveMatchedTrajectory(traj_path, logger.logged_ids);
 }
 
 std::shared_ptr<openvslam::config> get_and_set_config(const std::string &config_file_path) {
   YAML::Node yaml_node = YAML::LoadFile(config_file_path);
-  const stereo_rectifier rectifier(yaml_node);
-  const cv::Mat rectified_intrinsics = rectifier.get_rectified_intrinsics();
+  const StereoRectifier rectifier(yaml_node);
+  const cv::Mat rectified_intrinsics = rectifier.RectifiedIntrinsics();
   yaml_node["Camera.fx"] = rectified_intrinsics.at<double>(0, 0);
   yaml_node["Camera.fy"] = rectified_intrinsics.at<double>(1, 1);
   yaml_node["Camera.cx"] = rectified_intrinsics.at<double>(0, 2);
@@ -138,7 +138,7 @@ int main(int argc, char *argv[]) {
   auto debug_mode = op.add<popl::Switch>("", "debug", "debug mode");
   auto map_db_path = op.add<popl::Value<std::string>>("p", "map-db",
                             "path to store the map database", "");
-  auto log_dir = op.add<popl::Value<std::string>>("", "logdir", 
+  auto log_dir = op.add<popl::Value<std::string>>("", "logdir",
                             "directory to store logged data", "./log");
   auto device_id = op.add<popl::Value<int>>("", "devid", "camera device id", 0);
 
@@ -182,7 +182,7 @@ int main(int argc, char *argv[]) {
   ZEDNative zed_native(*cfg, device_id->value());
   L515 l515;
 
-  tracking(cfg, 
+  tracking(cfg,
       vocab_file_path->value(), map_db_path->value(), log_dir->value(), l515, zed_native);
 
   return EXIT_SUCCESS;

@@ -3,18 +3,36 @@
 #include <opencv2/opencv.hpp>
 #include <librealsense2/rs.hpp>
 
+/**
+ * @brief L515 camer interface with librealsense2
+ */
 class L515 {
  public:
   L515();
   ~L515();
 
-  double get_depth_scale() const;
+  /**
+   * @return depth map multiplier
+   */
+  double DepthScale() const;
 
-  rs2_intrinsics get_camera_intrinsics() const;
+  /**
+   * @brief read an RGBD frame
+   *
+   * @param color_img rgb image
+   * @param depth_img depth image
+   *
+   * @return timestamp in system clock
+   */
+  int64_t GetRGBDFrame(cv::Mat *color_img, cv::Mat *depth_img) const;
 
-  int64_t get_rgbd_frame(cv::Mat *color_img, cv::Mat *depth_img) const; 
-
-  void set_depth_sensor_option(const rs2_option option, const float value);
+  /**
+   * @brief set capture properties through librealsense
+   *
+   * @param option  capture option
+   * @param value   value to be set
+   */
+  void SetDepthSensorOption(const rs2_option option, const float value);
 
   static const int WIDTH = 1280;
   static const int HEIGHT = 720;

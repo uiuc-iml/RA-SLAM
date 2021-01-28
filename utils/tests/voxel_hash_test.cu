@@ -35,13 +35,13 @@ __global__ void Allocate(VoxelHashTable hash_table, Vector3<short> *block_pos) {
   hash_table.Allocate(block_pos[idx]);
 }
 
-__global__ void Retrieve(VoxelHashTable hash_table, 
+__global__ void Retrieve(VoxelHashTable hash_table,
                          const Vector3<short> *point, VoxelRGBW *voxel, VoxelBlock *voxel_block) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   voxel[idx] = hash_table.Retrieve<VoxelRGBW>(point[idx], voxel_block[idx]);
 }
 
-__global__ void Assignment(VoxelHashTable hash_table, const Vector3<short> *point, 
+__global__ void Assignment(VoxelHashTable hash_table, const Vector3<short> *point,
                            VoxelRGBW *voxel) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   VoxelBlock block;
@@ -120,16 +120,16 @@ TEST_F(VoxelHashTest, Multiple) {
     EXPECT_EQ(voxel[i].weight, i);
     EXPECT_EQ(voxel_block[i].position, Vector3<short>(i));
   }
-} 
+}
 
 TEST_F(VoxelHashTest, Collision) {
   // all hash to the last index NUM_BUCKET - 1
   block_pos[0] = { 33, 180, 42 };
   block_pos[1] = { 61, 16, 170 };
   block_pos[2] = { 63, 171, 45 };
-  ASSERT_EQ(hash(block_pos[0]), NUM_BUCKET - 1);
-  ASSERT_EQ(hash(block_pos[0]), hash(block_pos[1]));
-  ASSERT_EQ(hash(block_pos[1]), hash(block_pos[2]));
+  ASSERT_EQ(Hash(block_pos[0]), NUM_BUCKET - 1);
+  ASSERT_EQ(Hash(block_pos[0]), Hash(block_pos[1]));
+  ASSERT_EQ(Hash(block_pos[1]), Hash(block_pos[2]));
   // hash to another idx
   block_pos[3] = { 0, 0, 0 };
   // allocate with conflict

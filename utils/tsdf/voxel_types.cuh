@@ -3,6 +3,9 @@
 #include <cuda_runtime.h>
 #include "utils/cuda/vector.cuh"
 
+/**
+ * @brief voxel data packed with RGB and TSDF weight
+ */
 class VoxelRGBW {
  public:
   Vector3<unsigned char>  rgb;
@@ -12,6 +15,9 @@ class VoxelRGBW {
   __device__ __host__ VoxelRGBW(const Vector3<unsigned char> &rgb, const unsigned char weight);
 };
 
+/**
+ * @brief voxel data of tsdf value
+ */
 class VoxelTSDF {
  public:
   float tsdf;
@@ -20,6 +26,9 @@ class VoxelTSDF {
   __device__ __host__ VoxelTSDF(float tsdf);
 };
 
+/**
+ * @brief voxel data of segmentation probabilities
+ */
 class VoxelSEGM {
  public:
   float probability;
@@ -28,6 +37,9 @@ class VoxelSEGM {
   __device__ __host__ VoxelSEGM(float probability);
 };
 
+/**
+ * @brief voxel data of spatial location and tsdf value
+ */
 class VoxelSpatialTSDF {
  public:
   Vector3<float> position;

@@ -11,12 +11,12 @@ __global__ static void reset_locks_kernel(int *locks, int num_locks) {
   }
 }
 
-__global__ static void init_hash_table(VoxelBlock *voxel_blocks) {
+__global__ static void init_hash_table_kernel(VoxelBlock *voxel_blocks) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   voxel_blocks[idx].idx = -1;
 }
 
-__device__ __host__ uint hash(const Vector3<short> &block_pos) {
+__device__ __host__ uint Hash(const Vector3<short> &block_pos) {
   return (((uint)block_pos.x * 73856093u) ^
           ((uint)block_pos.y * 19349669u) ^
           ((uint)block_pos.z * 83492791u)) & BUCKET_MASK;
@@ -25,7 +25,7 @@ __device__ __host__ uint hash(const Vector3<short> &block_pos) {
 VoxelHashTable::VoxelHashTable() {
   // initialize hash table
   CUDA_SAFE_CALL(cudaMalloc(&hash_table_, sizeof(VoxelBlock) * NUM_ENTRY));
-  init_hash_table<<<NUM_ENTRY / 1024, 1024>>>(hash_table_);
+  init_hash_table_kernel<<<NUM_ENTRY / 1024, 1024>>>(hash_table_);
   // initialize bucket locks
   CUDA_SAFE_CALL(cudaMalloc(&bucket_locks_, sizeof(BucketLock) * NUM_BUCKET));
   CUDA_SAFE_CALL(cudaMemset(bucket_locks_, FREE, sizeof(BucketLock) * NUM_BUCKET));
@@ -44,7 +44,7 @@ void VoxelHashTable::ReleaseMemory() {
 }
 
 __device__ void VoxelHashTable::Allocate(const Vector3<short> &block_pos) {
-  const unsigned int bucket_idx = hash(block_pos);
+  const unsigned int bucket_idx = Hash(block_pos);
   const unsigned int entry_idx = (bucket_idx << NUM_ENTRY_PER_BUCKET_BITS);
   // check for existence
   #pragma unroll
@@ -104,7 +104,7 @@ __device__ void VoxelHashTable::Allocate(const Vector3<short> &block_pos) {
 }
 
 __device__ void VoxelHashTable::Delete(const Vector3<short> &block_pos) {
-  const unsigned int bucket_idx = hash(block_pos);
+  const unsigned int bucket_idx = Hash(block_pos);
   const unsigned int entry_idx = (bucket_idx << NUM_ENTRY_PER_BUCKET_BITS);
   // check for current bucket
   #pragma unroll

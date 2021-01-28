@@ -3,23 +3,11 @@
 #include "utils/cuda/errors.cuh"
 #include "utils/tsdf/voxel_mem.cuh"
 
-__global__ static void heap_init(int *heap) {
+__global__ static void heap_init_kernel(int *heap) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < NUM_BLOCK) {
     heap[idx] = idx;
   }
-}
-
-__device__ __host__ Vector3<short> point2block(const Vector3<short> &point) {
-  return point >> BLOCK_LEN_BITS;
-}
-
-__device__ __host__ Vector3<short> point2offset(const Vector3<short> &point) {
-  return point & (BLOCK_LEN - 1);
-}
-
-__device__ __host__ unsigned int offset2index(const Vector3<short> &point_offset) {
-  return point_offset.x + point_offset.y * BLOCK_LEN + point_offset.z * BLOCK_AREA;
 }
 
 VoxelMemPool::VoxelMemPool() {
@@ -33,7 +21,7 @@ VoxelMemPool::VoxelMemPool() {
   CUDA_SAFE_CALL(cudaMalloc(&voxels_segm_, sizeof(VoxelSEGM) * NUM_BLOCK * BLOCK_VOLUME));
   // initialize heap array
   CUDA_SAFE_CALL(cudaMalloc(&heap_, sizeof(int) * NUM_BLOCK));
-  heap_init<<<NUM_BLOCK / 256, 256>>>(heap_);
+  heap_init_kernel<<<NUM_BLOCK / 256, 256>>>(heap_);
   CUDA_CHECK_ERROR;
   CUDA_SAFE_CALL(cudaDeviceSynchronize());
 }

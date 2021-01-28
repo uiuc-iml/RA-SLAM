@@ -82,7 +82,9 @@ void RendererBase::DispatchInput() {}
 void RendererBase::RenderExit() {}
 
 void RendererBase::GLFWErrorHandler(int error, const char *desc) {
+#ifndef NDEBUG
   spdlog::error("glfw error {}: {}", error, desc);
+#endif
 }
 
 void RendererBase::GLErrorHandler(GLenum source, GLenum type, GLuint id, GLenum severity,

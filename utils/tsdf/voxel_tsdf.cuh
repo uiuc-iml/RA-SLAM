@@ -27,24 +27,69 @@ struct BoundingCube {
 };
 
 
+/**
+ * @brief abstraction for TSDF grid
+ */
 class TSDFGrid {
  public:
+  /**
+   * @brief construct a TSDF grid
+   *
+   * @param voxel_size  size of a voxel in [m]
+   * @param truncation  tsdf truncation in [m]
+   */
   TSDFGrid(float voxel_size, float truncation);
+
+  /**
+   * @brief release GPU memory
+   */
   ~TSDFGrid();
 
+  /**
+   * @brief integrate a single frame of data into the TSDF grid
+   *
+   * @param img_rgb     RGB image
+   * @param img_depth   depth image in [m]
+   * @param img_ht      high touch probability image
+   * @param img_lt      low touch probability image
+   * @param max_depth   maximum depth in [m]
+   * @param intrinsics  camera intrinsics
+   * @param cam_P_world transformation from camera to world
+   */
   void Integrate(const cv::Mat &img_rgb, const cv::Mat &img_depth,
                  const cv::Mat &img_ht, const cv::Mat &img_lt,
                  float max_depth,
                  const CameraIntrinsics<float> &intrinsics,
                  const SE3<float> &cam_P_world);
 
+  /**
+   * @brief render a virtual view of the TSDF grid by ray casting
+   *
+   * @param max_depth   maximum depth in [m]
+   * @param virtual_cam virtual camera parameterse (intrinsics + image sizes)
+   * @param cam_P_world transformation from camera to world
+   * @param tsdf_rgba   optional output image for rgb visualization
+   * @param tsdf_normal optinoal output image for normal shaded visualization
+   */
   void RayCast(float max_depth,
                const CameraParams &virtual_cam,
                const SE3<float> &cam_P_world,
                GLImage8UC4 *tsdf_rgba = NULL, GLImage8UC4 *tsdf_normal = NULL);
 
+  /**
+   * @brief gather all valid voxels
+   *
+   * @return an array of voxels with spatial location and tsdf values
+   */
   std::vector<VoxelSpatialTSDF> GatherValid();
 
+  /**
+   * @brief gather all voxels within certain bound
+   *
+   * @param volumn volumn of interest
+   *
+   * @return an array of voxels with spatial location and tsdf values
+   */
   std::vector<VoxelSpatialTSDF> GatherVoxels(const BoundingCube<float> &volumn);
 
  protected:

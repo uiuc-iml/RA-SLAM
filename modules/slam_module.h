@@ -26,18 +26,18 @@ class SLAMSystem : public openvslam::system {
 
   //! Feed a stereo frame to SLAM system and return frame ID
   //! (Note: Left and Right images must be stereo-rectified)
-  unsigned int feed_stereo_images(const cv::Mat &img_left, const cv::Mat &img_right,
-                                  const double timestamp, const cv::Mat &mask = cv::Mat{});
+  unsigned int FeedStereoImages(const cv::Mat &img_left, const cv::Mat &img_right,
+                                const double timestamp, const cv::Mat &mask = cv::Mat{});
 
   //! Feed an RGBD frame to SLAM system and return frame ID
   //! (Note: RGB and Depth images must be aligned)
-  unsigned int feed_rgbd_images(const cv::Mat &img_rgb, const cv::Mat &img_depth,
-                                const double timestamp, const cv::Mat &mask = cv::Mat{});
+  unsigned int FeedRGBDImages(const cv::Mat &img_rgb, const cv::Mat &img_depth,
+                              const double timestamp, const cv::Mat &mask = cv::Mat{});
 
   //! Save the frame trajectory in the specified format
-  void save_matched_trajectory(const std::string &path,
+  void SaveMatchedTrajectory(const std::string &path,
                                const std::vector<unsigned int> &frame_ids) const;
-    
+
   //! Feed a stereo frame to SLAM system and return current pose and valid flag
   //! (Note: Left and Right images must be stereo-rectified)
   pose_valid_tuple feed_stereo_images_w_feedback(const cv::Mat& left_img, const cv::Mat& right_img,

@@ -13,13 +13,14 @@ __global__ static void check_bound_kernel(const VoxelHashTable hash_table,
                                           int *visible_mask) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   const VoxelBlock &block = hash_table.GetBlock(idx);
+  const Vector3<short> voxel_grid = block.position << BLOCK_LEN_BITS;
   visible_mask[idx] = (block.idx >= 0 &&
-      block.position.x >= volumn_grid.xmin &&
-      block.position.y >= volumn_grid.ymin &&
-      block.position.z >= volumn_grid.zmin &&
-      block.position.x + BLOCK_LEN - 1 <= volumn_grid.xmax &&
-      block.position.y + BLOCK_LEN - 1 <= volumn_grid.ymax &&
-      block.position.z + BLOCK_LEN - 1 <= volumn_grid.zmax);
+      voxel_grid.x >= volumn_grid.xmin &&
+      voxel_grid.y >= volumn_grid.ymin &&
+      voxel_grid.z >= volumn_grid.zmin &&
+      voxel_grid.x + BLOCK_LEN - 1 <= volumn_grid.xmax &&
+      voxel_grid.y + BLOCK_LEN - 1 <= volumn_grid.ymax &&
+      voxel_grid.z + BLOCK_LEN - 1 <= volumn_grid.zmax);
 }
 
 __global__ static void check_valid_kernel(const VoxelHashTable hash_table,
@@ -38,7 +39,7 @@ __global__ static void download_tsdf_kernel(const VoxelHashTable hash_table,
   const Vector3<short> offset_grid(threadIdx.x, threadIdx.y, threadIdx.z);
   const Vector3<short> pos_grid = (block.position << BLOCK_LEN_BITS) + offset_grid;
   const Vector3<float> pos_world = pos_grid.cast<float>() * voxel_size;
-  const int thread_idx = offset2index(offset_grid);
+  const int thread_idx = OffsetToIndex(offset_grid);
 
   const int idx = blockIdx.x * BLOCK_VOLUME + thread_idx;
   const VoxelTSDF &tsdf = hash_table.mem.GetVoxel<VoxelTSDF>(thread_idx, block);
@@ -192,7 +193,7 @@ __global__ static void tsdf_integrate_kernel(VoxelBlock *blocks,
     const float sdf = img_depth_to_range[img_idx] * (depth - pos_img_h.z);
     if (sdf > -truncation) {
       const float tsdf = fminf(1, sdf / truncation);
-      const unsigned int idx = offset2index(pos_grid_rel);
+      const unsigned int idx = OffsetToIndex(pos_grid_rel);
       VoxelTSDF &voxel_tsdf = voxel_mem.GetVoxel<VoxelTSDF>(idx, blocks[blockIdx.x]);
       VoxelRGBW &voxel_rgbw = voxel_mem.GetVoxel<VoxelRGBW>(idx, blocks[blockIdx.x]);
       VoxelSEGM &voxel_segm = voxel_mem.GetVoxel<VoxelSEGM>(idx, blocks[blockIdx.x]);

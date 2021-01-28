@@ -116,16 +116,16 @@ class ImageRenderer : public RendererBase {
       follow_cam_ = false;
       const Vector3<float> move_cam(0, 0, io.MouseWheel * .1);
       const SO3<float> virtual_cam_R_world = virtual_cam_P_world_.GetR();
-      const Vector3<float> virtual_cam_T_world = virtual_cam_P_world_.GetT();
-      virtual_cam_P_world_ = SE3<float>(virtual_cam_R_world, virtual_cam_T_world - move_cam);
+      const Vector3<float> virtual_cam_t_world = virtual_cam_P_world_.GetT();
+      virtual_cam_P_world_ = SE3<float>(virtual_cam_R_world, virtual_cam_t_world - move_cam);
     }
-    if (!io.WantCaptureMouse && ImGui::IsMouseDragging(0) && tsdf_rgba_.width) {
+    if (!io.WantCaptureMouse && ImGui::IsMouseDragging(0) && tsdf_rgba_.GetWidth()) {
       follow_cam_ = false;
       const ImVec2 delta = ImGui::GetMouseDragDelta(0);
-      const Vector2<float> delta_img(delta.x / io.DisplaySize.x * tsdf_rgba_.width,
-                                     delta.y / io.DisplaySize.y * tsdf_rgba_.height);
-      const Vector2<float> pos_new_img(io.MousePos.x / io.DisplaySize.x * tsdf_rgba_.width,
-                                       io.MousePos.y / io.DisplaySize.y * tsdf_rgba_.height);
+      const Vector2<float> delta_img(delta.x / io.DisplaySize.x * tsdf_rgba_.GetWidth(),
+                                     delta.y / io.DisplaySize.y * tsdf_rgba_.GetHeight());
+      const Vector2<float> pos_new_img(io.MousePos.x / io.DisplaySize.x * tsdf_rgba_.GetWidth(),
+                                       io.MousePos.y / io.DisplaySize.y * tsdf_rgba_.GetHeight());
       const Vector2<float> pos_old_img = pos_new_img - delta_img;
       const Vector3<float> pos_new_cam = intrinsics_.Inverse() * Vector3<float>(pos_new_img);
       const Vector3<float> pos_old_cam = intrinsics_.Inverse() * Vector3<float>(pos_old_img);
@@ -172,16 +172,16 @@ class ImageRenderer : public RendererBase {
       get_images_by_id(log_entry.id, depth_scale_,
                        &img_rgb_, &img_depth_, &img_ht_, &img_lt_, logdir_);
       cv::imshow("rgb", img_rgb_);
-      if (!tsdf_rgba_.height || !tsdf_rgba_.width ||
-          !tsdf_normal_.height || !tsdf_normal_.width) {
+      if (!tsdf_rgba_.GetHeight() || !tsdf_rgba_.GetWidth() ||
+          !tsdf_normal_.GetHeight() || !tsdf_normal_.GetWidth()) {
         tsdf_rgba_.BindImage(img_depth_.rows, img_depth_.cols, nullptr);
         tsdf_normal_.BindImage(img_depth_.rows, img_depth_.cols, nullptr);
       }
       cv::cvtColor(img_rgb_, img_rgb_, cv::COLOR_BGR2RGB);
-      const auto st = get_timestamp<std::chrono::milliseconds>();
+      const auto st = GetTimestamp<std::chrono::milliseconds>();
       tsdf_.Integrate(img_rgb_, img_depth_, img_ht_, img_lt_,
                       4, intrinsics_, log_entry.cam_P_world);
-      const auto end = get_timestamp<std::chrono::milliseconds>();
+      const auto end = GetTimestamp<std::chrono::milliseconds>();
       CUDA_SAFE_CALL(cudaDeviceSynchronize());
       ImGui::Text("Integration takes %lu ms", end - st);
       img_depth_.convertTo(img_depth_, CV_32FC1, 1./4);
@@ -204,10 +204,10 @@ class ImageRenderer : public RendererBase {
     // render
     if (!img_depth_.empty() && !img_rgb_.empty()) {
       const CameraParams virtual_cam(intrinsics_, img_depth_.rows, img_depth_.cols);
-      const auto st = get_timestamp<std::chrono::milliseconds>();
+      const auto st = GetTimestamp<std::chrono::milliseconds>();
       tsdf_.RayCast(10, virtual_cam, virtual_cam_P_world_, &tsdf_rgba_, &tsdf_normal_);
       CUDA_SAFE_CALL(cudaDeviceSynchronize());
-      const auto end = get_timestamp<std::chrono::milliseconds>();
+      const auto end = GetTimestamp<std::chrono::milliseconds>();
       ImGui::Text("Rendering takes %lu ms", end - st);
       static int render_mode = 1;
       ImGui::RadioButton("rgb", &render_mode, 0); ImGui::SameLine();

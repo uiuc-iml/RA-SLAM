@@ -9,7 +9,7 @@
 #include "utils/cuda/lie_group.cuh"
 #include "utils/stereo_rectifier.h"
 
-inline CameraIntrinsics<float> get_intrinsics_from_file(const std::string &config_file_path) {
+inline CameraIntrinsics<float> GetIntrinsicsFromFile(const std::string &config_file_path) {
   YAML::Node config = YAML::LoadFile(config_file_path);
   return CameraIntrinsics<float>(config["Camera.fx"].as<float>(),
                                  config["Camera.fy"].as<float>(),
@@ -17,12 +17,12 @@ inline CameraIntrinsics<float> get_intrinsics_from_file(const std::string &confi
                                  config["Camera.cy"].as<float>());
 }
 
-inline int get_depth_factor_from_file(const std::string &config_file_path) {
+inline int GetDepthFactorFromFile(const std::string &config_file_path) {
   YAML::Node config = YAML::LoadFile(config_file_path);
   return config["depthmap_factor"].as<float>();
 }
 
-inline SE3<float> get_extrinsics_from_file(const std::string &config_file_path) {
+inline SE3<float> GetExtrinsicsFromFile(const std::string &config_file_path) {
   YAML::Node config = YAML::LoadFile(config_file_path);
   const auto m = config["Extrinsics"].as<std::vector<double>>();
   return SE3<float>(
@@ -33,10 +33,10 @@ inline SE3<float> get_extrinsics_from_file(const std::string &config_file_path) 
   );
 }
 
-inline std::shared_ptr<openvslam::config> get_and_set_config(const std::string &config_file_path) {
+inline std::shared_ptr<openvslam::config> GetAndSetConfig(const std::string &config_file_path) {
   YAML::Node yaml_node = YAML::LoadFile(config_file_path);
-  const stereo_rectifier rectifier(yaml_node);
-  const cv::Mat rectified_intrinsics = rectifier.get_rectified_intrinsics();
+  const StereoRectifier rectifier(yaml_node);
+  const cv::Mat rectified_intrinsics = rectifier.RectifiedIntrinsics();
   yaml_node["Camera.fx"] = rectified_intrinsics.at<double>(0, 0);
   yaml_node["Camera.fy"] = rectified_intrinsics.at<double>(1, 1);
   yaml_node["Camera.cx"] = rectified_intrinsics.at<double>(0, 2);

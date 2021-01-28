@@ -17,8 +17,8 @@ SLAMSystem::SLAMSystem(const std::shared_ptr<config> &cfg,
                          const std::string &vocab_file_path)
     : openvslam::system(cfg, vocab_file_path) {}
 
-void SLAMSystem::save_matched_trajectory(const std::string &path,
-                                          const std::vector<unsigned int> &frame_ids) const {
+void SLAMSystem::SaveMatchedTrajectory(const std::string &path,
+                                       const std::vector<unsigned int> &frame_ids) const {
   pause_other_threads();
 
   const std::unordered_set<unsigned int> frame_ids_set(frame_ids.begin(), frame_ids.end());
@@ -66,7 +66,7 @@ void SLAMSystem::save_matched_trajectory(const std::string &path,
   resume_other_threads();
 }
 
-unsigned int SLAMSystem::feed_stereo_images(
+unsigned int SLAMSystem::FeedStereoImages(
     const cv::Mat& img_left, const cv::Mat& img_right,
     const double timestamp, const cv::Mat& mask) {
   assert(camera_->setup_type_ == camera::setup_type_t::Stereo);
@@ -83,7 +83,7 @@ unsigned int SLAMSystem::feed_stereo_images(
   return tracker_->curr_frm_.id_;
 }
 
-unsigned int SLAMSystem::feed_rgbd_images(
+unsigned int SLAMSystem::FeedRGBDImages(
     const cv::Mat& img_rgb, const cv::Mat& img_depth,
     const double timestamp, const cv::Mat& mask) {
   assert(camera_->setup_type_ == camera::setup_type_t::RGBD);

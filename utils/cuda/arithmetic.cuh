@@ -8,6 +8,15 @@
 #define SCAN_BLOCK_SIZE 1024
 #define SCAN_PAD(x) (x + (x) / 32)
 
+/**
+ * @brief accumulate auxiliary data back into the scanned output
+ *
+ * @tparam T      data type
+ * @param input   pointer to GPU input buffer
+ * @param output  pointer to GPU output buffer
+ * @param aux     pointer to GPU auxiliary buffer
+ * @param len     length of the input / output array
+ */
 template<typename T>
 __global__ void auxiliary_sum_kernel(T *input, T *output, T *aux, int len) {
   __shared__ T aux_offset;
@@ -27,6 +36,16 @@ __global__ void auxiliary_sum_kernel(T *input, T *output, T *aux, int len) {
   if (i2 < len) output[i2] = input[i2] + aux_offset;
 }
 
+/**
+ * @brief perform parallel prefix-sum using a work efficient algorithm described in
+ *        https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-39-parallel-prefix-sum-scan-cuda
+ *
+ * @tparam T      data type
+ * @param input   pointer to GPU input buffer
+ * @param output  pointer to GPU output buffer
+ * @param auxout  optional pointer to GPU auxiliary buffer
+ * @param len     length of input / output array
+ */
 template<typename T>
 __global__ void scan_kernel(T *input, T *output, T *auxout, int len) {
   __shared__ T buffer[SCAN_PAD(2*SCAN_BLOCK_SIZE)];
@@ -65,6 +84,16 @@ __global__ void scan_kernel(T *input, T *output, T *auxout, int len) {
   }
 }
 
+/**
+ * @brief CPU wrapper for a GPU parallel sum kernel
+ *
+ * @tparam T      data type
+ * @param input   pointer to GPU input buffer
+ * @param output  pointer to GPU output buffer
+ * @param auxout  pointer to GPU auxiliary buffer
+ * @param len     length of input / ouput array
+ * @param stream  optional CUDA stream
+ */
 template<typename T>
 void prefix_sum(T *input, T *output, T *auxout, int len, cudaStream_t stream = NULL) {
   // cannot handle more than (1 << 22) elements

@@ -26,7 +26,7 @@ void reconstruct(const ZEDNative &zed_native, const L515 &l515,
                  const std::string &config_file_path) {
   // initialize TSDF
   auto TSDF = std::make_shared<TSDFSystem>(0.01, 0.06, 4,
-      get_intrinsics_from_file(config_file_path), get_extrinsics_from_file(config_file_path));
+      GetIntrinsicsFromFile(config_file_path), GetExtrinsicsFromFile(config_file_path));
   SLAM->startup();
 
   ImageRenderer renderer("tsdf", SLAM, TSDF, config_file_path);
@@ -39,7 +39,7 @@ void reconstruct(const ZEDNative &zed_native, const L515 &l515,
       if (SLAM->terminate_is_requested())
         break;
       // get sensor readings
-      const int64_t timestamp = zed_native.get_stereo_img(&img_left, &img_right);
+      const int64_t timestamp = zed_native.GetStereoFrame(&img_left, &img_right);
       // visual slam
       const pose_valid_tuple m = SLAM->feed_stereo_images_w_feedback(img_left, img_right, timestamp / 1e3);
       const SE3<float> posecam_P_world(
@@ -58,15 +58,15 @@ void reconstruct(const ZEDNative &zed_native, const L515 &l515,
       cv::Mat img_rgb, img_depth;
       if (SLAM->terminate_is_requested())
         break;
-      const int64_t timestamp = l515.get_rgbd_frame(&img_rgb, &img_depth);
+      const int64_t timestamp = l515.GetRGBDFrame(&img_rgb, &img_depth);
       const SE3<float> posecam_P_world = POSE_MANAGER->query_pose(timestamp);
       cv::resize(img_rgb, img_rgb, cv::Size(), .5, .5);
       cv::resize(img_depth, img_depth, cv::Size(), .5, .5);
-      img_depth.convertTo(img_depth, CV_32FC1, 1. / l515.get_depth_scale());
+      img_depth.convertTo(img_depth, CV_32FC1, 1. / l515.DepthScale());
       std::vector<cv::Mat> prob_map = segmentation_engine->infer_one(img_rgb, false);
       TSDF->Integrate(posecam_P_world, img_rgb, img_depth, prob_map[0], prob_map[1]);
       spdlog::debug("[Main] Frame integration takes {} ms",
-        get_timestamp<std::chrono::milliseconds>() - timestamp);
+        GetTimestamp<std::chrono::milliseconds>() - timestamp);
     }
   });
 
@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
 
   std::shared_ptr<openvslam::config> cfg;
   try {
-    cfg = get_and_set_config(config_file_path->value());
+    cfg = GetAndSetConfig(config_file_path->value());
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return EXIT_FAILURE;

@@ -6,50 +6,50 @@
 #include <vector>
 #include <yaml-cpp/yaml.h>
 
-struct calib_mono {
+struct CalibMono {
   double fx;
   double fy;
   double cx;
   double cy;
   std::vector<double> distortion;
 
-  calib_mono(double fx, double fy, double cx, double cy, const std::vector<double> &distortion)
+  CalibMono(double fx, double fy, double cx, double cy, const std::vector<double> &distortion)
     : fx(fx), fy(fy), cx(cx), cy(cy), distortion(distortion) {}
 };
 
-struct calib_stereo {
-  calib_mono left;
-  calib_mono right;
+struct CalibStereo {
+  CalibMono left;
+  CalibMono right;
   cv::Mat right_R_left;
-  cv::Mat right_T_left;
+  cv::Mat right_t_left;
 
-  calib_stereo(const calib_mono &left, const calib_mono &right,
-               const cv::Mat &right_R_left, const cv::Mat &right_T_left)
-    : left(left), right(right), right_R_left(right_R_left), right_T_left(right_T_left) {}
+  CalibStereo(const CalibMono &left, const CalibMono &right,
+               const cv::Mat &right_R_left, const cv::Mat &right_t_left)
+    : left(left), right(right), right_R_left(right_R_left), right_t_left(right_t_left) {}
 };
 
-class stereo_rectifier {
+class StereoRectifier {
  public:
   //! Constructor
-  stereo_rectifier(const cv::Size &img_size, const calib_stereo &calibration);
-  explicit stereo_rectifier(const YAML::Node &yaml_node);
+  StereoRectifier(const cv::Size &img_size, const CalibStereo &calibration);
+  explicit StereoRectifier(const YAML::Node &yaml_node);
 
   //! Destructor
-  virtual ~stereo_rectifier();
+  virtual ~StereoRectifier();
 
   //! Apply stereo-rectification
   void rectify(const cv::Mat& in_img_l, const cv::Mat& in_img_r,
                cv::Mat& out_img_l, cv::Mat& out_img_r) const;
 
-  const cv::Mat get_rectified_intrinsics() const;
+  cv::Mat RectifiedIntrinsics() const;
 
  private:
   //! Parse std::vector as cv::Mat
-  static cv::Mat parse_vector_as_mat(const std::vector<double>& vec);
+  static cv::Mat ParseVectorAsMat(const std::vector<double>& vec);
 
-  cv::Mat get_intrinsics(const calib_mono &calibration) const;
+  cv::Mat GetIntrinsicsAsMat(const CalibMono &calibration) const;
 
-  cv::Mat rotation_vec2mat(const cv::Mat &rot_vec) const;
+  cv::Mat RotationVecToMat(const cv::Mat &rot_vec) const;
 
   // matrix P2 in cv::stereoRectify which contains all camera parameters after rectification
   cv::Mat cam_rect_matrix_;

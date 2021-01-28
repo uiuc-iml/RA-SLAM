@@ -5,11 +5,22 @@
 
 #include <spdlog/spdlog.h>
 
+/**
+ * @brief asynchronous data logger class
+ *
+ * @tparam T  type of data to be logged
+ */
 template <class T>
 class DataLogger {
  public:
-  DataLogger() : log_thread_(&DataLogger::run, this) {}
+  /**
+   * @brief start logging thread
+   */
+  DataLogger() : log_thread_(&DataLogger::Run, this) {}
 
+  /**
+   * @brief stop logging
+   */
   virtual ~DataLogger() {
     {
       std::lock_guard<std::mutex> lock(mtx_terminate_);
@@ -18,7 +29,12 @@ class DataLogger {
     log_thread_.join();
   }
 
-  void log_data(const T &data) {
+  /**
+   * @brief log data to disk
+   *
+   * @param data data to be logged
+   */
+  void LogData(const T &data) {
     std::lock_guard<std::mutex> lock(mtx_data_);
     if (data_available_ == true) {
       spdlog::warn("Logger cannot catch up, data is being dropped");
@@ -28,7 +44,12 @@ class DataLogger {
   }
 
  protected:
-  virtual void save_data(const T &data) = 0;
+  /**
+   * @brief child class should implement this to serialize data to disk
+   *
+   * @param data data to be serialized and saved
+   */
+  virtual void SaveData(const T &data) = 0;
 
  private:
   std::mutex mtx_data_;
@@ -40,7 +61,7 @@ class DataLogger {
   std::mutex mtx_terminate_;
   bool terminate_is_requested_ = false;
 
-  void run() {
+  void Run() {
     while (true) {
       // check terminate request
       {
@@ -56,7 +77,7 @@ class DataLogger {
         data_available_ = false;
         write_idx_ = 1 - write_idx_;
       }
-      save_data(data_[1 - write_idx_]);
+      SaveData(data_[1 - write_idx_]);
     }
   }
 };
