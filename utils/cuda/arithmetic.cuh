@@ -1,7 +1,8 @@
 #pragma once
 
-#include <cassert>
 #include <cuda_runtime.h>
+
+#include <cassert>
 
 #include "utils/cuda/errors.cuh"
 
@@ -17,8 +18,8 @@
  * @param aux     pointer to GPU auxiliary buffer
  * @param len     length of the input / output array
  */
-template<typename T>
-__global__ void auxiliary_sum_kernel(T *input, T *output, T *aux, int len) {
+template <typename T>
+__global__ void auxiliary_sum_kernel(T* input, T* output, T* aux, int len) {
   __shared__ T aux_offset;
 
   const int tx = threadIdx.x;
@@ -37,7 +38,8 @@ __global__ void auxiliary_sum_kernel(T *input, T *output, T *aux, int len) {
 }
 
 /**
- * @brief perform parallel prefix-sum using a work efficient algorithm described in
+ * @brief perform parallel prefix-sum using a work efficient algorithm described
+ * in
  *        https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-39-parallel-prefix-sum-scan-cuda
  *
  * @tparam T      data type
@@ -46,9 +48,9 @@ __global__ void auxiliary_sum_kernel(T *input, T *output, T *aux, int len) {
  * @param auxout  optional pointer to GPU auxiliary buffer
  * @param len     length of input / output array
  */
-template<typename T>
-__global__ void scan_kernel(T *input, T *output, T *auxout, int len) {
-  __shared__ T buffer[SCAN_PAD(2*SCAN_BLOCK_SIZE)];
+template <typename T>
+__global__ void scan_kernel(T* input, T* output, T* auxout, int len) {
+  __shared__ T buffer[SCAN_PAD(2 * SCAN_BLOCK_SIZE)];
 
   const int tx = threadIdx.x;
   const int bx = blockIdx.x;
@@ -56,31 +58,31 @@ __global__ void scan_kernel(T *input, T *output, T *auxout, int len) {
   const int i2 = i1 + SCAN_BLOCK_SIZE;
 
   buffer[SCAN_PAD(tx)] = (i1 < len) ? input[i1] : 0;
-  buffer[SCAN_PAD(tx+SCAN_BLOCK_SIZE)] = (i2 < len) ? input[i2] : 0;
+  buffer[SCAN_PAD(tx + SCAN_BLOCK_SIZE)] = (i2 < len) ? input[i2] : 0;
 
   // pre scan
-  for (int stride = 1; stride < 2*SCAN_BLOCK_SIZE; stride <<= 1) {
+  for (int stride = 1; stride < 2 * SCAN_BLOCK_SIZE; stride <<= 1) {
     __syncthreads();
     const int idx = (tx + 1) * stride * 2 - 1;
-    if (idx < 2*SCAN_BLOCK_SIZE) {
-      buffer[SCAN_PAD(idx)] += buffer[SCAN_PAD(idx-stride)];
+    if (idx < 2 * SCAN_BLOCK_SIZE) {
+      buffer[SCAN_PAD(idx)] += buffer[SCAN_PAD(idx - stride)];
     }
   }
 
   // post scan
-  for (int stride = SCAN_BLOCK_SIZE/2; stride > 0; stride >>= 1) {
+  for (int stride = SCAN_BLOCK_SIZE / 2; stride > 0; stride >>= 1) {
     const int idx = (tx + 1) * stride * 2 - 1;
-    if (idx + stride < 2*SCAN_BLOCK_SIZE) {
-      buffer[SCAN_PAD(idx+stride)] += buffer[SCAN_PAD(idx)];
+    if (idx + stride < 2 * SCAN_BLOCK_SIZE) {
+      buffer[SCAN_PAD(idx + stride)] += buffer[SCAN_PAD(idx)];
     }
     __syncthreads();
   }
 
   if (i1 < len) output[i1] = buffer[SCAN_PAD(tx)];
-  if (i2 < len) output[i2] = buffer[SCAN_PAD(tx+SCAN_BLOCK_SIZE)];
+  if (i2 < len) output[i2] = buffer[SCAN_PAD(tx + SCAN_BLOCK_SIZE)];
 
   if (tx == 0 && auxout) {
-    auxout[bx] = buffer[SCAN_PAD(2*SCAN_BLOCK_SIZE-1)];
+    auxout[bx] = buffer[SCAN_PAD(2 * SCAN_BLOCK_SIZE - 1)];
   }
 }
 
@@ -94,12 +96,12 @@ __global__ void scan_kernel(T *input, T *output, T *auxout, int len) {
  * @param len     length of input / ouput array
  * @param stream  optional CUDA stream
  */
-template<typename T>
-void prefix_sum(T *input, T *output, T *auxout, int len, cudaStream_t stream = NULL) {
+template <typename T>
+void prefix_sum(T* input, T* output, T* auxout, int len, cudaStream_t stream = NULL) {
   // cannot handle more than (1 << 22) elements
   assert(len <= SCAN_BLOCK_SIZE * SCAN_BLOCK_SIZE * 4);
 
-  const int num_aux = ceil((float)len / (2*SCAN_BLOCK_SIZE));
+  const int num_aux = ceil((float)len / (2 * SCAN_BLOCK_SIZE));
 
   scan_kernel<T><<<num_aux, SCAN_BLOCK_SIZE, 0, stream>>>(input, output, auxout, len);
   CUDA_STREAM_CHECK_ERROR(stream);

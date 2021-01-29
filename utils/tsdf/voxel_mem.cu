@@ -3,7 +3,7 @@
 #include "utils/cuda/errors.cuh"
 #include "utils/tsdf/voxel_mem.cuh"
 
-__global__ static void heap_init_kernel(int *heap) {
+__global__ static void heap_init_kernel(int* heap) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < NUM_BLOCK) {
     heap[idx] = idx;
@@ -40,11 +40,11 @@ __device__ int VoxelMemPool::AquireBlock() {
 
   const VoxelBlock block(heap_[idx - 1]);
 
-  #pragma unroll
+#pragma unroll
   for (int i = 0; i < BLOCK_VOLUME; ++i) {
-    VoxelRGBW &voxel_rgbw = GetVoxel<VoxelRGBW>(i, block);
-    VoxelTSDF &voxel_tsdf = GetVoxel<VoxelTSDF>(i, block);
-    VoxelSEGM &voxel_segm = GetVoxel<VoxelSEGM>(i, block);
+    VoxelRGBW& voxel_rgbw = GetVoxel<VoxelRGBW>(i, block);
+    VoxelTSDF& voxel_tsdf = GetVoxel<VoxelTSDF>(i, block);
+    VoxelSEGM& voxel_segm = GetVoxel<VoxelSEGM>(i, block);
     voxel_rgbw.weight = 0;
     voxel_tsdf.tsdf = -1;
     voxel_segm.probability = .5;
@@ -65,4 +65,3 @@ __host__ int VoxelMemPool::NumFreeBlocks() const {
   CUDA_SAFE_CALL(cudaMemcpy(&tmp, num_free_blocks_, sizeof(int), cudaMemcpyDeviceToHost));
   return tmp;
 }
-

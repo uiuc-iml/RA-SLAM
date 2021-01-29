@@ -1,22 +1,23 @@
 #pragma once
 
-#include <cassert>
 #include <cuda_runtime.h>
 
-#include "utils/tsdf/voxel_types.cuh"
+#include <cassert>
+
 #include "utils/cuda/vector.cuh"
+#include "utils/tsdf/voxel_types.cuh"
 
 // total number of voxel blocks available
-#define NUM_BLOCK_BITS    18
-#define NUM_BLOCK         (1 << NUM_BLOCK_BITS)
+#define NUM_BLOCK_BITS 18
+#define NUM_BLOCK (1 << NUM_BLOCK_BITS)
 
 // block properties
-#define BLOCK_LEN_BITS    3
-#define BLOCK_AREA_BITS   (BLOCK_LEN_BITS * 2)
+#define BLOCK_LEN_BITS 3
+#define BLOCK_AREA_BITS (BLOCK_LEN_BITS * 2)
 #define BLOCK_VOLUME_BITS (BLOCK_LEN_BITS * 3)
-#define BLOCK_LEN         (1 << BLOCK_LEN_BITS)
-#define BLOCK_AREA        (1 << BLOCK_AREA_BITS)
-#define BLOCK_VOLUME      (1 << BLOCK_VOLUME_BITS)
+#define BLOCK_LEN (1 << BLOCK_LEN_BITS)
+#define BLOCK_AREA (1 << BLOCK_AREA_BITS)
+#define BLOCK_VOLUME (1 << BLOCK_VOLUME_BITS)
 
 /**
  * @brief convert voxel coordinate to block coordinate
@@ -25,7 +26,7 @@
  *
  * @return block cooridnate in integer grid
  */
-__device__ __host__ inline Vector3<short> PointToBlock(const Vector3<short> &point) {
+__device__ __host__ inline Vector3<short> PointToBlock(const Vector3<short>& point) {
   return point >> BLOCK_LEN_BITS;
 }
 
@@ -36,7 +37,7 @@ __device__ __host__ inline Vector3<short> PointToBlock(const Vector3<short> &poi
  *
  * @return relative voxel index in [0, BLOCK_VOLUME)
  */
-__device__ __host__ inline Vector3<short> PointToOffset(const Vector3<short> &point) {
+__device__ __host__ inline Vector3<short> PointToOffset(const Vector3<short>& point) {
   return point & (BLOCK_LEN - 1);
 }
 
@@ -47,7 +48,7 @@ __device__ __host__ inline Vector3<short> PointToOffset(const Vector3<short> &po
  *
  * @return relative voxel index in [0, BLOCK_VOLUME)
  */
-__device__ __host__ inline unsigned int OffsetToIndex(const Vector3<short> &point_offset) {
+__device__ __host__ inline unsigned int OffsetToIndex(const Vector3<short>& point_offset) {
   return point_offset.x + point_offset.y * BLOCK_LEN + point_offset.z * BLOCK_AREA;
 }
 
@@ -56,25 +57,24 @@ __device__ __host__ inline unsigned int OffsetToIndex(const Vector3<short> &poin
  */
 struct VoxelBlock {
   // block position in integer grid
-  Vector3<short>  position;
-  // offset < 0:  block not in hash table (TODO(alvin): CPU streaming is not yet implemented)
-  // offset = 0:  normal entry
-  // offset > 0:  part of a list
-  short           offset;
+  Vector3<short> position;
+  // offset < 0:  block not in hash table (TODO(alvin): CPU streaming is not yet
+  // implemented) offset = 0:  normal entry offset > 0:  part of a list
+  short offset;
   // index into the memory pool of voxel blocks
-  int             idx;
+  int idx;
 
   /**
    * @brief default construction of a non-existing block
    */
-  __device__ __host__ VoxelBlock() : offset(0), idx(-1) {};
+  __device__ __host__ VoxelBlock() : offset(0), idx(-1){};
 
   /**
    * @brief construct a block with a valid memory pool index
    *
    * @param idx index into the memory pool of voxel blocks
    */
-  __device__ __host__ VoxelBlock(int idx) : offset(0), idx(idx) {};
+  __device__ __host__ VoxelBlock(int idx) : offset(0), idx(idx){};
 };
 
 class VoxelMemPool {
@@ -112,8 +112,8 @@ class VoxelMemPool {
    *
    * @return  voxel data with Voxel type
    */
-  template<typename Voxel>
-  __device__ Voxel& GetVoxel(const Vector3<short> &point, const VoxelBlock &block) const {
+  template <typename Voxel>
+  __device__ Voxel& GetVoxel(const Vector3<short>& point, const VoxelBlock& block) const {
     assert(block.idx >= 0 && block.idx < NUM_BLOCK);
     assert(PointToBlock(point) == block.position);
     const Vector3<short> offset = PointToOffset(point);
@@ -130,10 +130,10 @@ class VoxelMemPool {
    *
    * @return  voxel data with Voxel type
    */
-  template<typename Voxel>
-  __device__ Voxel& GetVoxel(const int idx, const VoxelBlock &block) const {
+  template <typename Voxel>
+  __device__ Voxel& GetVoxel(const int idx, const VoxelBlock& block) const {
     assert(idx >= 0 && idx < BLOCK_VOLUME);
-    Voxel *voxels = GetVoxelData<Voxel>();
+    Voxel* voxels = GetVoxelData<Voxel>();
     return voxels[(block.idx << BLOCK_VOLUME_BITS) + idx];
   }
 
@@ -150,11 +150,11 @@ class VoxelMemPool {
   template <typename Voxel>
   __device__ constexpr Voxel* GetVoxelData() const;
 
-  VoxelRGBW *voxels_rgbw_;
-  VoxelTSDF *voxels_tsdf_;
-  VoxelSEGM *voxels_segm_;
-  int *num_free_blocks_;
-  int *heap_;
+  VoxelRGBW* voxels_rgbw_;
+  VoxelTSDF* voxels_tsdf_;
+  VoxelSEGM* voxels_segm_;
+  int* num_free_blocks_;
+  int* heap_;
 };
 
 /* template specialization for each type of voxel */
@@ -173,4 +173,3 @@ template <>
 __device__ inline VoxelSEGM* VoxelMemPool::GetVoxelData<VoxelSEGM>() const {
   return voxels_segm_;
 }
-

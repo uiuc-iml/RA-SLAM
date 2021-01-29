@@ -1,7 +1,7 @@
 #pragma once
 
-#include <opencv2/opencv.hpp>
 #include <librealsense2/rs.hpp>
+#include <opencv2/opencv.hpp>
 
 class SR300 {
  public:
@@ -12,7 +12,7 @@ class SR300 {
 
   rs2_intrinsics get_camera_intrinsics() const;
 
-  void get_rgbd_frame(cv::Mat *color_img, cv::Mat *depth_img) const; 
+  void get_rgbd_frame(cv::Mat* color_img, cv::Mat* depth_img) const;
 
   void set_depth_sensor_option(const rs2_option option, const float value);
 

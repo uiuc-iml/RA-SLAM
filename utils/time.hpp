@@ -26,9 +26,7 @@ class LocalClock {
  public:
   LocalClock(int64_t local_tick_now) : offset_(GetTimestamp<UNIT>() - local_tick_now) {}
 
-  int64_t convert_timestamp(int64_t local_tick) const {
-    return local_tick + offset_;
-  }
+  int64_t convert_timestamp(int64_t local_tick) const { return local_tick + offset_; }
 
  private:
   const int64_t offset_;

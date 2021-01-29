@@ -1,7 +1,7 @@
 #pragma once
 
-#include <opencv2/opencv.hpp>
 #include <librealsense2/rs.hpp>
+#include <opencv2/opencv.hpp>
 
 /**
  * @brief L515 camer interface with librealsense2
@@ -24,7 +24,7 @@ class L515 {
    *
    * @return timestamp in system clock
    */
-  int64_t GetRGBDFrame(cv::Mat *color_img, cv::Mat *depth_img) const;
+  int64_t GetRGBDFrame(cv::Mat* color_img, cv::Mat* depth_img) const;
 
   /**
    * @brief set capture properties through librealsense

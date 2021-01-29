@@ -24,11 +24,11 @@ class ZED {
    * @param rgb_img     rgb image of RGBD frame
    * @param depth_img   depth image of RGBD frame
    */
-  void GetStereoAndRGBDFrame(cv::Mat *left_img, cv::Mat *right_img,
-                             cv::Mat *rgb_img, cv::Mat *depth_img);
+  void GetStereoAndRGBDFrame(cv::Mat* left_img, cv::Mat* right_img, cv::Mat* rgb_img,
+                             cv::Mat* depth_img);
 
  private:
-  void AllocateIfNeeded(cv::Mat *img, int type) const;
+  void AllocateIfNeeded(cv::Mat* img, int type) const;
 
   sl::Camera zed_;
   sl::CameraConfiguration config_;

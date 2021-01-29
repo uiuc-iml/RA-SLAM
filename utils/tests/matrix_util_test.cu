@@ -6,8 +6,8 @@
 TEST(MatrixUtilTest, CameraIntrinsicsInverse) {
   const CameraIntrinsics<float> intrinsics(250, 250, 150, 150);
   const Matrix3<float> intrinsics_inv = intrinsics.Inverse();
-  EXPECT_TRUE(
-    static_cast<Matrix3<float>>(intrinsics) * intrinsics_inv == Matrix3<float>::Identity());
+  EXPECT_TRUE(static_cast<Matrix3<float>>(intrinsics) * intrinsics_inv ==
+              Matrix3<float>::Identity());
 }
 
 TEST(MatrixUtilTest, SO3Inverse) {

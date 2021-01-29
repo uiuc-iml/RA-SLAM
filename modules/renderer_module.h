@@ -1,10 +1,9 @@
 #pragma once
 
-#include <string>
-
 #include <openvslam/publish/map_publisher.h>
-
 #include <yaml-cpp/yaml.h>
+
+#include <string>
 
 #include "modules/slam_module.h"
 #include "modules/tsdf_module.h"
@@ -20,10 +19,8 @@ class ImageRenderer : public RendererBase {
    * @param tsdf              shared pointer to a TSDF system
    * @param config_file_path  configuration file path
    */
-  ImageRenderer(const std::string &name,
-                const std::shared_ptr<SLAMSystem> &slam,
-                const std::shared_ptr<TSDFSystem> &tsdf,
-                const std::string &config_file_path);
+  ImageRenderer(const std::string& name, const std::shared_ptr<SLAMSystem>& slam,
+                const std::shared_ptr<TSDFSystem>& tsdf, const std::string& config_file_path);
 
  protected:
   void DispatchInput() override;

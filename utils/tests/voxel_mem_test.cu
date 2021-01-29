@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+
 #include <ctime>
 
 #include "utils/cuda/errors.cuh"
@@ -6,31 +7,29 @@
 
 class VoxelMemTest : public ::testing::Test {
  protected:
-  ~VoxelMemTest() {
-    voxel_mem_pool.ReleaseMemory();
-  }
+  ~VoxelMemTest() { voxel_mem_pool.ReleaseMemory(); }
 
   VoxelMemPool voxel_mem_pool;
 };
 
-__global__ void AquireBlocks(VoxelMemPool voxel_mem, VoxelRGBW **voxel_blocks, int *block_indics) {
+__global__ void AquireBlocks(VoxelMemPool voxel_mem, VoxelRGBW** voxel_blocks, int* block_indics) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   block_indics[idx] = voxel_mem.AquireBlock();
   const VoxelBlock block(block_indics[idx]);
   voxel_blocks[idx] = &voxel_mem.GetVoxel<VoxelRGBW>(0, block);
 }
 
-__global__ void AssignBlocks(VoxelMemPool voxel_mem, int *block_indics, int num_blocks) {
+__global__ void AssignBlocks(VoxelMemPool voxel_mem, int* block_indics, int num_blocks) {
   const Vector3<short> thread_pos(threadIdx.x, threadIdx.y, threadIdx.z);
   const int idx = OffsetToIndex(thread_pos);
   for (int i = 0; i < num_blocks; ++i) {
     const VoxelBlock block(block_indics[i]);
-    VoxelRGBW &voxel = voxel_mem.GetVoxel<VoxelRGBW>(idx, block);
+    VoxelRGBW& voxel = voxel_mem.GetVoxel<VoxelRGBW>(idx, block);
     voxel.weight = i;
   }
 }
 
-__global__ void ReleaseBlocks(VoxelMemPool voxel_mem, int *block_indics) {
+__global__ void ReleaseBlocks(VoxelMemPool voxel_mem, int* block_indics) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   voxel_mem.ReleaseBlock(block_indics[idx]);
 }
@@ -38,8 +37,8 @@ __global__ void ReleaseBlocks(VoxelMemPool voxel_mem, int *block_indics) {
 TEST_F(VoxelMemTest, Test1) {
   constexpr int NUM_BLOCK_ALLOC = 8;
 
-  VoxelRGBW **voxel_blocks;
-  int *block_indics;
+  VoxelRGBW** voxel_blocks;
+  int* block_indics;
   // allocation
   CUDA_SAFE_CALL(cudaMallocManaged(&voxel_blocks, sizeof(VoxelRGBW*) * NUM_BLOCK_ALLOC));
   CUDA_SAFE_CALL(cudaMemset(voxel_blocks, 0, sizeof(VoxelRGBW*) * NUM_BLOCK_ALLOC));
@@ -49,8 +48,8 @@ TEST_F(VoxelMemTest, Test1) {
   for (int i = 0; i < NUM_BLOCK_ALLOC; ++i) {
     EXPECT_TRUE(voxel_blocks[i] != NULL);
     if (i != 0) {
-      EXPECT_TRUE(voxel_blocks[i-1] != voxel_blocks[i]);
-      EXPECT_TRUE(block_indics[i-1] != block_indics[i]);
+      EXPECT_TRUE(voxel_blocks[i - 1] != voxel_blocks[i]);
+      EXPECT_TRUE(block_indics[i - 1] != block_indics[i]);
     }
   }
   // assignment
@@ -59,8 +58,8 @@ TEST_F(VoxelMemTest, Test1) {
   CUDA_CHECK_ERROR;
   for (int i = 0; i < NUM_BLOCK_ALLOC; ++i) {
     VoxelRGBW voxels[BLOCK_VOLUME];
-    CUDA_SAFE_CALL(cudaMemcpy(
-      voxels, voxel_blocks[i], sizeof(VoxelRGBW) * BLOCK_VOLUME, cudaMemcpyDeviceToHost));
+    CUDA_SAFE_CALL(cudaMemcpy(voxels, voxel_blocks[i], sizeof(VoxelRGBW) * BLOCK_VOLUME,
+                              cudaMemcpyDeviceToHost));
     for (int j = 0; j < BLOCK_VOLUME; ++j) {
       EXPECT_EQ(voxels[j].weight, i);
     }
@@ -70,8 +69,8 @@ TEST_F(VoxelMemTest, Test1) {
   CUDA_CHECK_ERROR;
   for (int i = 0; i < NUM_BLOCK_ALLOC; ++i) {
     VoxelRGBW voxels[BLOCK_VOLUME];
-    CUDA_SAFE_CALL(cudaMemcpy(
-      voxels, voxel_blocks[i], sizeof(VoxelRGBW) * BLOCK_VOLUME, cudaMemcpyDeviceToHost));
+    CUDA_SAFE_CALL(cudaMemcpy(voxels, voxel_blocks[i], sizeof(VoxelRGBW) * BLOCK_VOLUME,
+                              cudaMemcpyDeviceToHost));
     for (int j = 0; j < BLOCK_VOLUME; ++j) {
       EXPECT_EQ(voxels[j].weight, i);
     }
@@ -81,11 +80,10 @@ TEST_F(VoxelMemTest, Test1) {
   CUDA_SAFE_CALL(cudaDeviceSynchronize());
   for (int i = 0; i < NUM_BLOCK_ALLOC; ++i) {
     VoxelRGBW voxels[BLOCK_VOLUME];
-    CUDA_SAFE_CALL(cudaMemcpy(
-      voxels, voxel_blocks[i], sizeof(VoxelRGBW) * BLOCK_VOLUME, cudaMemcpyDeviceToHost));
+    CUDA_SAFE_CALL(cudaMemcpy(voxels, voxel_blocks[i], sizeof(VoxelRGBW) * BLOCK_VOLUME,
+                              cudaMemcpyDeviceToHost));
     for (int j = 0; j < BLOCK_VOLUME; ++j) {
       EXPECT_TRUE(voxels[j].weight == 0);
     }
   }
 }
-

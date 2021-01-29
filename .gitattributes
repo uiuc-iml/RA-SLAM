@@ -1,0 +1,13 @@
+# enforce linux style line endings
+* text=lf
+
+*.c     text
+*.cc    text
+*.cpp   text
+*.h     text
+*.hpp   text
+*.cu    text
+*.cuh   text
+
+*.cmake text
+*.txt   text

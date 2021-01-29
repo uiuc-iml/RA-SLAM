@@ -1,8 +1,8 @@
 #pragma once
 
 #include <GL/glew.h>
-#include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
+#include <cuda_runtime.h>
 
 #include "utils/gl/shader.h"
 
@@ -30,7 +30,7 @@ class GLImageBase {
    * @param width   width of the image
    * @param data    optional pointer to a CUDA image buffer
    */
-  void BindImage(int height, int width, const void *data = nullptr);
+  void BindImage(int height, int width, const void* data = nullptr);
 
   /**
    * @brief OpenGL draw call
@@ -43,7 +43,7 @@ class GLImageBase {
    * @param data    pointer to a CUDA image buffer
    * @param stream  optional CUDA stream
    */
-  void LoadCuda(const void *data, cudaStream_t stream = nullptr);
+  void LoadCuda(const void* data, cudaStream_t stream = nullptr);
 
   /**
    * @return image height
@@ -63,7 +63,7 @@ class GLImageBase {
    * @param width
    * @param data
    */
-  virtual void GLTex2D(int height, int width, const void *data) const = 0;
+  virtual void GLTex2D(int height, int width, const void* data) const = 0;
 
   /**
    * @return size of a single pixel
@@ -86,7 +86,7 @@ class GLImage32FC1 : public GLImageBase {
   GLImage32FC1();
 
  protected:
-  void GLTex2D(int height, int width, const void *data) const override final;
+  void GLTex2D(int height, int width, const void* data) const override final;
 
   size_t ElementSize() const override final;
 };
@@ -99,7 +99,7 @@ class GLImage8UC4 : public GLImageBase {
   GLImage8UC4();
 
  protected:
-  void GLTex2D(int height, int width, const void *data) const override final;
+  void GLTex2D(int height, int width, const void* data) const override final;
 
   size_t ElementSize() const override final;
 };

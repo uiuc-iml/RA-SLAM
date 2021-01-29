@@ -1,23 +1,20 @@
-#include <chrono>
-#include <iostream>
-#include <memory>
-#include <string>
-#include <thread>
+#include <spdlog/spdlog.h>
 #include <yaml-cpp/yaml.h>
 
-#include "pangolin_viewer/viewer.h"
-
-#include "openvslam/config.h"
-#include "openvslam/system.h"
-
+#include <chrono>
+#include <iostream>
 #include <librealsense2/rs.hpp>
+#include <memory>
 #include <opencv2/opencv.hpp>
-
 #include <popl.hpp>
-#include <spdlog/spdlog.h>
+#include <string>
+#include <thread>
 
 #include "cameras/sr300.h"
 #include "modules/slam_module.h"
+#include "openvslam/config.h"
+#include "openvslam/system.h"
+#include "pangolin_viewer/viewer.h"
 #include "utils/data_logger.hpp"
 #include "utils/time.hpp"
 
@@ -25,10 +22,8 @@ class DepthData {
  public:
   DepthData() = default;
 
-  DepthData(const DepthData &others)
-    : img_rgb(others.img_rgb.clone()),
-      img_depth(others.img_depth.clone()),
-      id(others.id) {}
+  DepthData(const DepthData& others)
+      : img_rgb(others.img_rgb.clone()), img_depth(others.img_depth.clone()), id(others.id) {}
 
   cv::Mat img_rgb;
   cv::Mat img_depth;
@@ -37,14 +32,12 @@ class DepthData {
 
 class DepthLogger : public DataLogger<DepthData> {
  public:
-  DepthLogger(const std::string &logdir)
-      : logdir_(logdir),
-        DataLogger<DepthData>() {}
+  DepthLogger(const std::string& logdir) : logdir_(logdir), DataLogger<DepthData>() {}
 
   std::vector<unsigned int> logged_ids;
 
  protected:
-  void SaveData(const DepthData &data) override {
+  void SaveData(const DepthData& data) override {
     const std::string rgb_path = logdir_ + "/" + std::to_string(data.id) + "_rgb.png";
     const std::string depth_path = logdir_ + "/" + std::to_string(data.id) + "_depth.png";
     cv::Mat img_depth_uint16;
@@ -58,17 +51,13 @@ class DepthLogger : public DataLogger<DepthData> {
   const std::string logdir_;
 };
 
-void tracking(const std::shared_ptr<openvslam::config> &cfg,
-              const std::string &vocab_file_path,
-              const SR300 &camera,
-              const std::string &map_db_path,
-              const std::string &logdir,
+void tracking(const std::shared_ptr<openvslam::config>& cfg, const std::string& vocab_file_path,
+              const SR300& camera, const std::string& map_db_path, const std::string& logdir,
               bool use_depth = true) {
   SLAMSystem SLAM(cfg, vocab_file_path);
   SLAM.startup();
 
-  pangolin_viewer::viewer viewer(
-      cfg, &SLAM, SLAM.get_frame_publisher(), SLAM.get_map_publisher());
+  pangolin_viewer::viewer viewer(cfg, &SLAM, SLAM.get_frame_publisher(), SLAM.get_map_publisher());
 
   DepthLogger logger(logdir);
 
@@ -76,8 +65,7 @@ void tracking(const std::shared_ptr<openvslam::config> &cfg,
     const auto start = std::chrono::steady_clock::now();
     DepthData data;
     while (true) {
-      if (SLAM.terminate_is_requested())
-        break;
+      if (SLAM.terminate_is_requested()) break;
 
       camera.get_rgbd_frame(&data.img_rgb, &data.img_depth);
       const auto timestamp = GetTimestamp<std::chrono::microseconds>();
@@ -99,15 +87,14 @@ void tracking(const std::shared_ptr<openvslam::config> &cfg,
   t.join();
   SLAM.shutdown();
 
-  if (!map_db_path.empty())
-    SLAM.save_map_database(map_db_path);
+  if (!map_db_path.empty()) SLAM.save_map_database(map_db_path);
 
   const std::string traj_path = logdir + "/trajectory.txt";
   SLAM.SaveMatchedTrajectory(traj_path, logger.logged_ids);
 }
 
-std::shared_ptr<openvslam::config> get_and_set_config(const std::string &config_file_path,
-                                                      SR300 *camera) {
+std::shared_ptr<openvslam::config> get_and_set_config(const std::string& config_file_path,
+                                                      SR300* camera) {
   YAML::Node yaml_node = YAML::LoadFile(config_file_path);
   // modify configuration based on realsense camera data
   // pre-defined stream profile
@@ -138,22 +125,20 @@ std::shared_ptr<openvslam::config> get_and_set_config(const std::string &config_
   return std::make_shared<openvslam::config>(yaml_node, config_file_path);
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   popl::OptionParser op("Allowed options");
   auto help = op.add<popl::Switch>("h", "help", "produce help message");
-  auto vocab_file_path = op.add<popl::Value<std::string>>("v", "vocab",
-                                                          "vocabulary file path");
-  auto config_file_path = op.add<popl::Value<std::string>>("c", "config",
-                                                           "config file path");
+  auto vocab_file_path = op.add<popl::Value<std::string>>("v", "vocab", "vocabulary file path");
+  auto config_file_path = op.add<popl::Value<std::string>>("c", "config", "config file path");
   auto debug_mode = op.add<popl::Switch>("", "debug", "debug mode");
   auto depth = op.add<popl::Switch>("", "depth", "use depth information");
-  auto map_db_path = op.add<popl::Value<std::string>>("p", "map-db",
-                            "path to store the map database", "");
-  auto log_dir = op.add<popl::Value<std::string>>("", "logdir",
-                            "directory to store logged data", "./log");
+  auto map_db_path =
+      op.add<popl::Value<std::string>>("p", "map-db", "path to store the map database", "");
+  auto log_dir =
+      op.add<popl::Value<std::string>>("", "logdir", "directory to store logged data", "./log");
   try {
     op.parse(argc, argv);
-  } catch (const std::exception &e) {
+  } catch (const std::exception& e) {
     std::cerr << e.what() << std::endl;
     std::cerr << std::endl;
     std::cerr << op << std::endl;
@@ -183,13 +168,13 @@ int main(int argc, char *argv[]) {
   std::shared_ptr<openvslam::config> cfg;
   try {
     cfg = get_and_set_config(config_file_path->value(), &camera);
-  } catch (const std::exception &e) {
+  } catch (const std::exception& e) {
     std::cerr << e.what() << std::endl;
     return EXIT_FAILURE;
   }
 
-  tracking(cfg,
-      vocab_file_path->value(), camera, map_db_path->value(), log_dir->value(), depth->is_set());
+  tracking(cfg, vocab_file_path->value(), camera, map_db_path->value(), log_dir->value(),
+           depth->is_set());
 
   return EXIT_SUCCESS;
 }

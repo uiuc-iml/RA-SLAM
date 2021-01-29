@@ -20,11 +20,13 @@ struct TSDFSystemInput {
   cv::Mat img_ht;
   cv::Mat img_lt;
 
-  TSDFSystemInput(const SE3<float> &cam_T_world,
-                  const cv::Mat &img_rgb, const cv::Mat &img_depth,
-                  const cv::Mat &img_ht, const cv::Mat &img_lt)
-    : cam_T_world(cam_T_world), img_rgb(img_rgb), img_depth(img_depth),
-      img_ht(img_ht), img_lt(img_lt) {}
+  TSDFSystemInput(const SE3<float>& cam_T_world, const cv::Mat& img_rgb, const cv::Mat& img_depth,
+                  const cv::Mat& img_ht, const cv::Mat& img_lt)
+      : cam_T_world(cam_T_world),
+        img_rgb(img_rgb),
+        img_depth(img_depth),
+        img_ht(img_ht),
+        img_lt(img_lt) {}
 };
 
 /**
@@ -39,12 +41,12 @@ class TSDFSystem {
    * @param truncation  tsdf truncation length in [m]
    * @param max_depth   maximum depth to be considered valid in [m]
    * @param intrinsics  intrinsics of the RGDB camera
-   * @param extrinsics  optional extrinsics to a reference frame (transformation from
-   *                    camera to reference frame: cam_T_ref)
+   * @param extrinsics  optional extrinsics to a reference frame (transformation
+   * from camera to reference frame: cam_T_ref)
    */
   TSDFSystem(float voxel_size, float truncation, float max_depth,
-             const CameraIntrinsics<float> &intrinsics,
-             const SE3<float> &extrinsics = SE3<float>::Identity());
+             const CameraIntrinsics<float>& intrinsics,
+             const SE3<float>& extrinsics = SE3<float>::Identity());
 
   /**
    * @brief stop the integration thread
@@ -60,9 +62,8 @@ class TSDFSystem {
    * @param img_ht          optional high touch probability image
    * @param img_lt          optional low touch probability image
    */
-  void Integrate(const SE3<float> &posecam_T_world,
-                 const cv::Mat &img_rgb, const cv::Mat &img_depth,
-                 const cv::Mat &img_ht = {}, const cv::Mat &img_lt = {});
+  void Integrate(const SE3<float>& posecam_T_world, const cv::Mat& img_rgb,
+                 const cv::Mat& img_depth, const cv::Mat& img_ht = {}, const cv::Mat& img_lt = {});
 
   /**
    * @brief download valid voxels within a certain bound
@@ -71,7 +72,7 @@ class TSDFSystem {
    *
    * @return array of voxel data with spatial location and tsdf value
    */
-  std::vector<VoxelSpatialTSDF> Query(const BoundingCube<float> &volumn);
+  std::vector<VoxelSpatialTSDF> Query(const BoundingCube<float>& volumn);
 
   /**
    * @brief render a virtual view of the TSDF scene into a GLImage
@@ -80,9 +81,8 @@ class TSDFSystem {
    * @param cam_T_world virtual camera pose
    * @param img_normal  output normal shaded image
    */
-  void Render(const CameraParams &virtual_cam,
-              const SE3<float> cam_T_world,
-              GLImage8UC4 *img_normal);
+  void Render(const CameraParams& virtual_cam, const SE3<float> cam_T_world,
+              GLImage8UC4* img_normal);
 
  private:
   void Run();

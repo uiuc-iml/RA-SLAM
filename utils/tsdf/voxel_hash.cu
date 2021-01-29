@@ -4,22 +4,22 @@
 #include "utils/cuda/errors.cuh"
 #include "utils/tsdf/voxel_hash.cuh"
 
-__global__ static void reset_locks_kernel(int *locks, int num_locks) {
+__global__ static void reset_locks_kernel(int* locks, int num_locks) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < num_locks) {
     locks[idx] = FREE;
   }
 }
 
-__global__ static void init_hash_table_kernel(VoxelBlock *voxel_blocks) {
+__global__ static void init_hash_table_kernel(VoxelBlock* voxel_blocks) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   voxel_blocks[idx].idx = -1;
 }
 
-__device__ __host__ uint Hash(const Vector3<short> &block_pos) {
-  return (((uint)block_pos.x * 73856093u) ^
-          ((uint)block_pos.y * 19349669u) ^
-          ((uint)block_pos.z * 83492791u)) & BUCKET_MASK;
+__device__ __host__ uint Hash(const Vector3<short>& block_pos) {
+  return (((uint)block_pos.x * 73856093u) ^ ((uint)block_pos.y * 19349669u) ^
+          ((uint)block_pos.z * 83492791u)) &
+         BUCKET_MASK;
 }
 
 VoxelHashTable::VoxelHashTable() {
@@ -43,28 +43,32 @@ void VoxelHashTable::ReleaseMemory() {
   mem.ReleaseMemory();
 }
 
-__device__ void VoxelHashTable::Allocate(const Vector3<short> &block_pos) {
+__device__ void VoxelHashTable::Allocate(const Vector3<short>& block_pos) {
   const unsigned int bucket_idx = Hash(block_pos);
   const unsigned int entry_idx = (bucket_idx << NUM_ENTRY_PER_BUCKET_BITS);
-  // check for existence
-  #pragma unroll
+// check for existence
+#pragma unroll
   for (int i = 0; i < NUM_ENTRY_PER_BUCKET; ++i) {
-    const VoxelBlock &block = hash_table_[entry_idx + i];
-    if (block.position == block_pos && block.idx >= 0) { return; }
+    const VoxelBlock& block = hash_table_[entry_idx + i];
+    if (block.position == block_pos && block.idx >= 0) {
+      return;
+    }
   }
   // traverse list
   unsigned int entry_idx_last = entry_idx + NUM_ENTRY_PER_BUCKET - 1;
   while (hash_table_[entry_idx_last].offset) {
     entry_idx_last = (entry_idx_last + hash_table_[entry_idx_last].offset) & ENTRY_MASK;
-    const VoxelBlock &block = hash_table_[entry_idx_last];
-    if (block.position == block_pos && block.idx >= 0) { return; }
+    const VoxelBlock& block = hash_table_[entry_idx_last];
+    if (block.position == block_pos && block.idx >= 0) {
+      return;
+    }
   }
-  // check for current bucket
-  #pragma unroll
-  for(int i = 0; i < NUM_ENTRY_PER_BUCKET; ++i) {
-    VoxelBlock &block = hash_table_[entry_idx + i];
+// check for current bucket
+#pragma unroll
+  for (int i = 0; i < NUM_ENTRY_PER_BUCKET; ++i) {
+    VoxelBlock& block = hash_table_[entry_idx + i];
     if (block.idx < 0) {
-      if (atomicExch(&bucket_locks_[bucket_idx], LOCKED) == FREE) { // lock bucket
+      if (atomicExch(&bucket_locks_[bucket_idx], LOCKED) == FREE) {  // lock bucket
         block.position = block_pos;
         block.offset = 0;
         block.idx = mem.AquireBlock();
@@ -86,10 +90,10 @@ __device__ void VoxelHashTable::Allocate(const Vector3<short> &block_pos) {
     if ((entry_idx_next & ENTRY_PER_BUCKET_MASK) != ENTRY_PER_BUCKET_MASK &&
         hash_table_[entry_idx_next].idx < 0) {
       const unsigned int bucket_idx_next = entry_idx_next >> NUM_ENTRY_PER_BUCKET_BITS;
-      if (atomicExch(&bucket_locks_[bucket_idx_last], LOCKED) == FREE && // lock last bucket
-          atomicExch(&bucket_locks_[bucket_idx_next], LOCKED) == FREE) { // lock next bucket
-        VoxelBlock &block_last = hash_table_[entry_idx_last];
-        VoxelBlock &block_next = hash_table_[entry_idx_next];
+      if (atomicExch(&bucket_locks_[bucket_idx_last], LOCKED) == FREE &&  // lock last bucket
+          atomicExch(&bucket_locks_[bucket_idx_next], LOCKED) == FREE) {  // lock next bucket
+        VoxelBlock& block_last = hash_table_[entry_idx_last];
+        VoxelBlock& block_next = hash_table_[entry_idx_next];
         // link new node to previous list tail
         const unsigned int wrap = entry_idx_next > entry_idx_last ? 0 : NUM_ENTRY;
         block_last.offset = entry_idx_next + wrap - entry_idx_last;
@@ -103,13 +107,13 @@ __device__ void VoxelHashTable::Allocate(const Vector3<short> &block_pos) {
   }
 }
 
-__device__ void VoxelHashTable::Delete(const Vector3<short> &block_pos) {
+__device__ void VoxelHashTable::Delete(const Vector3<short>& block_pos) {
   const unsigned int bucket_idx = Hash(block_pos);
   const unsigned int entry_idx = (bucket_idx << NUM_ENTRY_PER_BUCKET_BITS);
-  // check for current bucket
-  #pragma unroll
-  for(int i = 0; i < NUM_ENTRY_PER_BUCKET - 1; ++i) {
-    VoxelBlock &block = hash_table_[entry_idx + i];
+// check for current bucket
+#pragma unroll
+  for (int i = 0; i < NUM_ENTRY_PER_BUCKET - 1; ++i) {
+    VoxelBlock& block = hash_table_[entry_idx + i];
     if (block.position == block_pos && block.idx >= 0) {
       mem.ReleaseBlock(block.idx);
       block.offset = 0;
@@ -119,11 +123,11 @@ __device__ void VoxelHashTable::Delete(const Vector3<short> &block_pos) {
   }
   // special handling for list head
   unsigned int entry_idx_last = entry_idx + NUM_ENTRY_PER_BUCKET - 1;
-  VoxelBlock &block_head = hash_table_[entry_idx_last];
+  VoxelBlock& block_head = hash_table_[entry_idx_last];
   if (block_head.position == block_pos && block_head.idx >= 0) {
     if (atomicExch(&bucket_locks_[bucket_idx], LOCKED) == FREE) {
       const unsigned int entry_idx_next = (entry_idx_last + block_head.offset) & ENTRY_MASK;
-      VoxelBlock &block_next = hash_table_[entry_idx_next];
+      VoxelBlock& block_next = hash_table_[entry_idx_next];
       mem.ReleaseBlock(block_head.idx);
       block_head.position = block_next.position;
       // check if reaches tail
@@ -136,11 +140,11 @@ __device__ void VoxelHashTable::Delete(const Vector3<short> &block_pos) {
   }
   // generic list handling
   while (hash_table_[entry_idx_last].offset) {
-    VoxelBlock &block_last = hash_table_[entry_idx_last];
+    VoxelBlock& block_last = hash_table_[entry_idx_last];
     const unsigned int entry_idx_curr = (entry_idx_last + block_last.offset) & ENTRY_MASK;
-    VoxelBlock &block_curr = hash_table_[entry_idx_curr];
+    VoxelBlock& block_curr = hash_table_[entry_idx_curr];
     if (block_curr.position == block_pos && block_curr.idx >= 0) {
-      if (atomicExch(&bucket_locks_[bucket_idx], LOCKED) == FREE) { // lock original bucket
+      if (atomicExch(&bucket_locks_[bucket_idx], LOCKED) == FREE) {  // lock original bucket
         // check if reaches tail
         block_last.offset = block_curr.offset ? block_last.offset + block_curr.offset : 0;
         // free current entry
@@ -154,8 +158,8 @@ __device__ void VoxelHashTable::Delete(const Vector3<short> &block_pos) {
   }
 }
 
-__device__ float VoxelHashTable::RetrieveTSDF(const Vector3<float> &point,
-                                              VoxelBlock &cache) const {
+__device__ float VoxelHashTable::RetrieveTSDF(const Vector3<float>& point,
+                                              VoxelBlock& cache) const {
   const Vector3<float> pl = point.cast<short>().cast<float>();
   const Vector3<float> ph = pl + 1;
   const Vector3<float> alpha = ph - point;
@@ -184,6 +188,4 @@ __device__ const VoxelBlock& VoxelHashTable::GetBlock(const int idx) const {
   return hash_table_[idx];
 }
 
-__host__ int VoxelHashTable::NumActiveBlock() const {
-  return NUM_BLOCK - mem.NumFreeBlocks();
-}
+__host__ int VoxelHashTable::NumActiveBlock() const { return NUM_BLOCK - mem.NumFreeBlocks(); }

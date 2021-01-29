@@ -1,5 +1,5 @@
 add_executable(offline offline.cc)
-target_link_libraries(offline PRIVATE gl_utils tsdf_utils popl openvslam zed l515 ${OpenCV_LIBS})
+target_link_libraries(offline PRIVATE gl_utils tsdf_utils popl openvslam ${OpenCV_LIBS})
 target_include_directories(offline PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
 if (TORCH_FOUND)

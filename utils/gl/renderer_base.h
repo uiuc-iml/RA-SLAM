@@ -1,9 +1,8 @@
 #pragma once
 
-#include <imgui.h>
-
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <imgui.h>
 
 #include <string>
 
@@ -24,7 +23,7 @@ class RendererBase {
    * @param width   width of the window in [pixel]
    * @param height  height of the window in [pixel]
    */
-  RendererBase(const std::string &name, int width = 1280, int height = 720);
+  RendererBase(const std::string& name, int width = 1280, int height = 720);
 
   /**
    * @brief destroy the window
@@ -37,7 +36,7 @@ class RendererBase {
   void Run();
 
  protected:
-  GLFWwindow *window_;
+  GLFWwindow* window_;
 
   /**
    * @brief render call that needs to be implemented by child classes
@@ -55,8 +54,8 @@ class RendererBase {
   virtual void RenderExit();
 
  private:
-  static void GLFWErrorHandler(int error, const char *desc);
-  static void GLErrorHandler(GLenum source, GLenum type, GLuint id, GLenum severity,
-                             GLsizei length, const GLchar *msg, const void *args);
+  static void GLFWErrorHandler(int error, const char* desc);
+  static void GLErrorHandler(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
+                             const GLchar* msg, const void* args);
   static bool initialized_;
 };

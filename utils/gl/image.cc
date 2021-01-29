@@ -1,23 +1,27 @@
 #include "utils/gl/image.h"
-#include "utils/gl/renderer_base.h"
-#include "utils/cuda/errors.cuh"
 
-#include <string>
 #include <GL/glew.h>
 
+#include <string>
+
+#include "utils/cuda/errors.cuh"
+#include "utils/gl/renderer_base.h"
+
 const static float vertices[] = {
-   1,  1,  0, // top right
-   1, -1,  0, // bottom right
-  -1, -1,  0, // bottom left
-  -1,  1,  0, // top left
+    1,  1,  0,  // top right
+    1,  -1, 0,  // bottom right
+    -1, -1, 0,  // bottom left
+    -1, 1,  0,  // top left
 };
 
 const static unsigned int indices[] = {
-  0, 1, 3, // first triangle
-  1, 2, 3, // second triangle
+    0, 1, 3,  // first triangle
+    1, 2, 3,  // second triangle
 };
 
-const static char *vertex_shader = GLSL_VERSION "\n" R"END(
+const static char* vertex_shader = GLSL_VERSION
+    "\n"
+    R"END(
 layout (location = 0) in vec3 pos;
 out vec2 tex_coord;
 
@@ -27,7 +31,9 @@ void main() {
 }
 )END";
 
-const static char *frag_shader_c1 = GLSL_VERSION "\n" R"END(
+const static char* frag_shader_c1 = GLSL_VERSION
+    "\n"
+    R"END(
 out vec4 frag_color;
 in vec2 tex_coord;
 uniform sampler2D tex;
@@ -37,7 +43,9 @@ void main() {
 }
 )END";
 
-const static char *frag_shader_c4 = GLSL_VERSION "\n" R"END(
+const static char* frag_shader_c4 = GLSL_VERSION
+    "\n"
+    R"END(
 out vec4 frag_color;
 in vec2 tex_coord;
 uniform sampler2D tex;
@@ -77,7 +85,7 @@ GLImageBase::~GLImageBase() {
   }
 }
 
-void GLImageBase::BindImage(int height, int width, const void *data) {
+void GLImageBase::BindImage(int height, int width, const void* data) {
   if (cuda_resrc_) {
     CUDA_SAFE_CALL(cudaGraphicsUnregisterResource(cuda_resrc_));
   }
@@ -85,8 +93,8 @@ void GLImageBase::BindImage(int height, int width, const void *data) {
   this->width_ = width;
   glBindTexture(GL_TEXTURE_2D, texture_);
   GLTex2D(height, width, data);
-  CUDA_SAFE_CALL(cudaGraphicsGLRegisterImage(
-    &cuda_resrc_, texture_, GL_TEXTURE_2D, cudaGraphicsRegisterFlagsWriteDiscard));
+  CUDA_SAFE_CALL(cudaGraphicsGLRegisterImage(&cuda_resrc_, texture_, GL_TEXTURE_2D,
+                                             cudaGraphicsRegisterFlagsWriteDiscard));
 }
 
 void GLImageBase::Draw() const {
@@ -97,34 +105,31 @@ void GLImageBase::Draw() const {
   glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
-void GLImageBase::LoadCuda(const void *data, cudaStream_t stream) {
+void GLImageBase::LoadCuda(const void* data, cudaStream_t stream) {
   if (!cuda_resrc_) {
     return;
   }
   cudaArray_t array;
   CUDA_SAFE_CALL(cudaGraphicsMapResources(1, &cuda_resrc_, stream));
   CUDA_SAFE_CALL(cudaGraphicsSubResourceGetMappedArray(&array, cuda_resrc_, 0, 0));
-  CUDA_SAFE_CALL(cudaMemcpy2DToArrayAsync(array, 0, 0, data,
-    width_ * ElementSize(), width_ * ElementSize(), height_, cudaMemcpyDeviceToDevice, stream));
+  CUDA_SAFE_CALL(cudaMemcpy2DToArrayAsync(array, 0, 0, data, width_ * ElementSize(),
+                                          width_ * ElementSize(), height_, cudaMemcpyDeviceToDevice,
+                                          stream));
   CUDA_SAFE_CALL(cudaGraphicsUnmapResources(1, &cuda_resrc_, stream));
 }
 
 GLImage32FC1::GLImage32FC1() : GLImageBase(frag_shader_c1) {}
 
-void GLImage32FC1::GLTex2D(int height, int width, const void *data) const {
+void GLImage32FC1::GLTex2D(int height, int width, const void* data) const {
   glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, data);
 }
 
-size_t GLImage32FC1::ElementSize() const {
-  return sizeof(float);
-}
+size_t GLImage32FC1::ElementSize() const { return sizeof(float); }
 
 GLImage8UC4::GLImage8UC4() : GLImageBase(frag_shader_c4) {}
 
-void GLImage8UC4::GLTex2D(int height, int width, const void *data) const {
+void GLImage8UC4::GLTex2D(int height, int width, const void* data) const {
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 }
 
-size_t GLImage8UC4::ElementSize() const {
-  return sizeof(unsigned char) * 4;
-}
+size_t GLImage8UC4::ElementSize() const { return sizeof(unsigned char) * 4; }
