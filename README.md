@@ -6,8 +6,8 @@ components of this module is in charge for SLAM and 3D semmantic reconstruction.
 ## Dependancy
 * Build System
     * C++17
-    * CMake >= 3.8
-    * CUDA >= 9.0 (optional for reconstruction)
+    * CMake >= 3.18
+    * CUDA >= 9.0
 * Externel Libraries
     * [OpenVSLAM](https://github.com/xdspacelab/openvslam)
       (follow the
