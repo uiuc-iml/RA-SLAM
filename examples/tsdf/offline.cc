@@ -24,7 +24,7 @@
 
 struct LogEntry {
   int id;
-  SE3<float> cam_P_world;
+  SE3<float> cam_T_world;
 };
 
 CameraIntrinsics<float> get_intrinsics(const YAML::Node& config) {
@@ -37,26 +37,25 @@ SE3<float> get_extrinsics(const YAML::Node& config) {
   if (extrinsics.empty()) {
     return SE3<float>::Identity();
   }
-  return SE3<float>(extrinsics[0], extrinsics[1], extrinsics[2], extrinsics[3], extrinsics[4],
-                    extrinsics[5], extrinsics[6], extrinsics[7], extrinsics[8], extrinsics[9],
-                    extrinsics[10], extrinsics[11], extrinsics[12], extrinsics[13], extrinsics[14],
-                    extrinsics[15]);
+  const Eigen::Matrix4f tmp =
+      Eigen::Map<const Eigen::Matrix<float, 4, 4, Eigen::RowMajor>>(extrinsics.data());
+  return SE3<float>(tmp);
 }
 
 const std::vector<LogEntry> parse_log_entries(const std::string& logdir, const YAML::Node& config) {
   const std::string trajectory_path = logdir + "/trajectory.txt";
   const SE3<float> extrinsics = get_extrinsics(config);
+
   int id;
-  float m00, m01, m02, m03;
-  float m10, m11, m12, m13;
-  float m20, m21, m22, m23;
+  float buff[12];
 
   std::vector<LogEntry> log_entries;
   std::ifstream fin(trajectory_path);
-  while (fin >> id >> m00 >> m01 >> m02 >> m03 >> m10 >> m11 >> m12 >> m13 >> m20 >> m21 >> m22 >>
-         m23) {
-    log_entries.push_back({id, extrinsics * SE3<float>(m00, m01, m02, m03, m10, m11, m12, m13, m20,
-                                                       m21, m22, m23, 0, 0, 0, 1)});
+  while (fin >> id >> buff[0] >> buff[1] >> buff[2] >> buff[3] >> buff[4] >> buff[5] >> buff[6] >>
+         buff[7] >> buff[8] >> buff[9] >> buff[10] >> buff[11]) {
+    const Eigen::Matrix<float, 3, 4> tmp =
+        Eigen::Map<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>(buff);
+    log_entries.push_back({id, extrinsics * SE3<float>(tmp)});
   }
 
   return log_entries;
@@ -94,8 +93,8 @@ class ImageRenderer : public RendererBase {
         depth_scale_(config["depthmap_factor"].as<float>()) {
     ImGuiIO& io = ImGui::GetIO();
     io.FontGlobalScale = 2;
-    spdlog::debug("[RGBD Intrinsics] fx: {} fy: {} cx: {} cy: {}", intrinsics_.m00, intrinsics_.m11,
-                  intrinsics_.m02, intrinsics_.m12);
+    spdlog::debug("[RGBD Intrinsics] fx: {} fy: {} cx: {} cy: {}", intrinsics_.fx, intrinsics_.fy,
+                  intrinsics_.cx, intrinsics_.cy);
   }
 
  protected:
@@ -103,40 +102,37 @@ class ImageRenderer : public RendererBase {
     ImGuiIO& io = ImGui::GetIO();
     if (io.MouseWheel != 0) {
       follow_cam_ = false;
-      const Vector3<float> move_cam(0, 0, io.MouseWheel * .1);
-      const SO3<float> virtual_cam_R_world = virtual_cam_P_world_.GetR();
-      const Vector3<float> virtual_cam_t_world = virtual_cam_P_world_.GetT();
-      virtual_cam_P_world_ = SE3<float>(virtual_cam_R_world, virtual_cam_t_world - move_cam);
+      const Eigen::Vector3f move_cam(0, 0, io.MouseWheel * .1);
+      const Eigen::Quaternionf virtual_cam_R_world = virtual_cam_T_world_.GetR();
+      const Eigen::Vector3f virtual_cam_t_world = virtual_cam_T_world_.GetT();
+      virtual_cam_T_world_ = SE3<float>(virtual_cam_R_world, virtual_cam_t_world - move_cam);
     }
     if (!io.WantCaptureMouse && ImGui::IsMouseDragging(0) && tsdf_rgba_.GetWidth()) {
       follow_cam_ = false;
       const ImVec2 delta = ImGui::GetMouseDragDelta(0);
-      const Vector2<float> delta_img(delta.x / io.DisplaySize.x * tsdf_rgba_.GetWidth(),
-                                     delta.y / io.DisplaySize.y * tsdf_rgba_.GetHeight());
-      const Vector2<float> pos_new_img(io.MousePos.x / io.DisplaySize.x * tsdf_rgba_.GetWidth(),
-                                       io.MousePos.y / io.DisplaySize.y * tsdf_rgba_.GetHeight());
-      const Vector2<float> pos_old_img = pos_new_img - delta_img;
-      const Vector3<float> pos_new_cam = intrinsics_.Inverse() * Vector3<float>(pos_new_img);
-      const Vector3<float> pos_old_cam = intrinsics_.Inverse() * Vector3<float>(pos_old_img);
-      const Vector3<float> pos_new_norm_cam = pos_new_cam / sqrt(pos_new_cam.dot(pos_new_cam));
-      const Vector3<float> pos_old_norm_cam = pos_old_cam / sqrt(pos_old_cam.dot(pos_old_cam));
-      const Vector3<float> rot_axis_cross_cam = pos_new_norm_cam.cross(pos_old_norm_cam);
+      const Eigen::Vector2f delta_img(delta.x / io.DisplaySize.x * tsdf_rgba_.GetWidth(),
+                                      delta.y / io.DisplaySize.y * tsdf_rgba_.GetHeight());
+      const Eigen::Vector2f pos_new_img(io.MousePos.x / io.DisplaySize.x * tsdf_rgba_.GetWidth(),
+                                        io.MousePos.y / io.DisplaySize.y * tsdf_rgba_.GetHeight());
+      const Eigen::Vector2f pos_old_img = pos_new_img - delta_img;
+      const Eigen::Vector3f pos_new_cam = intrinsics_.Inverse() * pos_new_img.homogeneous();
+      const Eigen::Vector3f pos_old_cam = intrinsics_.Inverse() * pos_old_img.homogeneous();
+      const Eigen::Vector3f pos_new_norm_cam = pos_new_cam.normalized();
+      const Eigen::Vector3f pos_old_norm_cam = pos_old_cam.normalized();
+      const Eigen::Vector3f rot_axis_cross_cam = pos_new_norm_cam.cross(pos_old_norm_cam);
       const float theta = acos(pos_new_norm_cam.dot(pos_old_norm_cam));
-      const Vector3<float> w = rot_axis_cross_cam / sin(theta) * theta;
-      const Matrix3<float> w_x(0, -w.z, w.y, w.z, 0, -w.x, -w.y, w.x, 0);
-      const Matrix3<float> R = Matrix3<float>::Identity() + (float)sin(theta) / theta * w_x +
-                               (float)(1 - cos(theta)) / (theta * theta) * w_x * w_x;
-      const SE3<float> pose_cam1_P_cam2(R, Vector3<float>(0));
-      virtual_cam_P_world_ = pose_cam1_P_cam2.Inverse() * virtual_cam_P_world_old_;
+      const Eigen::Quaternionf R(Eigen::AngleAxisf(theta, rot_axis_cross_cam.normalized()));
+      const SE3<float> pose_cam1_T_cam2(R, Eigen::Vector3f::Zero());
+      virtual_cam_T_world_ = pose_cam1_T_cam2.Inverse() * virtual_cam_T_world_old_;
     } else if (!io.WantCaptureMouse && ImGui::IsMouseDragging(2)) {
       follow_cam_ = false;
       const ImVec2 delta = ImGui::GetMouseDragDelta(2);
-      const Vector3<float> translation(delta.x, delta.y, 0);
-      const Vector3<float> T = virtual_cam_P_world_old_.GetT();
-      const Matrix3<float> R = virtual_cam_P_world_old_.GetR();
-      virtual_cam_P_world_ = SE3<float>(R, T + translation * .01);
+      const Eigen::Vector3f translation(delta.x, delta.y, 0);
+      const Eigen::Vector3f t = virtual_cam_T_world_old_.GetT();
+      const Eigen::Quaternionf R = virtual_cam_T_world_old_.GetR();
+      virtual_cam_T_world_ = SE3<float>(R, t + translation * .01);
     } else {
-      virtual_cam_P_world_old_ = virtual_cam_P_world_;
+      virtual_cam_T_world_old_ = virtual_cam_T_world_;
     }
   }
 
@@ -159,7 +155,7 @@ class ImageRenderer : public RendererBase {
     // compute
     if (running_) {
       const LogEntry& log_entry = log_entries_[(cnt_++) % log_entries_.size()];
-      cam_P_world_ = log_entry.cam_P_world;
+      cam_T_world_ = log_entry.cam_T_world;
       get_images_by_id(log_entry.id, depth_scale_, &img_rgb_, &img_depth_, &img_ht_, &img_lt_,
                        logdir_);
       cv::imshow("rgb", img_rgb_);
@@ -171,7 +167,7 @@ class ImageRenderer : public RendererBase {
       cv::cvtColor(img_rgb_, img_rgb_, cv::COLOR_BGR2RGB);
       const auto st = GetTimestamp<std::chrono::milliseconds>();
       tsdf_.Integrate(img_rgb_, img_depth_, img_ht_, img_lt_, 4, intrinsics_,
-                      log_entry.cam_P_world);
+                      log_entry.cam_T_world);
       const auto end = GetTimestamp<std::chrono::milliseconds>();
       CUDA_SAFE_CALL(cudaDeviceSynchronize());
       ImGui::Text("Integration takes %lu ms", end - st);
@@ -182,8 +178,8 @@ class ImageRenderer : public RendererBase {
     if (follow_cam_) {
       static float step = 0;
       ImGui::SliderFloat("behind actual camera", &step, 0.0f, 3.0f);
-      virtual_cam_P_world_ =
-          SE3<float>(cam_P_world_.GetR(), cam_P_world_.GetT() + Vector3<float>(0, 0, step));
+      virtual_cam_T_world_ =
+          SE3<float>(cam_T_world_.GetR(), cam_T_world_.GetT() + Eigen::Vector3f(0, 0, step));
     }
     if (ImGui::Button("Save TSDF")) {
       const auto voxel_pos_tsdf = tsdf_.GatherValid();
@@ -196,7 +192,7 @@ class ImageRenderer : public RendererBase {
     if (!img_depth_.empty() && !img_rgb_.empty()) {
       const CameraParams virtual_cam(intrinsics_, img_depth_.rows, img_depth_.cols);
       const auto st = GetTimestamp<std::chrono::milliseconds>();
-      tsdf_.RayCast(10, virtual_cam, virtual_cam_P_world_, &tsdf_rgba_, &tsdf_normal_);
+      tsdf_.RayCast(10, virtual_cam, virtual_cam_T_world_, &tsdf_rgba_, &tsdf_normal_);
       CUDA_SAFE_CALL(cudaDeviceSynchronize());
       const auto end = GetTimestamp<std::chrono::milliseconds>();
       ImGui::Text("Rendering takes %lu ms", end - st);
@@ -221,9 +217,9 @@ class ImageRenderer : public RendererBase {
   GLImage8UC4 tsdf_normal_;
   TSDFGrid tsdf_;
   cv::Mat img_rgb_, img_depth_, img_ht_, img_lt_;
-  SE3<float> cam_P_world_ = SE3<float>::Identity();
-  SE3<float> virtual_cam_P_world_ = SE3<float>::Identity();
-  SE3<float> virtual_cam_P_world_old_ = SE3<float>::Identity();
+  SE3<float> cam_T_world_ = SE3<float>::Identity();
+  SE3<float> virtual_cam_T_world_ = SE3<float>::Identity();
+  SE3<float> virtual_cam_T_world_old_ = SE3<float>::Identity();
   const std::string logdir_;
   const CameraIntrinsics<float> intrinsics_;
   const std::vector<LogEntry> log_entries_;

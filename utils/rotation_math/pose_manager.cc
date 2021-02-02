@@ -17,8 +17,7 @@ SE3<float> pose_manager::query_pose(const int64_t timestamp) {
   std::lock_guard<std::mutex> lock(vec_lock);
   if (timed_pose_vec.empty()) {
     // return identity matrix
-    SE3<float> identity_se3(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
-    return identity_se3;
+    return SE3<float>::Identity();
   }
   // find idx
   uint64_t max_lower_idx = get_max_lower_idx(timestamp, 0, (uint64_t)(timed_pose_vec.size()));

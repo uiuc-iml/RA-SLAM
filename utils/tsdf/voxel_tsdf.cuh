@@ -53,22 +53,22 @@ class TSDFGrid {
    * @param img_lt      low touch probability image
    * @param max_depth   maximum depth in [m]
    * @param intrinsics  camera intrinsics
-   * @param cam_P_world transformation from camera to world
+   * @param cam_T_world transformation from camera to world
    */
   void Integrate(const cv::Mat& img_rgb, const cv::Mat& img_depth, const cv::Mat& img_ht,
                  const cv::Mat& img_lt, float max_depth, const CameraIntrinsics<float>& intrinsics,
-                 const SE3<float>& cam_P_world);
+                 const SE3<float>& cam_T_world);
 
   /**
    * @brief render a virtual view of the TSDF grid by ray casting
    *
    * @param max_depth   maximum depth in [m]
    * @param virtual_cam virtual camera parameterse (intrinsics + image sizes)
-   * @param cam_P_world transformation from camera to world
+   * @param cam_T_world transformation from camera to world
    * @param tsdf_rgba   optional output image for rgb visualization
    * @param tsdf_normal optinoal output image for normal shaded visualization
    */
-  void RayCast(float max_depth, const CameraParams& virtual_cam, const SE3<float>& cam_P_world,
+  void RayCast(float max_depth, const CameraParams& virtual_cam, const SE3<float>& cam_T_world,
                GLImage8UC4* tsdf_rgba = NULL, GLImage8UC4* tsdf_normal = NULL);
 
   /**
@@ -89,14 +89,14 @@ class TSDFGrid {
 
  protected:
   void Allocate(const cv::Mat& img_rgb, const cv::Mat& img_depth, float max_depth,
-                const CameraParams& cam_params, const SE3<float>& cam_P_world);
+                const CameraParams& cam_params, const SE3<float>& cam_T_world);
 
-  int GatherVisible(float max_depth, const CameraParams& cam_params, const SE3<float>& cam_P_world);
+  int GatherVisible(float max_depth, const CameraParams& cam_params, const SE3<float>& cam_T_world);
 
   int GatherBlock();
 
   void UpdateTSDF(int num_visible_blocks, float max_depth, const CameraParams& cam_params,
-                  const SE3<float>& cam_P_world);
+                  const SE3<float>& cam_T_world);
 
   void SpaceCarving(int num_visible_blocks);
 

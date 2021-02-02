@@ -24,8 +24,9 @@ inline int GetDepthFactorFromFile(const std::string& config_file_path) {
 inline SE3<float> GetExtrinsicsFromFile(const std::string& config_file_path) {
   YAML::Node config = YAML::LoadFile(config_file_path);
   const auto m = config["Extrinsics"].as<std::vector<double>>();
-  return SE3<float>(m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9], m[10], m[11], m[12],
-                    m[13], m[14], m[15]);
+  const Eigen::Matrix4f tmp =
+      Eigen::Map<const Eigen::Matrix<double, 4, 4, Eigen::RowMajor>>(m.data()).cast<float>();
+  return SE3<float>(tmp);
 }
 
 inline std::shared_ptr<openvslam::config> GetAndSetConfig(const std::string& config_file_path) {

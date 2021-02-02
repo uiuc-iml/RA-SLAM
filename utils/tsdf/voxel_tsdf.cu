@@ -1,5 +1,8 @@
 #include <spdlog/spdlog.h>
 
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
+
 #include "utils/cuda/arithmetic.cuh"
 #include "utils/cuda/errors.cuh"
 #include "utils/tsdf/voxel_tsdf.cuh"
@@ -13,18 +16,18 @@ __global__ static void check_bound_kernel(const VoxelHashTable hash_table,
                                           int* visible_mask) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   const VoxelBlock& block = hash_table.GetBlock(idx);
-  const Vector3<short> voxel_grid = block.position << BLOCK_LEN_BITS;
+  const Eigen::Matrix<short, 3, 1> voxel_grid = BlockToPoint(block.position);
   visible_mask[idx] =
-      (block.idx >= 0 && voxel_grid.x >= volumn_grid.xmin && voxel_grid.y >= volumn_grid.ymin &&
-       voxel_grid.z >= volumn_grid.zmin && voxel_grid.x + BLOCK_LEN - 1 <= volumn_grid.xmax &&
-       voxel_grid.y + BLOCK_LEN - 1 <= volumn_grid.ymax &&
-       voxel_grid.z + BLOCK_LEN - 1 <= volumn_grid.zmax);
+      (block.idx >= 0 && voxel_grid[0] >= volumn_grid.xmin && voxel_grid[1] >= volumn_grid.ymin &&
+       voxel_grid[2] >= volumn_grid.zmin && voxel_grid[0] + BLOCK_LEN - 1 <= volumn_grid.xmax &&
+       voxel_grid[1] + BLOCK_LEN - 1 <= volumn_grid.ymax &&
+       voxel_grid[2] + BLOCK_LEN - 1 <= volumn_grid.zmax);
 }
 
 __global__ static void check_valid_kernel(const VoxelHashTable hash_table, int* visible_mask) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   const VoxelBlock& block = hash_table.GetBlock(idx);
-  const Vector3<short> pos_grid = block.position << BLOCK_LEN_BITS;
+  const Eigen::Matrix<short, 3, 1> pos_grid = BlockToPoint(block.position);
   visible_mask[idx] = (int)(block.idx >= 0);
 }
 
@@ -32,9 +35,9 @@ __global__ static void download_tsdf_kernel(const VoxelHashTable hash_table,
                                             const VoxelBlock* blocks, const float voxel_size,
                                             VoxelSpatialTSDF* voxel_pos_tsdf) {
   const VoxelBlock& block = blocks[blockIdx.x];
-  const Vector3<short> offset_grid(threadIdx.x, threadIdx.y, threadIdx.z);
-  const Vector3<short> pos_grid = (block.position << BLOCK_LEN_BITS) + offset_grid;
-  const Vector3<float> pos_world = pos_grid.cast<float>() * voxel_size;
+  const Eigen::Matrix<short, 3, 1> offset_grid(threadIdx.x, threadIdx.y, threadIdx.z);
+  const Eigen::Matrix<short, 3, 1> pos_grid = BlockToPoint(block.position) + offset_grid;
+  const Eigen::Vector3f pos_world = pos_grid.cast<float>() * voxel_size;
   const int thread_idx = OffsetToIndex(offset_grid);
 
   const int idx = blockIdx.x * BLOCK_VOLUME + thread_idx;
@@ -42,60 +45,51 @@ __global__ static void download_tsdf_kernel(const VoxelHashTable hash_table,
   voxel_pos_tsdf[idx] = VoxelSpatialTSDF(pos_world, tsdf.tsdf);
 }
 
-__device__ static bool is_voxel_visible(const Vector3<short>& pos_grid,
-                                        const SE3<float>& cam_P_world,
+__device__ static bool is_voxel_visible(const Eigen::Matrix<short, 3, 1>& pos_grid,
+                                        const SE3<float>& cam_T_world,
                                         const CameraParams& cam_params, const float& voxel_size) {
-  const Vector3<float> pos_world = pos_grid.cast<float>() * voxel_size;
-  const Vector3<float> pos_cam = cam_P_world.Apply(pos_world);
-  const Vector3<float> pos_img_h = cam_params.intrinsics * pos_cam;
-  const Vector3<float> pos_img = pos_img_h / pos_img_h.z;
-  return (pos_img.x >= 0 && pos_img.x <= cam_params.img_w - 1 && pos_img.y >= 0 &&
-          pos_img.y <= cam_params.img_h - 1 && pos_img_h.z >= 0);
+  const Eigen::Vector3f pos_world = pos_grid.cast<float>() * voxel_size;
+  const Eigen::Vector3f pos_cam = cam_T_world.Apply(pos_world);
+  const Eigen::Vector3f pos_img_h = cam_params.intrinsics * pos_cam;
+  const Eigen::Vector2f pos_img = pos_img_h.hnormalized();
+  return (pos_img[0] >= 0 && pos_img[0] <= cam_params.img_w - 1 && pos_img[1] >= 0 &&
+          pos_img[1] <= cam_params.img_h - 1 && pos_img_h[2] >= 0);
 }
 
-__device__ static bool is_full_block_visible(const Vector3<short>& block_pos,
-                                             const SE3<float>& cam_P_world,
-                                             const CameraParams& cam_params,
-                                             const float& voxel_size) {
-  const Vector3<short> pos_grid = block_pos << BLOCK_LEN_BITS;
-  const short x = pos_grid.x, y = pos_grid.y, z = pos_grid.z, b = BLOCK_LEN - 1;
-  return is_voxel_visible({x, y, z}, cam_P_world, cam_params, voxel_size) &&
-         is_voxel_visible({x + b, y, z}, cam_P_world, cam_params, voxel_size) &&
-         is_voxel_visible({x, y + b, z}, cam_P_world, cam_params, voxel_size) &&
-         is_voxel_visible({x + b, y + b, z}, cam_P_world, cam_params, voxel_size) &&
-         is_voxel_visible({x, y, z + b}, cam_P_world, cam_params, voxel_size) &&
-         is_voxel_visible({x + b, y, z + b}, cam_P_world, cam_params, voxel_size) &&
-         is_voxel_visible({x, y + b, z + b}, cam_P_world, cam_params, voxel_size) &&
-         is_voxel_visible({x + b, y + b, z + b}, cam_P_world, cam_params, voxel_size);
-}
+template <bool Full = true>
+__device__ static bool is_block_visible(const Eigen::Matrix<short, 3, 1>& block_pos,
+                                        const SE3<float>& cam_T_world,
+                                        const CameraParams& cam_params, const float& voxel_size) {
+  const Eigen::Matrix<short, 3, 1> pos_grid = BlockToPoint(block_pos);
+  const short x = pos_grid[0], y = pos_grid[1], z = pos_grid[2];
 
-__device__ static bool is_partial_block_visible(const Vector3<short>& block_pos,
-                                                const SE3<float>& cam_P_world,
-                                                const CameraParams& cam_params,
-                                                const float& voxel_size) {
-  const Vector3<short> pos_grid = block_pos << BLOCK_LEN_BITS;
-  const short x = pos_grid.x, y = pos_grid.y, z = pos_grid.z, b = BLOCK_LEN - 1;
-  return is_voxel_visible({x, y, z}, cam_P_world, cam_params, voxel_size) ||
-         is_voxel_visible({x + b, y, z}, cam_P_world, cam_params, voxel_size) ||
-         is_voxel_visible({x, y + b, z}, cam_P_world, cam_params, voxel_size) ||
-         is_voxel_visible({x + b, y + b, z}, cam_P_world, cam_params, voxel_size) ||
-         is_voxel_visible({x, y, z + b}, cam_P_world, cam_params, voxel_size) ||
-         is_voxel_visible({x + b, y, z + b}, cam_P_world, cam_params, voxel_size) ||
-         is_voxel_visible({x, y + b, z + b}, cam_P_world, cam_params, voxel_size) ||
-         is_voxel_visible({x + b, y + b, z + b}, cam_P_world, cam_params, voxel_size);
+  bool visible = true;
+#pragma unroll
+  for (int i = 0; i < 8; ++i) {
+    Eigen::Matrix<short, 3, 1> corner(x + ((i >> 0) & 1) * (BLOCK_LEN - 1),
+                                      y + ((i >> 1) & 1) * (BLOCK_LEN - 1),
+                                      z + ((i >> 2) & 1) * (BLOCK_LEN - 1));
+    if (Full) {
+      visible &= is_voxel_visible(corner, cam_T_world, cam_params, voxel_size);
+    } else {
+      visible |= is_voxel_visible(corner, cam_T_world, cam_params, voxel_size);
+    }
+  }
+
+  return visible;
 }
 
 __global__ static void check_visibility_kernel(const VoxelHashTable hash_table,
                                                const float voxel_size, const float max_depth,
                                                const CameraParams cam_params,
-                                               const SE3<float> cam_P_world, int* visible_mask) {
+                                               const SE3<float> cam_T_world, int* visible_mask) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   const VoxelBlock& block = hash_table.GetBlock(idx);
   if (block.idx < 0) {
     visible_mask[idx] = 0;
     return;
   }
-  visible_mask[idx] = is_partial_block_visible(block.position, cam_P_world, cam_params, voxel_size);
+  visible_mask[idx] = is_block_visible<false>(block.position, cam_T_world, cam_params, voxel_size);
 }
 
 __global__ static void gather_visible_blocks_kernel(const VoxelHashTable hash_table,
@@ -109,8 +103,8 @@ __global__ static void gather_visible_blocks_kernel(const VoxelHashTable hash_ta
 
 __global__ static void block_allocate_kernel(VoxelHashTable hash_table, const float* img_depth,
                                              const CameraParams cam_params,
-                                             const SE3<float> cam_P_world,
-                                             const SE3<float> world_P_cam, const float voxel_size,
+                                             const SE3<float> cam_T_world,
+                                             const SE3<float> world_T_cam, const float voxel_size,
                                              const float max_depth, const float truncation,
                                              float* img_depth_to_range) {
   const int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -121,54 +115,55 @@ __global__ static void block_allocate_kernel(VoxelHashTable hash_table, const fl
   const int idx = y * cam_params.img_w + x;
   const float depth = img_depth[idx];
   // calculate depth2range scale
-  const Vector3<float> pos_img_h(x, y, 1.);
-  const Vector3<float> pos_cam = cam_params.intrinsics_inv * pos_img_h;
-  img_depth_to_range[idx] = sqrtf(pos_cam.dot(pos_cam));
+  const Eigen::Vector3f pos_img_h(x, y, 1.);
+  const Eigen::Vector3f pos_cam = cam_params.intrinsics_inv * pos_img_h;
+  img_depth_to_range[idx] = pos_cam.norm();
   if (depth == 0 || depth > max_depth) {
     return;
   }
   // transform coordinate from image to world
-  const Vector3<float> pos_world = world_P_cam.Apply(pos_cam * depth);
+  const Eigen::Vector3f pos_world = world_T_cam.Apply(pos_cam * depth);
   // calculate end coordinates of sample ray
-  const Vector3<float> ray_dir_cam = pos_cam / img_depth_to_range[idx];
-  const SO3<float> world_R_cam = world_P_cam.GetR();
-  const Vector3<float> ray_dir_world = world_R_cam * ray_dir_cam;
-  const Vector3<float> ray_start_world = pos_world - ray_dir_world * truncation;
+  const Eigen::Vector3f ray_dir_cam = pos_cam / img_depth_to_range[idx];
+  const Eigen::Quaternionf world_R_cam = world_T_cam.GetR();
+  const Eigen::Vector3f ray_dir_world = world_R_cam * ray_dir_cam;
+  const Eigen::Vector3f ray_start_world = pos_world - ray_dir_world * truncation;
   // put ray into voxel grid coordinate
-  const Vector3<float> ray_dir_grid = ray_dir_world / voxel_size;
-  const Vector3<float> ray_start_grid = ray_start_world / voxel_size;
-  const Vector3<float> ray_grid = 2 * truncation * ray_dir_grid;  // start -> end vector
+  const Eigen::Vector3f ray_dir_grid = ray_dir_world / voxel_size;
+  const Eigen::Vector3f ray_start_grid = ray_start_world / voxel_size;
+  const Eigen::Vector3f ray_grid = 2 * truncation * ray_dir_grid;  // start -> end vector
   // DDA for finding ray / block intersection
   const int step_grid =
-      ceilf(fmaxf(fmaxf(fabsf(ray_grid.x), fabsf(ray_grid.y)), fabsf(ray_grid.z)) / BLOCK_LEN);
-  const Vector3<float> ray_step_grid = ray_grid / fmaxf((float)step_grid, 1);
-  Vector3<float> pos_grid = ray_start_grid;
+      ceilf(fmaxf(fmaxf(fabsf(ray_grid[0]), fabsf(ray_grid[1])), fabsf(ray_grid[2])) / BLOCK_LEN);
+  const Eigen::Vector3f ray_step_grid = ray_grid / fmaxf((float)step_grid, 1);
+  Eigen::Vector3f pos_grid = ray_start_grid;
   // allocate blocks along the ray
   for (int i = 0; i <= step_grid; ++i, pos_grid += ray_step_grid) {
-    const Vector3<short> pos_block = pos_grid.round<short>() >> BLOCK_LEN_BITS;
-    if (is_full_block_visible(pos_block, cam_P_world, cam_params, voxel_size))
+    const Eigen::Matrix<short, 3, 1> pos_block =
+        PointToBlock(pos_grid.unaryExpr([](const float x) { return roundf(x); }).cast<short>());
+    if (is_block_visible(pos_block, cam_T_world, cam_params, voxel_size))
       hash_table.Allocate(pos_block);
   }
 }
 
 __global__ static void tsdf_integrate_kernel(
-    VoxelBlock* blocks, VoxelMemPool voxel_mem, const SE3<float> cam_P_world,
+    VoxelBlock* blocks, VoxelMemPool voxel_mem, const SE3<float> cam_T_world,
     const CameraParams cam_params, const int num_visible_blocks, const float max_depth,
     const float truncation, const float voxel_size, const uchar3* img_rgb, const float* img_depth,
     const float* img_ht, const float* img_lt, const float* img_depth_to_range) {
   if (blockIdx.x >= num_visible_blocks) {
     return;
   }
-  const Vector3<short> pos_grid_rel(threadIdx.x, threadIdx.y, threadIdx.z);
+  const Eigen::Matrix<short, 3, 1> pos_grid_rel(threadIdx.x, threadIdx.y, threadIdx.z);
   // transform to camera / image coordinates
-  const Vector3<short> pos_grid_abs =
-      (blocks[blockIdx.x].position << BLOCK_LEN_BITS) + pos_grid_rel;
-  const Vector3<float> pos_world = pos_grid_abs.cast<float>() * voxel_size;
-  const Vector3<float> pos_cam = cam_P_world.Apply(pos_world);
-  const Vector3<float> pos_img_h = cam_params.intrinsics * pos_cam;
-  const Vector3<float> pos_img = pos_img_h / pos_img_h.z;
-  const int u = roundf(pos_img.x);
-  const int v = roundf(pos_img.y);
+  const Eigen::Matrix<short, 3, 1> pos_grid_abs =
+      BlockToPoint(blocks[blockIdx.x].position) + pos_grid_rel;
+  const Eigen::Vector3f pos_world = pos_grid_abs.cast<float>() * voxel_size;
+  const Eigen::Vector3f pos_cam = cam_T_world.Apply(pos_world);
+  const Eigen::Vector3f pos_img_h = cam_params.intrinsics * pos_cam;
+  const Eigen::Vector2f pos_img = pos_img_h.hnormalized();
+  const int u = roundf(pos_img[0]);
+  const int v = roundf(pos_img[1]);
   // update if visible
   if (u >= 0 && u < cam_params.img_w && v >= 0 && v < cam_params.img_h) {
     const int img_idx = v * cam_params.img_w + u;
@@ -176,7 +171,7 @@ __global__ static void tsdf_integrate_kernel(
     if (depth == 0 || depth > max_depth) {
       return;
     }
-    const float sdf = img_depth_to_range[img_idx] * (depth - pos_img_h.z);
+    const float sdf = img_depth_to_range[img_idx] * (depth - pos_img_h[2]);
     if (sdf > -truncation) {
       const float tsdf = fminf(1, sdf / truncation);
       const unsigned int idx = OffsetToIndex(pos_grid_rel);
@@ -189,13 +184,14 @@ __global__ static void tsdf_integrate_kernel(
       const float weight_combined = weight_old + weight_new;
       // rgb running average
       const uchar3 rgb = img_rgb[img_idx];
-      const Vector3<float> rgb_old = voxel_rgbw.rgb.cast<float>();
-      const Vector3<float> rgb_new(rgb.x, rgb.y, rgb.z);
-      const Vector3<float> rgb_combined =
+      const Eigen::Vector3f rgb_old = voxel_rgbw.rgb.cast<float>();
+      const Eigen::Vector3f rgb_new(rgb.x, rgb.y, rgb.z);
+      const Eigen::Vector3f rgb_combined =
           (rgb_old * weight_old + rgb_new * weight_new) / weight_combined;
       voxel_tsdf.tsdf = (voxel_tsdf.tsdf * weight_old + tsdf * weight_new) / weight_combined;
       voxel_rgbw.weight = fminf(roundf(weight_combined), 40);
-      voxel_rgbw.rgb = rgb_combined.round<unsigned char>();
+      voxel_rgbw.rgb =
+          rgb_combined.unaryExpr([](const float x) { return roundf(x); }).cast<unsigned char>();
       // high touch / low touch
       const float positive =
           expf((weight_old * logf(voxel_segm.probability) + weight_new * logf(img_ht[img_idx])) /
@@ -234,8 +230,8 @@ __global__ static void space_carving_kernel(VoxelHashTable hash_table, const Vox
 }
 
 __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
-                                       const CameraParams cam_params, const SE3<float> cam_P_world,
-                                       const SE3<float> world_P_cam, const float step_size,
+                                       const CameraParams cam_params, const SE3<float> cam_T_world,
+                                       const SE3<float> world_T_cam, const float step_size,
                                        const float max_depth, const float voxel_size,
                                        uchar4* img_tsdf_rgba, uchar4* img_tsdf_normal) {
   const int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -244,58 +240,60 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
     return;
   }
   const int idx = y * cam_params.img_w + x;
-  const Vector3<float> pos_img_h(x, y, 1);
-  const Vector3<float> pos_cam = cam_params.intrinsics_inv * pos_img_h;
-  const Vector3<float> ray_dir_cam = pos_cam / sqrtf(pos_cam.dot(pos_cam));
-  const SO3<float> world_R_cam = world_P_cam.GetR();
-  const Vector3<float> ray_dir_world = world_R_cam * ray_dir_cam;
-  const Vector3<float> ray_step_grid = ray_dir_world * step_size / voxel_size;
+  const Eigen::Vector3f pos_img_h(x, y, 1);
+  const Eigen::Vector3f pos_cam = cam_params.intrinsics_inv * pos_img_h;
+  const Eigen::Vector3f ray_dir_cam = pos_cam.normalized();
+  const Eigen::Quaternionf world_R_cam = world_T_cam.GetR();
+  const Eigen::Vector3f ray_dir_world = world_R_cam * ray_dir_cam;
+  const Eigen::Vector3f ray_step_grid = ray_dir_world * step_size / voxel_size;
   const int max_step = ceil(max_depth / step_size);
-  Vector3<float> pos_grid = world_P_cam.GetT() / voxel_size;
+  Eigen::Vector3f pos_grid = world_T_cam.GetT() / voxel_size;
   VoxelBlock cache;
-  float tsdf_prev = hash_table.Retrieve<VoxelTSDF>(pos_grid.round<short>(), cache).tsdf;
+  const auto roundf_func = [](const float x) { return roundf(x); };
+  float tsdf_prev =
+      hash_table.Retrieve<VoxelTSDF>(pos_grid.unaryExpr(roundf_func).cast<short>(), cache).tsdf;
   pos_grid += ray_step_grid;
   for (int i = 1; i < max_step; ++i, pos_grid += ray_step_grid) {
-    const float tsdf_curr = hash_table.Retrieve<VoxelTSDF>(pos_grid.round<short>(), cache).tsdf;
+    const float tsdf_curr =
+        hash_table.Retrieve<VoxelTSDF>(pos_grid.unaryExpr(roundf_func).cast<short>(), cache).tsdf;
     // ray hit front surface
     if (tsdf_prev > 0 && tsdf_curr <= 0 && tsdf_prev - tsdf_curr <= 1.5) {
-      Vector3<float> pos1_grid = pos_grid - ray_step_grid;
-      Vector3<float> pos2_grid = pos_grid;
-      Vector3<float> pos_mid_grid = (pos1_grid + pos2_grid) / 2.;
+      Eigen::Vector3f pos1_grid = pos_grid - ray_step_grid;
+      Eigen::Vector3f pos2_grid = pos_grid;
+      Eigen::Vector3f pos_mid_grid = (pos1_grid + pos2_grid) / 2.;
       // binary search refinement
       while ((pos1_grid - pos2_grid).dot(pos1_grid - pos2_grid) > .1) {
-        const float tsdf_mid =
-            hash_table.Retrieve<VoxelTSDF>(pos_mid_grid.round<short>(), cache).tsdf;
-        if (tsdf_mid < 0) {
+        const VoxelTSDF voxel_mid = hash_table.Retrieve<VoxelTSDF>(
+            pos_mid_grid.unaryExpr(roundf_func).cast<short>(), cache);
+        if (voxel_mid.tsdf < 0) {
           pos2_grid = pos_mid_grid;
         } else {
           pos1_grid = pos_mid_grid;
         }
         pos_mid_grid = (pos1_grid + pos2_grid) / 2.;
       }
-      const Vector3<short> final_grid = pos_mid_grid.round<short>();
+      const Eigen::Matrix<short, 3, 1> final_grid =
+          pos_mid_grid.unaryExpr(roundf_func).cast<short>();
       const VoxelRGBW voxel_rgbw = hash_table.Retrieve<VoxelRGBW>(final_grid, cache);
       const VoxelSEGM voxel_segm = hash_table.Retrieve<VoxelSEGM>(final_grid, cache);
       // calculate gradient
-      const Vector3<float> norm_raw_grid(
-          hash_table.Retrieve<VoxelTSDF>({final_grid.x + 1, final_grid.y, final_grid.z}, cache)
-                  .tsdf -
-              hash_table.Retrieve<VoxelTSDF>({final_grid.x - 1, final_grid.y, final_grid.z}, cache)
-                  .tsdf,
-          hash_table.Retrieve<VoxelTSDF>({final_grid.x, final_grid.y + 1, final_grid.z}, cache)
-                  .tsdf -
-              hash_table.Retrieve<VoxelTSDF>({final_grid.x, final_grid.y - 1, final_grid.z}, cache)
-                  .tsdf,
-          hash_table.Retrieve<VoxelTSDF>({final_grid.x, final_grid.y, final_grid.z + 1}, cache)
-                  .tsdf -
-              hash_table.Retrieve<VoxelTSDF>({final_grid.x, final_grid.y, final_grid.z - 1}, cache)
-                  .tsdf);
-      const float diffusivity =
-          fmaxf(norm_raw_grid.dot(-ray_dir_world) / sqrtf(norm_raw_grid.dot(norm_raw_grid)), 0);
+      const Eigen::Matrix<short, 3, 1> x_pos(final_grid[0] + 1, final_grid[1], final_grid[2]);
+      const Eigen::Matrix<short, 3, 1> x_neg(final_grid[0] - 1, final_grid[1], final_grid[2]);
+      const Eigen::Matrix<short, 3, 1> y_pos(final_grid[0], final_grid[1] + 1, final_grid[2]);
+      const Eigen::Matrix<short, 3, 1> y_neg(final_grid[0], final_grid[1] - 1, final_grid[2]);
+      const Eigen::Matrix<short, 3, 1> z_pos(final_grid[0], final_grid[1], final_grid[2] + 1);
+      const Eigen::Matrix<short, 3, 1> z_neg(final_grid[0], final_grid[1], final_grid[2] - 1);
+      const Eigen::Vector3f norm_raw_grid(hash_table.Retrieve<VoxelTSDF>(x_pos, cache).tsdf -
+                                              hash_table.Retrieve<VoxelTSDF>(x_neg, cache).tsdf,
+                                          hash_table.Retrieve<VoxelTSDF>(y_pos, cache).tsdf -
+                                              hash_table.Retrieve<VoxelTSDF>(y_neg, cache).tsdf,
+                                          hash_table.Retrieve<VoxelTSDF>(z_pos, cache).tsdf -
+                                              hash_table.Retrieve<VoxelTSDF>(z_neg, cache).tsdf);
+      const float diffusivity = fmaxf(norm_raw_grid.dot(-ray_dir_world) / norm_raw_grid.norm(), 0);
       const float alpha = fmaxf(voxel_segm.probability - 0.5, 0) / .5;
       img_tsdf_rgba[idx] =
-          make_uchar4(alpha * 255 + (1 - alpha) * voxel_rgbw.rgb.x, (1 - alpha) * voxel_rgbw.rgb.y,
-                      (1 - alpha) * voxel_rgbw.rgb.z, 255);
+          make_uchar4(alpha * 255 + (1 - alpha) * voxel_rgbw.rgb[0],
+                      (1 - alpha) * voxel_rgbw.rgb[1], (1 - alpha) * voxel_rgbw.rgb[2], 255);
       img_tsdf_normal[idx] =
           make_uchar4(alpha * 255 + (1 - alpha) * diffusivity * 255,
                       (1 - alpha) * diffusivity * 255, (1 - alpha) * diffusivity * 255, 255);
@@ -348,7 +346,7 @@ TSDFGrid::~TSDFGrid() {
 
 void TSDFGrid::Integrate(const cv::Mat& img_rgb, const cv::Mat& img_depth, const cv::Mat& img_ht,
                          const cv::Mat& img_lt, float max_depth,
-                         const CameraIntrinsics<float>& intrinsics, const SE3<float>& cam_P_world) {
+                         const CameraIntrinsics<float>& intrinsics, const SE3<float>& cam_T_world) {
   assert(img_rgb.type() == CV_8UC3);
   assert(img_depth.type() == CV_32FC1);
   assert(img_rgb.cols == img_depth.cols);
@@ -367,32 +365,32 @@ void TSDFGrid::Integrate(const cv::Mat& img_rgb, const cv::Mat& img_depth, const
                                  cudaMemcpyHostToDevice, stream2_));
   // compute
   spdlog::debug("[TSDF] pre integrate: {} active blocks", hash_table_.NumActiveBlock());
-  Allocate(img_rgb, img_depth, max_depth, cam_params, cam_P_world);
-  const int num_visible_blocks = GatherVisible(max_depth, cam_params, cam_P_world);
+  Allocate(img_rgb, img_depth, max_depth, cam_params, cam_T_world);
+  const int num_visible_blocks = GatherVisible(max_depth, cam_params, cam_T_world);
   CUDA_SAFE_CALL(cudaStreamSynchronize(stream2_));  // synchronize ht / lt img copy
-  UpdateTSDF(num_visible_blocks, max_depth, cam_params, cam_P_world);
+  UpdateTSDF(num_visible_blocks, max_depth, cam_params, cam_T_world);
   SpaceCarving(num_visible_blocks);
   CUDA_SAFE_CALL(cudaStreamSynchronize(stream_));
   spdlog::debug("[TSDF] post integrate: {} active blocks", hash_table_.NumActiveBlock());
 }
 
 void TSDFGrid::Allocate(const cv::Mat& img_rgb, const cv::Mat& img_depth, float max_depth,
-                        const CameraParams& cam_params, const SE3<float>& cam_P_world) {
+                        const CameraParams& cam_params, const SE3<float>& cam_T_world) {
   const dim3 IMG_BLOCK_DIM(ceil((float)cam_params.img_w / 32), ceil((float)cam_params.img_h / 16));
   const dim3 IMG_THREAD_DIM(32, 16);
   block_allocate_kernel<<<IMG_BLOCK_DIM, IMG_THREAD_DIM, 0, stream_>>>(
-      hash_table_, img_depth_, cam_params, cam_P_world, cam_P_world.Inverse(), voxel_size_,
+      hash_table_, img_depth_, cam_params, cam_T_world, cam_T_world.Inverse(), voxel_size_,
       max_depth, truncation_, img_depth_to_range_);
   CUDA_STREAM_CHECK_ERROR(stream_);
   hash_table_.ResetLocks(stream_);
 }
 
 int TSDFGrid::GatherVisible(float max_depth, const CameraParams& cam_params,
-                            const SE3<float>& cam_P_world) {
+                            const SE3<float>& cam_T_world) {
   constexpr int GATHER_BLOCK_DIM = NUM_ENTRY / BLOCK_VOLUME;
   // generate binary array of visibility
   check_visibility_kernel<<<GATHER_BLOCK_DIM, BLOCK_VOLUME, 0, stream_>>>(
-      hash_table_, voxel_size_, max_depth, cam_params, cam_P_world, visible_mask_);
+      hash_table_, voxel_size_, max_depth, cam_params, cam_T_world, visible_mask_);
   CUDA_STREAM_CHECK_ERROR(stream_);
 
   return GatherBlock();
@@ -474,10 +472,10 @@ int TSDFGrid::GatherBlock() {
 }
 
 void TSDFGrid::UpdateTSDF(int num_visible_blocks, float max_depth, const CameraParams& cam_params,
-                          const SE3<float>& cam_P_world) {
+                          const SE3<float>& cam_T_world) {
   const dim3 VOXEL_BLOCK_DIM(BLOCK_LEN, BLOCK_LEN, BLOCK_LEN);
   tsdf_integrate_kernel<<<num_visible_blocks, VOXEL_BLOCK_DIM, 0, stream_>>>(
-      visible_blocks_, hash_table_.mem, cam_P_world, cam_params, num_visible_blocks, max_depth,
+      visible_blocks_, hash_table_.mem, cam_T_world, cam_params, num_visible_blocks, max_depth,
       truncation_, voxel_size_, img_rgb_, img_depth_, img_ht_, img_lt_, img_depth_to_range_);
   CUDA_STREAM_CHECK_ERROR(stream_);
 }
@@ -490,13 +488,13 @@ void TSDFGrid::SpaceCarving(int num_visible_blocks) {
 }
 
 void TSDFGrid::RayCast(float max_depth, const CameraParams& virtual_cam,
-                       const SE3<float>& cam_P_world, GLImage8UC4* tsdf_rgba,
+                       const SE3<float>& cam_T_world, GLImage8UC4* tsdf_rgba,
                        GLImage8UC4* tsdf_normal) {
   const dim3 IMG_BLOCK_DIM(ceil((float)virtual_cam.img_w / 32),
                            ceil((float)virtual_cam.img_h / 16));
   const dim3 IMG_THREAD_DIM(32, 16);
   ray_cast_kernel<<<IMG_BLOCK_DIM, IMG_THREAD_DIM, 0, stream_>>>(
-      hash_table_, virtual_cam, cam_P_world, cam_P_world.Inverse(), truncation_ / 2, max_depth,
+      hash_table_, virtual_cam, cam_T_world, cam_T_world.Inverse(), truncation_ / 2, max_depth,
       voxel_size_, img_tsdf_rgba_, img_tsdf_normal_);
   CUDA_STREAM_CHECK_ERROR(stream_);
   if (tsdf_rgba) {

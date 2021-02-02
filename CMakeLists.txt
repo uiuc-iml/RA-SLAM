@@ -1,15 +1,14 @@
 cmake_minimum_required(VERSION 3.18)
 
-project(disinfslam LANGUAGES CXX C)
-enable_language(CUDA)
+project(disinfslam LANGUAGES CXX C CUDA)
 set(CMAKE_CUDA_STANDARD 14)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-set(CMAKE_CUDA_FLAGS "-use_fast_math ${CMAKE_CUDA_FLAGS}")
-set(CMAKE_CUDA_FLAGS_DEBUG "-G ${CMAKE_CUDA_FLAGS_DEBUG}")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -expt-relaxed-constexpr")
+set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -G")
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 set(CMAKE_CUDA_ARCHITECTURES 61 72 75 80)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -19,6 +18,7 @@ find_package(PkgConfig REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(OpenGL REQUIRED)
 # Slam
+find_package(Eigen3 3.3.7 REQUIRED)
 find_package(openvslam REQUIRED)
 find_package(Pangolin REQUIRED) # TODO(alvin): to be completely replaced by Dear ImGUI
 find_package(OpenCV REQUIRED)
@@ -82,16 +82,16 @@ list(FILTER ALL_SOURCE_FILES EXCLUDE REGEX .*/.*build.*/.*)
 list(FILTER ALL_SOURCE_FILES EXCLUDE REGEX .*/third_party/.*)
 
 # create formatting helper targets
-if (CLANG_FORMAT_EXE) 
+if (CLANG_FORMAT_EXE)
     set(RUN_CLANG_FORMAT ${CMAKE_SOURCE_DIR}/run-clang-format.py)
     # format code in place
     add_custom_target(format
         COMMAND python3 ${RUN_CLANG_FORMAT} --clang-format-executable ${CLANG_FORMAT_EXE} -i ${ALL_SOURCE_FILES}
-        DEPENDS ${RUN_CLANG_FORMAT} 
+        DEPENDS ${RUN_CLANG_FORMAT}
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
     # check for format violations
     add_custom_target(check-format
         COMMAND python3 ${RUN_CLANG_FORMAT} --clang-format-executable ${CLANG_FORMAT_EXE} ${ALL_SOURCE_FILES}
-        DEPENDS ${RUN_CLANG_FORMAT} 
+        DEPENDS ${RUN_CLANG_FORMAT}
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 endif (CLANG_FORMAT_EXE)

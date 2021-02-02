@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <Eigen/Dense>
 #include <cassert>
 
 #include "utils/cuda/errors.cuh"
@@ -12,8 +13,9 @@ class VoxelHashTest : public ::testing::Test {
   VoxelHashTest() {
     CUDA_SAFE_CALL(cudaMallocManaged(&voxel, sizeof(VoxelRGBW) * MAX_BLOCKS * BLOCK_VOLUME));
     CUDA_SAFE_CALL(cudaMallocManaged(&voxel_block, sizeof(VoxelBlock) * MAX_BLOCKS));
-    CUDA_SAFE_CALL(cudaMallocManaged(&point, sizeof(Vector3<short>) * MAX_BLOCKS * BLOCK_VOLUME));
-    CUDA_SAFE_CALL(cudaMallocManaged(&block_pos, sizeof(Vector3<short>) * MAX_BLOCKS));
+    CUDA_SAFE_CALL(
+        cudaMallocManaged(&point, sizeof(Eigen::Matrix<short, 3, 1>) * MAX_BLOCKS * BLOCK_VOLUME));
+    CUDA_SAFE_CALL(cudaMallocManaged(&block_pos, sizeof(Eigen::Matrix<short, 3, 1>) * MAX_BLOCKS));
   }
 
   ~VoxelHashTest() {
@@ -27,22 +29,22 @@ class VoxelHashTest : public ::testing::Test {
   VoxelHashTable voxel_hash_table;
   VoxelRGBW* voxel;
   VoxelBlock* voxel_block;
-  Vector3<short>* point;
-  Vector3<short>* block_pos;
+  Eigen::Matrix<short, 3, 1>* point;
+  Eigen::Matrix<short, 3, 1>* block_pos;
 };
 
-__global__ void Allocate(VoxelHashTable hash_table, Vector3<short>* block_pos) {
+__global__ void Allocate(VoxelHashTable hash_table, Eigen::Matrix<short, 3, 1>* block_pos) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   hash_table.Allocate(block_pos[idx]);
 }
 
-__global__ void Retrieve(VoxelHashTable hash_table, const Vector3<short>* point, VoxelRGBW* voxel,
-                         VoxelBlock* voxel_block) {
+__global__ void Retrieve(VoxelHashTable hash_table, const Eigen::Matrix<short, 3, 1>* point,
+                         VoxelRGBW* voxel, VoxelBlock* voxel_block) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   voxel[idx] = hash_table.Retrieve<VoxelRGBW>(point[idx], voxel_block[idx]);
 }
 
-__global__ void Assignment(VoxelHashTable hash_table, const Vector3<short>* point,
+__global__ void Assignment(VoxelHashTable hash_table, const Eigen::Matrix<short, 3, 1>* point,
                            VoxelRGBW* voxel) {
   const int idx = blockIdx.x * blockDim.x + threadIdx.x;
   VoxelBlock block;
@@ -53,8 +55,8 @@ __global__ void Assignment(VoxelHashTable hash_table, const Vector3<short>* poin
 
 TEST_F(VoxelHashTest, Single) {
   // allocate block (1, 1, 1)
-  *block_pos = Vector3<short>(1);
-  *point = Vector3<short>(8);
+  *block_pos = Eigen::Matrix<short, 3, 1>::Constant(1);
+  *point = Eigen::Matrix<short, 3, 1>::Constant(8);
   Allocate<<<1, 1>>>(voxel_hash_table, block_pos);
   CUDA_CHECK_ERROR;
   Retrieve<<<1, 1>>>(voxel_hash_table, point, voxel, voxel_block);
@@ -62,12 +64,12 @@ TEST_F(VoxelHashTest, Single) {
   EXPECT_EQ(voxel_hash_table.NumActiveBlock(), 1);
   EXPECT_EQ(voxel_block->position, *block_pos);
   // retrieve empty block
-  *point = Vector3<short>(0);
+  *point = Eigen::Matrix<short, 3, 1>::Constant(0);
   Retrieve<<<1, 1>>>(voxel_hash_table, point, voxel, voxel_block);
   CUDA_SAFE_CALL(cudaDeviceSynchronize());
   EXPECT_EQ(voxel->weight, 0);
   // assignment
-  *block_pos = Vector3<short>(0);
+  *block_pos = Eigen::Matrix<short, 3, 1>::Constant(0);
   Allocate<<<1, 1>>>(voxel_hash_table, block_pos);
   CUDA_CHECK_ERROR;
   voxel_block->offset = 0;  // reset cache after re allocation
@@ -82,9 +84,9 @@ TEST_F(VoxelHashTest, Single) {
     *point = {0, 0, i};
     Retrieve<<<1, 1>>>(voxel_hash_table, point, voxel, voxel_block);
     CUDA_SAFE_CALL(cudaDeviceSynchronize());
-    EXPECT_EQ(voxel->rgb.x, i);
-    EXPECT_EQ(voxel->rgb.y, i);
-    EXPECT_EQ(voxel->rgb.z, i);
+    EXPECT_EQ(voxel->rgb[0], i);
+    EXPECT_EQ(voxel->rgb[1], i);
+    EXPECT_EQ(voxel->rgb[2], i);
     EXPECT_EQ(voxel->weight, i);
   }
 }
@@ -100,7 +102,7 @@ TEST_F(VoxelHashTest, Multiple) {
   EXPECT_EQ(voxel_hash_table.NumActiveBlock(), MAX_BLOCKS);
   // assign some voxels
   for (unsigned char i = 0; i < MAX_BLOCKS; ++i) {
-    point[i] = Vector3<short>(i * BLOCK_LEN);
+    point[i] = Eigen::Matrix<short, 3, 1>::Constant(i * BLOCK_LEN);
     voxel[i] = {{i, i, i}, i};
   }
   Assignment<<<1, MAX_BLOCKS>>>(voxel_hash_table, point, voxel);
@@ -114,11 +116,12 @@ TEST_F(VoxelHashTest, Multiple) {
   Retrieve<<<1, MAX_BLOCKS>>>(voxel_hash_table, point, voxel, voxel_block);
   CUDA_SAFE_CALL(cudaDeviceSynchronize());
   for (unsigned char i = 0; i < MAX_BLOCKS; ++i) {
-    EXPECT_EQ(voxel[i].rgb.x, i);
-    EXPECT_EQ(voxel[i].rgb.y, i);
-    EXPECT_EQ(voxel[i].rgb.z, i);
+    EXPECT_EQ(voxel[i].rgb[0], i);
+    EXPECT_EQ(voxel[i].rgb[1], i);
+    EXPECT_EQ(voxel[i].rgb[2], i);
     EXPECT_EQ(voxel[i].weight, i);
-    EXPECT_EQ(voxel_block[i].position, Vector3<short>(i));
+    const Eigen::Matrix<short, 3, 1> pos_gt(i, i, i);
+    EXPECT_EQ(voxel_block[i].position, pos_gt);
   }
 }
 
@@ -169,9 +172,9 @@ TEST_F(VoxelHashTest, Collision) {
   CUDA_CHECK_ERROR;
   CUDA_SAFE_CALL(cudaDeviceSynchronize());
   for (unsigned char i = 0; i < 4; ++i) {
-    EXPECT_EQ(voxel[i].rgb.x, i);
-    EXPECT_EQ(voxel[i].rgb.y, i);
-    EXPECT_EQ(voxel[i].rgb.z, i);
+    EXPECT_EQ(voxel[i].rgb[0], i);
+    EXPECT_EQ(voxel[i].rgb[1], i);
+    EXPECT_EQ(voxel[i].rgb[2], i);
     EXPECT_EQ(voxel[i].weight, i);
   }
 }

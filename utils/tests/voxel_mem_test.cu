@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <Eigen/Dense>
 #include <ctime>
 
 #include "utils/cuda/errors.cuh"
@@ -20,7 +21,7 @@ __global__ void AquireBlocks(VoxelMemPool voxel_mem, VoxelRGBW** voxel_blocks, i
 }
 
 __global__ void AssignBlocks(VoxelMemPool voxel_mem, int* block_indics, int num_blocks) {
-  const Vector3<short> thread_pos(threadIdx.x, threadIdx.y, threadIdx.z);
+  const Eigen::Matrix<short, 3, 1> thread_pos(threadIdx.x, threadIdx.y, threadIdx.z);
   const int idx = OffsetToIndex(thread_pos);
   for (int i = 0; i < num_blocks; ++i) {
     const VoxelBlock block(block_indics[i]);

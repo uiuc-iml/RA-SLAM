@@ -1,14 +1,10 @@
 add_executable(voxel_mem_test voxel_mem_test.cu)
-target_link_libraries(voxel_mem_test tsdf_utils gtest gtest_main)
+target_link_libraries(voxel_mem_test tsdf_utils cuda_util gtest gtest_main)
 set_target_properties(voxel_mem_test PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 gtest_discover_tests(voxel_mem_test)
 
 add_executable(voxel_hash_test voxel_hash_test.cu)
-target_link_libraries(voxel_hash_test tsdf_utils gtest gtest_main)
+target_link_libraries(voxel_hash_test tsdf_utils cuda_util gtest gtest_main)
 set_target_properties(voxel_hash_test PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 gtest_discover_tests(voxel_hash_test)
 
-add_executable(matrix_util_test matrix_util_test.cu)
-target_link_libraries(matrix_util_test tsdf_utils gtest gtest_main)
-set_target_properties(matrix_util_test PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-gtest_discover_tests(matrix_util_test)

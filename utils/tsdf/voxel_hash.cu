@@ -16,9 +16,9 @@ __global__ static void init_hash_table_kernel(VoxelBlock* voxel_blocks) {
   voxel_blocks[idx].idx = -1;
 }
 
-__device__ __host__ uint Hash(const Vector3<short>& block_pos) {
-  return (((uint)block_pos.x * 73856093u) ^ ((uint)block_pos.y * 19349669u) ^
-          ((uint)block_pos.z * 83492791u)) &
+__device__ __host__ uint Hash(const Eigen::Matrix<short, 3, 1>& block_pos) {
+  return (((uint)block_pos[0] * 73856093u) ^ ((uint)block_pos[1] * 19349669u) ^
+          ((uint)block_pos[2] * 83492791u)) &
          BUCKET_MASK;
 }
 
@@ -43,7 +43,7 @@ void VoxelHashTable::ReleaseMemory() {
   mem.ReleaseMemory();
 }
 
-__device__ void VoxelHashTable::Allocate(const Vector3<short>& block_pos) {
+__device__ void VoxelHashTable::Allocate(const Eigen::Matrix<short, 3, 1>& block_pos) {
   const unsigned int bucket_idx = Hash(block_pos);
   const unsigned int entry_idx = (bucket_idx << NUM_ENTRY_PER_BUCKET_BITS);
 // check for existence
@@ -107,7 +107,7 @@ __device__ void VoxelHashTable::Allocate(const Vector3<short>& block_pos) {
   }
 }
 
-__device__ void VoxelHashTable::Delete(const Vector3<short>& block_pos) {
+__device__ void VoxelHashTable::Delete(const Eigen::Matrix<short, 3, 1>& block_pos) {
   const unsigned int bucket_idx = Hash(block_pos);
   const unsigned int entry_idx = (bucket_idx << NUM_ENTRY_PER_BUCKET_BITS);
 // check for current bucket
@@ -158,29 +158,33 @@ __device__ void VoxelHashTable::Delete(const Vector3<short>& block_pos) {
   }
 }
 
-__device__ float VoxelHashTable::RetrieveTSDF(const Vector3<float>& point,
+__device__ float VoxelHashTable::RetrieveTSDF(const Eigen::Vector3f& point,
                                               VoxelBlock& cache) const {
-  const Vector3<float> pl = point.cast<short>().cast<float>();
-  const Vector3<float> ph = pl + 1;
-  const Vector3<float> alpha = ph - point;
-  const float tsdf_000 = Retrieve<VoxelTSDF>(Vector3<short>(pl.x, pl.y, pl.z), cache).tsdf;
-  const float tsdf_001 = Retrieve<VoxelTSDF>(Vector3<short>(ph.x, pl.y, ph.z), cache).tsdf;
-  const float tsdf_010 = Retrieve<VoxelTSDF>(Vector3<short>(pl.x, ph.y, pl.z), cache).tsdf;
-  const float tsdf_011 = Retrieve<VoxelTSDF>(Vector3<short>(pl.x, ph.y, ph.z), cache).tsdf;
-  const float tsdf_100 = Retrieve<VoxelTSDF>(Vector3<short>(ph.x, pl.y, pl.z), cache).tsdf;
-  const float tsdf_101 = Retrieve<VoxelTSDF>(Vector3<short>(ph.x, pl.y, ph.z), cache).tsdf;
-  const float tsdf_110 = Retrieve<VoxelTSDF>(Vector3<short>(ph.x, ph.y, pl.z), cache).tsdf;
-  const float tsdf_111 = Retrieve<VoxelTSDF>(Vector3<short>(ph.x, ph.y, ph.z), cache).tsdf;
+  const Eigen::Vector3f pl = point.unaryExpr([](const float x) { return floorf(x); });
+  const Eigen::Vector3f ph = pl + Eigen::Vector3f::Ones();
+  const Eigen::Vector3f alpha = ph - point;
+
+  // compute tsdf of 8 corners
+  float tsdf[8];
+#pragma unroll
+  for (int i = 0; i < 8; ++i) {
+    const Eigen::Matrix<short, 3, 1> corner(
+        (i >> 2) & 1 ? pl[0] : ph[0], (i >> 1) & 1 ? pl[1] : ph[1], (i >> 0) & 1 ? pl[2] : ph[2]);
+    tsdf[i] = Retrieve<VoxelTSDF>(corner, cache).tsdf;
+  }
+
   // interpolate across z
-  const float tsdf_00 = tsdf_000 * alpha.z + tsdf_001 * (1 - alpha.z);
-  const float tsdf_01 = tsdf_010 * alpha.z + tsdf_011 * (1 - alpha.z);
-  const float tsdf_10 = tsdf_100 * alpha.z + tsdf_101 * (1 - alpha.z);
-  const float tsdf_11 = tsdf_110 * alpha.z + tsdf_111 * (1 - alpha.z);
+  const float tsdf_00 = tsdf[0b000] * alpha[2] + tsdf[0b001] * (1 - alpha[2]);
+  const float tsdf_01 = tsdf[0b010] * alpha[2] + tsdf[0b011] * (1 - alpha[2]);
+  const float tsdf_10 = tsdf[0b100] * alpha[2] + tsdf[0b101] * (1 - alpha[2]);
+  const float tsdf_11 = tsdf[0b110] * alpha[2] + tsdf[0b111] * (1 - alpha[2]);
+
   // interpolate across y
-  const float tsdf_0 = tsdf_00 * alpha.y + tsdf_01 * (1 - alpha.y);
-  const float tsdf_1 = tsdf_10 * alpha.y + tsdf_11 * (1 - alpha.y);
+  const float tsdf_0 = tsdf_00 * alpha[1] + tsdf_01 * (1 - alpha[1]);
+  const float tsdf_1 = tsdf_10 * alpha[1] + tsdf_11 * (1 - alpha[1]);
+
   // interpolate across x
-  return tsdf_0 * alpha.x + tsdf_1 * (1 - alpha.x);
+  return tsdf_0 * alpha[0] + tsdf_1 * (1 - alpha[0]);
 }
 
 __device__ const VoxelBlock& VoxelHashTable::GetBlock(const int idx) const {

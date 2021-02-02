@@ -12,7 +12,7 @@ TSDFSystem::TSDFSystem(float voxel_size, float truncation, float max_depth,
   spdlog::debug(
       "[TSDF System] Constructing with camera intrinsics: fx: {} fy: "
       "{} cx: {} cy:{}",
-      intrinsics.m00, intrinsics.m11, intrinsics.m02, intrinsics.m12);
+      intrinsics.fx, intrinsics.fy, intrinsics.cx, intrinsics.cy);
 }
 
 TSDFSystem::~TSDFSystem() {

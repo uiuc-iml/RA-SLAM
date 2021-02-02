@@ -39,10 +39,7 @@ void DISINFSystem::feed_stereo_frame(const cv::Mat& img_left, const cv::Mat& img
                                      int64_t timestamp) {
   const pose_valid_tuple m =
       SLAM_->feed_stereo_images_w_feedback(img_left, img_right, timestamp / 1e3);
-  const SE3<float> posecam_P_world(m.first(0, 0), m.first(0, 1), m.first(0, 2), m.first(0, 3),
-                                   m.first(1, 0), m.first(1, 1), m.first(1, 2), m.first(1, 3),
-                                   m.first(2, 0), m.first(2, 1), m.first(2, 2), m.first(2, 3),
-                                   m.first(3, 0), m.first(3, 1), m.first(3, 2), m.first(3, 3));
+  const SE3<float> posecam_P_world(m.first.cast<float>().eval());
   if (m.second) camera_pose_manager_->register_valid_pose(timestamp, posecam_P_world);
 }
 

@@ -1,2 +1,2 @@
 add_library(rotation_math pose_manager.cc)
-target_include_directories(rotation_math PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+target_link_libraries(rotation_math PUBLIC cuda_util)
