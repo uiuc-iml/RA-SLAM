@@ -63,7 +63,7 @@ __device__ static bool is_block_visible(const Eigen::Matrix<short, 3, 1>& block_
   const Eigen::Matrix<short, 3, 1> pos_grid = BlockToPoint(block_pos);
   const short x = pos_grid[0], y = pos_grid[1], z = pos_grid[2];
 
-  bool visible = true;
+  bool visible = Full;
 #pragma unroll
   for (int i = 0; i < 8; ++i) {
     Eigen::Matrix<short, 3, 1> corner(x + ((i >> 0) & 1) * (BLOCK_LEN - 1),
