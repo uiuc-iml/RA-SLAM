@@ -1,6 +1,6 @@
 
 
-#include "sensorData.h"
+#include "sensorData.hpp"
 
 //THIS IS A DEMO FUNCTION: HOW TO DECODE .SENS FILES: CHECK IT OUT! (doesn't do anything real though)
 void processFrame(const ml::SensorData& sd, size_t frameIdx) {
