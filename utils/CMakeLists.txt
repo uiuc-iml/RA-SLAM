@@ -8,3 +8,4 @@ add_subdirectory(tsdf)
 add_subdirectory(tests)
 
 add_subdirectory(rotation_math)
+add_subdirectory(scannet_sens_reader)

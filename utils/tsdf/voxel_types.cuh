@@ -55,3 +55,17 @@ class VoxelSpatialTSDF {
   __device__ __host__ VoxelSpatialTSDF(const Eigen::Vector3f& position);
   __device__ __host__ VoxelSpatialTSDF(const Eigen::Vector3f& position, float tsdf);
 };
+
+/**
+ * @brief voxel data of spatial location and tsdf value
+ */
+class VoxelSpatialTSDFSEGM {
+ public:
+  Eigen::Vector3f position;
+  float tsdf;
+  float probability;
+
+ public:
+  __device__ __host__ VoxelSpatialTSDFSEGM();
+  __device__ __host__ VoxelSpatialTSDFSEGM(const Eigen::Vector3f& position, float tsdf, float prob);
+};

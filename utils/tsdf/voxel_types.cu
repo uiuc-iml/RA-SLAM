@@ -16,3 +16,7 @@ __device__ __host__ VoxelSpatialTSDF::VoxelSpatialTSDF(const Eigen::Vector3f& po
     : VoxelSpatialTSDF(position, 1.) {}
 __device__ __host__ VoxelSpatialTSDF::VoxelSpatialTSDF(const Eigen::Vector3f& position, float tsdf)
     : position(position), tsdf(tsdf) {}
+
+__device__ __host__ VoxelSpatialTSDFSEGM::VoxelSpatialTSDFSEGM(){};
+__device__ __host__ VoxelSpatialTSDFSEGM::VoxelSpatialTSDFSEGM(const Eigen::Vector3f& position, float tsdf, float prob)
+    : position(position), tsdf(tsdf), probability(prob) {}

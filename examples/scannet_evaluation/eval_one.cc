@@ -157,10 +157,10 @@ class ImageRenderer : public RendererBase {
       if (cnt_ == log_entries_.size()) {
         // all images visited, terminate
         spdlog::info("Evaluation completed! Extracting TSDF now...");
-        const auto voxel_pos_tsdf = tsdf_.GatherValid();
-        spdlog::info("Visible TSDF blocks count: {}", voxel_pos_tsdf.size());
+        const auto voxel_pos_prob = tsdf_.GatherValidSemantic();
+        spdlog::info("Visible TSDF blocks count: {}", voxel_pos_prob.size());
         std::ofstream fout("/tmp/data.bin", std::ios::out | std::ios::binary);
-        fout.write((char*)voxel_pos_tsdf.data(), voxel_pos_tsdf.size() * sizeof(VoxelSpatialTSDF));
+        fout.write((char*)voxel_pos_prob.data(), voxel_pos_prob.size() * sizeof(VoxelSpatialTSDFSEGM));
         fout.close();
         exit(0);
       }

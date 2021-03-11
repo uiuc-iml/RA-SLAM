@@ -79,6 +79,13 @@ class TSDFGrid {
   std::vector<VoxelSpatialTSDF> GatherValid();
 
   /**
+   * @brief gather all valid semantic voxels
+   *
+   * @return an array of voxels with spatial location and tsdf values
+   */
+  std::vector<VoxelSpatialTSDFSEGM> GatherValidSemantic();
+
+  /**
    * @brief gather all voxels within certain bound
    *
    * @param volumn volumn of interest
