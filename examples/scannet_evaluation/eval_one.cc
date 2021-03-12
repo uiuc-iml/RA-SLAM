@@ -19,6 +19,7 @@
 #include "utils/cuda/vector.cuh"
 #include "utils/gl/image.h"
 #include "utils/time.hpp"
+#include "utils/indicators.hpp"
 #include "utils/tsdf/voxel_tsdf.cuh"
 
 struct LogEntry {
@@ -95,8 +96,14 @@ class DatasetEvaluator {
   }
 
   void run_all() {
+    int cnt_ = 0;
+    int cur_percentage = 0;
     spdlog::info("Starting evaluation! Total frame count: {}", log_entries_.size());
     while (cnt_ < log_entries_.size()) {
+      if (((int)(cnt_ * 1.0 / log_entries_.size() * 100)) > cur_percentage) {
+        cur_percentage = (int)(cnt_ * 1.0 / log_entries_.size() * 100);
+        bar_.tick();
+      }
       const LogEntry& log_entry = log_entries_[(cnt_++) % log_entries_.size()];
       const auto st_img = GetTimestamp<std::chrono::milliseconds>();
       get_images_by_id(log_entry.id, depth_scale_, &img_rgb_, &img_depth_, &img_ht_, &img_lt_,
@@ -121,13 +128,24 @@ class DatasetEvaluator {
   }
 
  private:
-  int cnt_ = 0;
   TSDFGrid tsdf_;
   cv::Mat img_rgb_, img_depth_, img_ht_, img_lt_;
   const std::string logdir_;
   const CameraIntrinsics<float> intrinsics_;
   const std::vector<LogEntry> log_entries_;
   const float depth_scale_;
+  indicators::ProgressBar bar_{
+    indicators::option::BarWidth{50},
+    indicators::option::Start{" ["},
+    indicators::option::Fill{"█"},
+    indicators::option::Lead{"█"},
+    indicators::option::Remainder{"-"},
+    indicators::option::End{"]"},
+    indicators::option::PrefixText{"Evaluating ScanNet scene"},
+    indicators::option::ForegroundColor{indicators::Color::yellow},
+    indicators::option::ShowElapsedTime{true},
+    indicators::option::ShowRemainingTime{true}
+  };
 };
 
 int main(int argc, char* argv[]) {
