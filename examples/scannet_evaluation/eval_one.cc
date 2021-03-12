@@ -18,7 +18,6 @@
 #include "utils/cuda/errors.cuh"
 #include "utils/cuda/vector.cuh"
 #include "utils/gl/image.h"
-#include "utils/gl/renderer_base.h"
 #include "utils/time.hpp"
 #include "utils/tsdf/voxel_tsdf.cuh"
 
@@ -82,147 +81,49 @@ void get_images_by_id(int id, float depth_scale, cv::Mat* img_rgb, cv::Mat* img_
   }
 }
 
-class ImageRenderer : public RendererBase {
+class DatasetEvaluator {
  public:
-  ImageRenderer(const std::string& name, const std::string& logdir, const YAML::Node& config)
-      : RendererBase(name),
+  DatasetEvaluator(const std::string& logdir, const YAML::Node& config)
+      :
         logdir_(logdir),
         tsdf_(0.01, 0.06),
         intrinsics_(get_intrinsics(config)),
         log_entries_(parse_log_entries(logdir, config)),
         depth_scale_(config["depthmap_factor"].as<float>()) {
-    ImGuiIO& io = ImGui::GetIO();
-    io.FontGlobalScale = 2;
     spdlog::debug("[RGBD Intrinsics] fx: {} fy: {} cx: {} cy: {}", intrinsics_.fx, intrinsics_.fy,
                   intrinsics_.cx, intrinsics_.cy);
   }
 
- protected:
-  void DispatchInput() override {
-    ImGuiIO& io = ImGui::GetIO();
-    if (io.MouseWheel != 0) {
-      follow_cam_ = false;
-      const Eigen::Vector3f move_cam(0, 0, io.MouseWheel * .1);
-      const Eigen::Quaternionf virtual_cam_R_world = virtual_cam_T_world_.GetR();
-      const Eigen::Vector3f virtual_cam_t_world = virtual_cam_T_world_.GetT();
-      virtual_cam_T_world_ = SE3<float>(virtual_cam_R_world, virtual_cam_t_world - move_cam);
-    }
-    if (!io.WantCaptureMouse && ImGui::IsMouseDragging(0) && tsdf_rgba_.GetWidth()) {
-      follow_cam_ = false;
-      const ImVec2 delta = ImGui::GetMouseDragDelta(0);
-      const Eigen::Vector2f delta_img(delta.x / io.DisplaySize.x * tsdf_rgba_.GetWidth(),
-                                      delta.y / io.DisplaySize.y * tsdf_rgba_.GetHeight());
-      const Eigen::Vector2f pos_new_img(io.MousePos.x / io.DisplaySize.x * tsdf_rgba_.GetWidth(),
-                                        io.MousePos.y / io.DisplaySize.y * tsdf_rgba_.GetHeight());
-      const Eigen::Vector2f pos_old_img = pos_new_img - delta_img;
-      const Eigen::Vector3f pos_new_cam = intrinsics_.Inverse() * pos_new_img.homogeneous();
-      const Eigen::Vector3f pos_old_cam = intrinsics_.Inverse() * pos_old_img.homogeneous();
-      const Eigen::Vector3f pos_new_norm_cam = pos_new_cam.normalized();
-      const Eigen::Vector3f pos_old_norm_cam = pos_old_cam.normalized();
-      const Eigen::Vector3f rot_axis_cross_cam = pos_new_norm_cam.cross(pos_old_norm_cam);
-      const float theta = acos(pos_new_norm_cam.dot(pos_old_norm_cam));
-      const Eigen::Quaternionf R(Eigen::AngleAxisf(theta, rot_axis_cross_cam.normalized()));
-      const SE3<float> pose_cam1_T_cam2(R, Eigen::Vector3f::Zero());
-      virtual_cam_T_world_ = pose_cam1_T_cam2.Inverse() * virtual_cam_T_world_old_;
-    } else if (!io.WantCaptureMouse && ImGui::IsMouseDragging(2)) {
-      follow_cam_ = false;
-      const ImVec2 delta = ImGui::GetMouseDragDelta(2);
-      const Eigen::Vector3f translation(delta.x, delta.y, 0);
-      const Eigen::Vector3f t = virtual_cam_T_world_old_.GetT();
-      const Eigen::Quaternionf R = virtual_cam_T_world_old_.GetR();
-      virtual_cam_T_world_ = SE3<float>(R, t + translation * .01);
-    } else {
-      virtual_cam_T_world_old_ = virtual_cam_T_world_;
-    }
-  }
-
-  void Render() override {
-    int display_w, display_h;
-    glfwGetFramebufferSize(window_, &display_w, &display_h);
-    glViewport(0, 0, display_w, display_h);
-    glClearColor(0, 0, 0, 0);
-    glClear(GL_COLOR_BUFFER_BIT);
-    // GUI
-    ImGui::Begin("Menu");
-    if (!running_ && ImGui::Button("Start")) {
-      running_ = true;
-    } else if (running_ && ImGui::Button("Pause")) {
-      running_ = false;
-    }
-    if (ImGui::Button("Follow Camera")) {
-      follow_cam_ = true;
-    }
-    // compute
-    if (running_) {
-      if (cnt_ == log_entries_.size()) {
-        // all images visited, terminate
-        spdlog::info("Evaluation completed! Extracting TSDF now...");
-        const auto voxel_pos_prob = tsdf_.GatherValidSemantic();
-        spdlog::info("Visible TSDF blocks count: {}", voxel_pos_prob.size());
-        std::ofstream fout("/tmp/data.bin", std::ios::out | std::ios::binary);
-        fout.write((char*)voxel_pos_prob.data(), voxel_pos_prob.size() * sizeof(VoxelSpatialTSDFSEGM));
-        fout.close();
-        exit(0);
-      }
+  void run_all() {
+    spdlog::info("Starting evaluation! Total frame count: {}", log_entries_.size());
+    while (cnt_ < log_entries_.size()) {
       const LogEntry& log_entry = log_entries_[(cnt_++) % log_entries_.size()];
-      cam_T_world_ = log_entry.cam_T_world;
+      const auto st_img = GetTimestamp<std::chrono::milliseconds>();
       get_images_by_id(log_entry.id, depth_scale_, &img_rgb_, &img_depth_, &img_ht_, &img_lt_,
-                       logdir_);
-      cv::imshow("rgb", img_rgb_);
-      if (!tsdf_rgba_.GetHeight() || !tsdf_rgba_.GetWidth() || !tsdf_normal_.GetHeight() ||
-          !tsdf_normal_.GetWidth()) {
-        tsdf_rgba_.BindImage(img_depth_.rows, img_depth_.cols, nullptr);
-        tsdf_normal_.BindImage(img_depth_.rows, img_depth_.cols, nullptr);
-      }
+                        logdir_);
+      const auto end_img = GetTimestamp<std::chrono::milliseconds>();
+      spdlog::debug("Image IO takes {} ms", end_img - st_img);
       cv::cvtColor(img_rgb_, img_rgb_, cv::COLOR_BGR2RGB);
       const auto st = GetTimestamp<std::chrono::milliseconds>();
       tsdf_.Integrate(img_rgb_, img_depth_, img_ht_, img_lt_, 4, intrinsics_,
                       log_entry.cam_T_world);
-      const auto end = GetTimestamp<std::chrono::milliseconds>();
-      CUDA_SAFE_CALL(cudaDeviceSynchronize());
-      ImGui::Text("Integration takes %lu ms", end - st);
-      img_depth_.convertTo(img_depth_, CV_32FC1, 1. / 4);
-      cv::imshow("depth", img_depth_);
-      cv::waitKey(1);
-    }
-    if (follow_cam_) {
-      static float step = 0;
-      ImGui::SliderFloat("behind actual camera", &step, 0.0f, 3.0f);
-      virtual_cam_T_world_ =
-          SE3<float>(cam_T_world_.GetR(), cam_T_world_.GetT() + Eigen::Vector3f(0, 0, step));
-    }
-    // render
-    if (!img_depth_.empty() && !img_rgb_.empty()) {
-      const CameraParams virtual_cam(intrinsics_, img_depth_.rows, img_depth_.cols);
-      const auto st = GetTimestamp<std::chrono::milliseconds>();
-      tsdf_.RayCast(10, virtual_cam, virtual_cam_T_world_, &tsdf_rgba_, &tsdf_normal_);
       CUDA_SAFE_CALL(cudaDeviceSynchronize());
       const auto end = GetTimestamp<std::chrono::milliseconds>();
-      ImGui::Text("Rendering takes %lu ms", end - st);
-      static int render_mode = 1;
-      ImGui::RadioButton("rgb", &render_mode, 0);
-      ImGui::SameLine();
-      ImGui::RadioButton("normal", &render_mode, 1);
-      if (render_mode == 0) {
-        tsdf_rgba_.Draw();
-      } else if (render_mode == 1) {
-        tsdf_normal_.Draw();
-      }
+      spdlog::debug("Integration takes {} ms", end - st);
     }
-    ImGui::End();
+    // all images visited, terminate
+    spdlog::info("Evaluation completed! Extracting TSDF now...");
+    const auto voxel_pos_prob = tsdf_.GatherValidSemantic();
+    spdlog::info("Visible TSDF blocks count: {}", voxel_pos_prob.size());
+    std::ofstream fout("/tmp/data.bin", std::ios::out | std::ios::binary);
+    fout.write((char*)voxel_pos_prob.data(), voxel_pos_prob.size() * sizeof(VoxelSpatialTSDFSEGM));
+    fout.close();
   }
 
  private:
   int cnt_ = 0;
-  bool running_ = false;
-  bool follow_cam_ = true;
-  GLImage8UC4 tsdf_rgba_;
-  GLImage8UC4 tsdf_normal_;
   TSDFGrid tsdf_;
   cv::Mat img_rgb_, img_depth_, img_ht_, img_lt_;
-  SE3<float> cam_T_world_ = SE3<float>::Identity();
-  SE3<float> virtual_cam_T_world_ = SE3<float>::Identity();
-  SE3<float> virtual_cam_T_world_old_ = SE3<float>::Identity();
   const std::string logdir_;
   const CameraIntrinsics<float> intrinsics_;
   const std::vector<LogEntry> log_entries_;
@@ -262,8 +163,8 @@ int main(int argc, char* argv[]) {
   }
 
   const auto yaml_node = YAML::LoadFile(config->value());
-  ImageRenderer renderer("tsdf", logdir->value(), yaml_node);
-  renderer.Run();
+  DatasetEvaluator evaluator(logdir->value(), yaml_node);
+  evaluator.run_all();
 
   return EXIT_SUCCESS;
 }
