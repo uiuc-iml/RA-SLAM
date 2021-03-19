@@ -1,5 +1,7 @@
 #include "inference.h"
 
+#include <spdlog/spdlog.h>
+
 #include <iostream>
 
 // mat to tensor
@@ -46,7 +48,11 @@ inference_engine::inference_engine(const std::string& compiled_engine_path) {
 std::vector<cv::Mat> inference_engine::infer_one(const cv::Mat& rgb_img, bool ret_uint8_flag) {
   cv::Mat downsized_rgb_img;
   std::vector<cv::Mat> ret;
-  cv::resize(rgb_img, downsized_rgb_img, cv::Size(640, 352));
+
+  spdlog::debug("[SEGM] Input rgb image rows: {} cols: {}", rgb_img.rows, rgb_img.cols);
+
+  // TODO: use multi-scale model that does not require size to be multiples of 32
+  cv::resize(rgb_img, downsized_rgb_img, cv::Size(640, 480));
 
   torch::Tensor downsized_rgb_img_tensor = mat_to_tensor(downsized_rgb_img);
   torch::Tensor downsized_rgb_img_tensor_cuda = downsized_rgb_img_tensor.to(torch::kCUDA);
