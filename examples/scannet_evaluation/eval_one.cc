@@ -21,99 +21,59 @@
 #include "utils/time.hpp"
 #include "utils/indicators.hpp"
 #include "utils/tsdf/voxel_tsdf.cuh"
-
-struct LogEntry {
-  int id;
-  SE3<float> cam_T_world;
-};
-
-CameraIntrinsics<float> get_intrinsics(const YAML::Node& config) {
-  return CameraIntrinsics<float>(config["Camera.fx"].as<float>(), config["Camera.fy"].as<float>(),
-                                 config["Camera.cx"].as<float>(), config["Camera.cy"].as<float>());
-}
-
-SE3<float> get_extrinsics(const YAML::Node& config) {
-  const auto extrinsics = config["Extrinsics"].as<std::vector<float>>(std::vector<float>());
-  if (extrinsics.empty()) {
-    return SE3<float>::Identity();
-  }
-  const Eigen::Matrix4f tmp =
-      Eigen::Map<const Eigen::Matrix<float, 4, 4, Eigen::RowMajor>>(extrinsics.data());
-  return SE3<float>(tmp);
-}
-
-const std::vector<LogEntry> parse_log_entries(const std::string& logdir, const YAML::Node& config) {
-  const std::string trajectory_path = logdir + "/trajectory.txt";
-  const SE3<float> extrinsics = get_extrinsics(config);
-
-  int id;
-  float buff[12];
-
-  std::vector<LogEntry> log_entries;
-  std::ifstream fin(trajectory_path);
-  while (fin >> id >> buff[0] >> buff[1] >> buff[2] >> buff[3] >> buff[4] >> buff[5] >> buff[6] >>
-         buff[7] >> buff[8] >> buff[9] >> buff[10] >> buff[11]) {
-    const Eigen::Matrix<float, 3, 4> tmp =
-        Eigen::Map<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>(buff);
-    log_entries.push_back({id, extrinsics * SE3<float>(tmp)});
-  }
-
-  return log_entries;
-}
-
-void get_images_by_id(int id, float depth_scale, cv::Mat* img_rgb, cv::Mat* img_depth,
-                      cv::Mat* img_ht, cv::Mat* img_lt, const std::string& logdir) {
-  const std::string rgb_path = logdir + "/" + std::to_string(id) + "_rgb.png";
-  const std::string depth_path = logdir + "/" + std::to_string(id) + "_depth.png";
-  const std::string ht_path = logdir + "/" + std::to_string(id) + "_ht.png";
-  const std::string lt_path = logdir + "/" + std::to_string(id) + "_no_ht.png";
-
-  *img_rgb = cv::imread(rgb_path);
-  const cv::Mat img_depth_raw = cv::imread(depth_path, cv::IMREAD_UNCHANGED);
-  const cv::Mat img_ht_raw = cv::imread(ht_path, cv::IMREAD_UNCHANGED);
-  const cv::Mat img_lt_raw = cv::imread(lt_path, cv::IMREAD_UNCHANGED);
-  img_depth_raw.convertTo(*img_depth, CV_32FC1, 1. / depth_scale);
-  if (!img_ht_raw.empty()) {
-    img_ht_raw.convertTo(*img_ht, CV_32FC1, 1. / 65535);
-    img_lt_raw.convertTo(*img_lt, CV_32FC1, 1. / 65535);
-  } else {
-    *img_ht = cv::Mat::zeros(img_depth->rows, img_depth->cols, img_depth->type());
-    *img_lt = cv::Mat::ones(img_depth->rows, img_depth->cols, img_depth->type());
-  }
-}
+#include "utils/scannet_sens_reader/scannet_sens_reader.h"
+#include "segmentation/inference.h"
 
 class DatasetEvaluator {
  public:
-  DatasetEvaluator(const std::string& logdir, const YAML::Node& config)
+  DatasetEvaluator(const std::string& segm_model_path, const std::string& sens_path)
       :
-        logdir_(logdir),
+        segm_(segm_model_path),
+        sens_reader_(sens_path),
         tsdf_(0.01, 0.06),
-        intrinsics_(get_intrinsics(config)),
-        log_entries_(parse_log_entries(logdir, config)),
-        depth_scale_(config["depthmap_factor"].as<float>()) {
+        intrinsics_(sens_reader_.get_camera_intrinsics()),
+        depth_scale_(sens_reader_.get_depth_map_factor()) {
     spdlog::debug("[RGBD Intrinsics] fx: {} fy: {} cx: {} cy: {}", intrinsics_.fx, intrinsics_.fy,
                   intrinsics_.cx, intrinsics_.cy);
   }
 
   void run_all() {
-    int cnt_ = 0;
+    cv::Mat img_rgb, img_depth, img_ht, img_lt;
     int cur_percentage = 0;
-    spdlog::info("Starting evaluation! Total frame count: {}", log_entries_.size());
-    while (cnt_ < log_entries_.size()) {
-      if (((int)(cnt_ * 1.0 / log_entries_.size() * 100)) > cur_percentage) {
-        cur_percentage = (int)(cnt_ * 1.0 / log_entries_.size() * 100);
+    indicators::ProgressBar bar_{
+      indicators::option::BarWidth{50},
+      indicators::option::Start{" ["},
+      indicators::option::Fill{"█"},
+      indicators::option::Lead{"█"},
+      indicators::option::Remainder{"-"},
+      indicators::option::End{"]"},
+      indicators::option::PrefixText{"Evaluating ScanNet scene"},
+      indicators::option::ForegroundColor{indicators::Color::yellow},
+      indicators::option::ShowElapsedTime{true},
+      indicators::option::ShowRemainingTime{true}
+    };
+    spdlog::info("Starting evaluation! Total frame count: {}", sens_reader_.get_size());
+    for (int frame_idx = 0; frame_idx < sens_reader_.get_size(); ++frame_idx) {
+      if (((int)(frame_idx * 1.0 / sens_reader_.get_size() * 100)) > cur_percentage) {
+        cur_percentage = (int)(frame_idx * 1.0 / sens_reader_.get_size() * 100);
         bar_.tick();
       }
-      const LogEntry& log_entry = log_entries_[(cnt_++) % log_entries_.size()];
+      // 1. read RGB and depth images
       const auto st_img = GetTimestamp<std::chrono::milliseconds>();
-      get_images_by_id(log_entry.id, depth_scale_, &img_rgb_, &img_depth_, &img_ht_, &img_lt_,
-                        logdir_);
+      sens_reader_.get_color_frame_by_id(&img_rgb, frame_idx);
+      sens_reader_.get_depth_frame_by_id(&img_depth, frame_idx);
+      img_depth.convertTo(img_depth, CV_32FC1, 1. / depth_scale_);
       const auto end_img = GetTimestamp<std::chrono::milliseconds>();
       spdlog::debug("Image IO takes {} ms", end_img - st_img);
-      cv::cvtColor(img_rgb_, img_rgb_, cv::COLOR_BGR2RGB);
+      // 2. infer RGB image
+      const auto st_segm = GetTimestamp<std::chrono::milliseconds>();
+      std::vector<cv::Mat> prob_map = segm_.infer_one(img_rgb, false);
+      const auto end_segm = GetTimestamp<std::chrono::milliseconds>();
+      spdlog::debug("Segmentation takes {} ms", end_segm - st_segm);
+      // 3. TSDF integration
       const auto st = GetTimestamp<std::chrono::milliseconds>();
-      tsdf_.Integrate(img_rgb_, img_depth_, img_ht_, img_lt_, 4, intrinsics_,
-                      log_entry.cam_T_world);
+      SE3<float> cam_T_world = sens_reader_.get_camera_pose_by_id(frame_idx);
+      tsdf_.Integrate(img_rgb, img_depth, prob_map[0], prob_map[1], 4, intrinsics_, cam_T_world);
       CUDA_SAFE_CALL(cudaDeviceSynchronize());
       const auto end = GetTimestamp<std::chrono::milliseconds>();
       spdlog::debug("Integration takes {} ms", end - st);
@@ -129,31 +89,18 @@ class DatasetEvaluator {
 
  private:
   TSDFGrid tsdf_;
-  cv::Mat img_rgb_, img_depth_, img_ht_, img_lt_;
-  const std::string logdir_;
+  inference_engine segm_;
+  scannet_sens_reader sens_reader_;
   const CameraIntrinsics<float> intrinsics_;
-  const std::vector<LogEntry> log_entries_;
   const float depth_scale_;
-  indicators::ProgressBar bar_{
-    indicators::option::BarWidth{50},
-    indicators::option::Start{" ["},
-    indicators::option::Fill{"█"},
-    indicators::option::Lead{"█"},
-    indicators::option::Remainder{"-"},
-    indicators::option::End{"]"},
-    indicators::option::PrefixText{"Evaluating ScanNet scene"},
-    indicators::option::ForegroundColor{indicators::Color::yellow},
-    indicators::option::ShowElapsedTime{true},
-    indicators::option::ShowRemainingTime{true}
-  };
 };
 
 int main(int argc, char* argv[]) {
   popl::OptionParser op("Allowed options");
   auto help = op.add<popl::Switch>("h", "help", "produce help message");
   auto debug_mode = op.add<popl::Switch>("", "debug", "debug mode");
-  auto logdir = op.add<popl::Value<std::string>>("", "logdir", "directory to the log files");
-  auto config = op.add<popl::Value<std::string>>("c", "config", "path to the config file");
+  auto model = op.add<popl::Value<std::string>>("", "model", "path PyTorch JIT traced model");
+  auto sens = op.add<popl::Value<std::string>>("", "sens", "path to scannet sensor stream .sens file");
 
   spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] %^[%L] %v%$");
   try {
@@ -174,14 +121,13 @@ int main(int argc, char* argv[]) {
   else
     spdlog::set_level(spdlog::level::info);
 
-  if (!logdir->is_set() || !config->is_set()) {
+  if (!model->is_set() || !sens->is_set()) {
     spdlog::error("Invalid arguments");
     std::cerr << op << std::endl;
     return EXIT_FAILURE;
   }
 
-  const auto yaml_node = YAML::LoadFile(config->value());
-  DatasetEvaluator evaluator(logdir->value(), yaml_node);
+  DatasetEvaluator evaluator(model->value(), sens->value());
   evaluator.run_all();
 
   return EXIT_SUCCESS;

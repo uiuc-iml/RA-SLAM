@@ -33,7 +33,7 @@ class scannet_sens_reader {
   /**
    * @brief Return camera intrinsic parameter fx/fy/cx/cy extracted from the sens file
    * 
-   * @return: CameraIntrinsics
+   * @return CameraIntrinsics
    */
   CameraIntrinsics<float> get_camera_intrinsics();
 
@@ -44,7 +44,7 @@ class scannet_sens_reader {
    * (which yields RGBD frames from a unified camera viewpoint), so this function
    * returns identity at this moment.
    * 
-   * @return: SE3 identity transformation
+   * @return SE3 identity transformation
    */
   SE3<float> get_camera_extrinsics();
 
@@ -54,7 +54,7 @@ class scannet_sens_reader {
    * For every pixel in the depth map, (value / depth_factor) will yield its
    * depth in meters.
    * 
-   * @return: depth map factor
+   * @return depth map factor
    */
   float get_depth_map_factor();
 
@@ -75,6 +75,15 @@ class scannet_sens_reader {
    *
    */
   void get_color_frame_by_id(cv::Mat* rgb_img, int frame_idx);
+
+  /**
+   * @brief get SE3 camera post by frame idx [0, this.get_size())
+   * 
+   * @param frame_idx index of the wanted frame
+   * 
+   * @return SE3 camera pose cam_T_world
+   */
+  SE3<float> get_camera_pose_by_id(int frame_idx);
 
   /**
    *  @brief Return the number of RGBD frames for the underlying stream

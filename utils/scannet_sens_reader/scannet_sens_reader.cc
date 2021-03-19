@@ -59,6 +59,11 @@ void scannet_sens_reader::get_color_frame_by_id(cv::Mat* rgb_img, int frame_idx)
   // std::free(color_data);
 }
 
+SE3<float> scannet_sens_reader::get_camera_pose_by_id(int frame_idx) {
+  Eigen::Matrix<float, 4, 4> temp(sd_.m_frames[frame_idx].getCameraToWorld().matrix);
+  return SE3<float>(temp);
+}
+
 int scannet_sens_reader::get_size() {
   return (int)(sd_.m_frames.size());
 }
