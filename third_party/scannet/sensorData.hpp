@@ -1,7 +1,7 @@
 #pragma once
 
 #include "include.hpp"
-#include "RGBDFrame.hpp"
+#include "RGBDFrame.h"
 #include "calibrationData.hpp"
 #include "stringCounter.hpp"
 

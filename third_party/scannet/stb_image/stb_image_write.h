@@ -107,6 +107,8 @@ distribute, and modify this file as you see fit.
 
 */
 
+#pragma once
+
 #ifndef INCLUDE_STB_IMAGE_WRITE_H
 #define INCLUDE_STB_IMAGE_WRITE_H
 

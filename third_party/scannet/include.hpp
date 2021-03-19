@@ -33,16 +33,6 @@
 #include <dirent.h>
 #endif
 
-namespace stb {
-#define STB_IMAGE_IMPLEMENTATION
-#include "sensorData/stb_image.h"
-#undef STB_IMAGE_IMPLEMENTATION
-
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "sensorData/stb_image_write.h"
-#undef STB_IMAGE_WRITE_IMPLEMENTATION
-}
-
 #ifdef _USE_UPLINK_COMPRESSION
 #if _WIN32
 #pragma comment(lib, "gdiplus.lib")
@@ -222,7 +212,7 @@ namespace ml {
 
 
 	namespace util {
-		bool directoryExists(const std::string& directory) {
+		inline bool directoryExists(const std::string& directory) {
 #if defined(WIN32)
 			DWORD ftyp = GetFileAttributesA(directory.c_str());
 			if (ftyp == INVALID_FILE_ATTRIBUTES)
@@ -252,7 +242,7 @@ namespace ml {
 #endif
 		}
 
-		void makeDirectory(const std::string& directory) {
+		inline void makeDirectory(const std::string& directory) {
 #if defined(WIN32)
 			CreateDirectoryA(directory.c_str(), nullptr);
 #elif defined(LINUX)

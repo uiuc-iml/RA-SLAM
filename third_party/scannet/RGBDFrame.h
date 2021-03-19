@@ -6,89 +6,56 @@ namespace ml{
 
 class RGBDFrame {
   public:
-    RGBDFrame() {
-        m_colorCompressed = NULL;
-        m_depthCompressed = NULL;
-        m_colorSizeBytes = 0;
-        m_depthSizeBytes = 0;
-        m_cameraToWorld.setZero(-std::numeric_limits<float>::infinity());
-        m_timeStampColor = 0;
-        m_timeStampDepth = 0;
-    }
+    RGBDFrame();
 
+    RGBDFrame(const RGBDFrame& other);
 
-    RGBDFrame(const RGBDFrame& other) {
-        m_colorSizeBytes = other.m_colorSizeBytes;
-        m_depthSizeBytes = other.m_depthSizeBytes;
-        m_colorCompressed = (unsigned char*)std::malloc(m_colorSizeBytes);
-        m_depthCompressed = (unsigned char*)std::malloc(m_depthSizeBytes);
+    RGBDFrame(RGBDFrame&& other);
 
-        if (!m_colorCompressed || !m_depthCompressed) throw MLIB_EXCEPTION("out of memory");
-
-        std::memcpy(m_colorCompressed, other.m_colorCompressed, m_colorSizeBytes);
-        std::memcpy(m_depthCompressed, other.m_depthCompressed, m_depthSizeBytes);
-
-        m_timeStampColor = other.m_timeStampColor;
-        m_timeStampDepth = other.m_timeStampDepth;
-        m_cameraToWorld = other.m_cameraToWorld;
-    }
-
-    RGBDFrame(RGBDFrame&& other) {
-        m_colorSizeBytes = other.m_colorSizeBytes;
-        m_depthSizeBytes = other.m_depthSizeBytes;
-        m_colorCompressed = other.m_colorCompressed;
-        m_depthCompressed = other.m_depthCompressed;
-
-        m_timeStampColor = other.m_timeStampColor;
-        m_timeStampDepth = other.m_timeStampDepth;
-        m_cameraToWorld = other.m_cameraToWorld;
-
-        other.m_colorCompressed = NULL;
-        other.m_depthCompressed = NULL;
-    }
-
-
-    unsigned char* getColorCompressed() const {
+    inline unsigned char* getColorCompressed() const {
         return m_colorCompressed;
     }
-    unsigned char* getDepthCompressed() const {
+
+    inline unsigned char* getDepthCompressed() const {
         return m_depthCompressed;
     }
-    size_t getColorSizeBytes() const {
+
+    inline size_t getColorSizeBytes() const {
         return m_colorSizeBytes;
     }
-    size_t getDepthSizeBytes() const {
+
+    inline size_t getDepthSizeBytes() const {
         return m_depthSizeBytes;
     }
 
-    const mat4f& getCameraToWorld() const {
+    inline const mat4f& getCameraToWorld() const {
         return m_cameraToWorld;
     }
 
-    void setCameraToWorld(const mat4f& cameraToWorld) {
+    inline void setCameraToWorld(const mat4f& cameraToWorld) {
         m_cameraToWorld = cameraToWorld;
     }
 
     //! typically in microseconds
-    void setTimeStampColor(UINT64 t) {
+    inline void setTimeStampColor(UINT64 t) {
         m_timeStampColor = t;
     }
     //! typically in microseconds
-    void setTimeStampDepth(UINT64 t) {
+    inline void setTimeStampDepth(UINT64 t) {
         m_timeStampDepth = t;
     }
 
     //! returns the color time stamp; typically in microseconds
-    UINT64 getTimeStampColor() const {
+    inline UINT64 getTimeStampColor() const {
         return m_timeStampColor;
     }
 
     //! returns the depth time stamp; typically in microseconds
-    UINT64 getTimeStampDepth() const {
+    inline UINT64 getTimeStampDepth() const {
         return m_timeStampDepth;
     }
 
-    void free() {
+    inline void free() {
         freeColor();
         freeDepth();
         m_cameraToWorld.setZero(-std::numeric_limits<float>::infinity());
@@ -238,14 +205,7 @@ class RGBDFrame {
 #endif
     }
 
-    vec3uc* decompressColorAlloc_stb(COMPRESSION_TYPE_COLOR type) const {	//can handle PNG, JPEG etc.
-        if (type != TYPE_JPEG && type != TYPE_PNG) throw MLIB_EXCEPTION("invliad type");
-        if (m_colorCompressed == NULL || m_colorSizeBytes == 0) throw MLIB_EXCEPTION("decompression error");
-        int channels = 3;
-        int width, height;
-        unsigned char* raw = stb::stbi_load_from_memory(m_colorCompressed, (int)m_colorSizeBytes, &width, &height, NULL, channels);
-        return (vec3uc*)raw;
-    }
+    vec3uc* decompressColorAlloc_stb(COMPRESSION_TYPE_COLOR type) const;
 
     vec3uc* decompressColorAlloc_occ(COMPRESSION_TYPE_COLOR type) const {
 #ifdef _USE_UPLINK_COMPRESSION
@@ -277,50 +237,7 @@ class RGBDFrame {
         return res;
     }
 
-    void compressDepth(const unsigned short* depth, unsigned int width, unsigned int height, COMPRESSION_TYPE_DEPTH type) {
-        freeDepth();
-
-        if (type == TYPE_RAW_USHORT) {
-            if (m_depthSizeBytes != width*height) {
-                freeDepth();
-                m_depthSizeBytes = width*height*sizeof(unsigned short);
-                m_depthCompressed = (unsigned char*)std::malloc(m_depthSizeBytes);
-            }
-            std::memcpy(m_depthCompressed, depth, m_depthSizeBytes);
-        }
-        else if (type == TYPE_ZLIB_USHORT) {
-            freeDepth();
-
-            int out_len = 0;
-            int quality = 8;
-            int n = 2;
-            unsigned char* tmpBuff = (unsigned char *)std::malloc((width*n + 1) * height);
-            std::memcpy(tmpBuff, depth, width*height*sizeof(unsigned short));
-            m_depthCompressed = stb::stbi_zlib_compress(tmpBuff, width*height*sizeof(unsigned short), &out_len, quality);
-            std::free(tmpBuff);
-            m_depthSizeBytes = out_len;
-        }
-        else if (type == TYPE_OCCI_USHORT) {
-            freeDepth();
-#ifdef _USE_UPLINK_COMPRESSION
-            //TODO fix the shift here
-            int out_len = 0;
-            int n = 2;
-            unsigned int tmpBuffSize = (width*n + 1) * height;
-            unsigned char* tmpBuff = (unsigned char *)std::malloc(tmpBuffSize);
-            out_len = uplinksimple::encode(depth, width*height, tmpBuff, tmpBuffSize);
-            m_depthSizeBytes = out_len;
-            m_depthCompressed = (unsigned char*)std::malloc(out_len);
-            std::memcpy(m_depthCompressed, tmpBuff, out_len);
-            std::free(tmpBuff);
-#else
-            throw MLIB_EXCEPTION("need UPLINK_COMPRESSION");
-#endif
-        }
-        else {
-            throw MLIB_EXCEPTION("unknown compression type");
-        }
-    }
+    void compressDepth(const unsigned short* depth, unsigned int width, unsigned int height, COMPRESSION_TYPE_DEPTH type);
 
     unsigned short* decompressDepthAlloc(unsigned int width, unsigned int height, COMPRESSION_TYPE_DEPTH type) const {
         if (type == TYPE_RAW_USHORT)	return decompressDepthAlloc_raw(type);
@@ -332,13 +249,7 @@ class RGBDFrame {
         }
     }
 
-    unsigned short* decompressDepthAlloc_stb(COMPRESSION_TYPE_DEPTH type) const {
-        if (type != TYPE_ZLIB_USHORT) throw MLIB_EXCEPTION("invliad type");
-        unsigned short* res;
-        int len;
-        res = (unsigned short*)stb::stbi_zlib_decode_malloc((const char*)m_depthCompressed, (int)m_depthSizeBytes, &len);
-        return res;
-    }
+    unsigned short* decompressDepthAlloc_stb(COMPRESSION_TYPE_DEPTH type) const;
 
     unsigned int short* decompressDepthAlloc_occ(unsigned int width, unsigned int height, COMPRESSION_TYPE_DEPTH type) const {
 #ifdef _USE_UPLINK_COMPRESSION
