@@ -54,6 +54,7 @@ class ScannetEval:
         for i in range(gt_label_arr.shape[0]):
             self.gt_high_touch_arr[i] = nyuid_to_ht_map[gt_label_arr[i]]
         # 4. Assign labels
+        # TODO: make a PR curve by varying p_cutoff (e.g., 0.05)
         self.predicted_label_arr = (self.semantic_pc[:, 3] > p_cutoff).astype(np.int)
         self.predicted_label_arr = self.predicted_label_arr[keep_idx]
     

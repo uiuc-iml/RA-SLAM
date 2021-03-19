@@ -32,7 +32,7 @@ NYU40_HT_DICT = {
     'refridgerator': 1,
     'television': 0,
     'paper': 0,
-    'towel': 0,
+    'towel': 1,
     'shower curtain': 1,
     'box': 1,
     'cabinet': 1,

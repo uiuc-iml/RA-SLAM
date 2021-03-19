@@ -26,13 +26,14 @@
 
 class DatasetEvaluator {
  public:
-  DatasetEvaluator(const std::string& segm_model_path, const std::string& sens_path)
+  DatasetEvaluator(const std::string& segm_model_path, const std::string& sens_path, const std::string&tsdf_path)
       :
         segm_(segm_model_path),
         sens_reader_(sens_path),
         tsdf_(0.01, 0.06),
         intrinsics_(sens_reader_.get_camera_intrinsics()),
-        depth_scale_(sens_reader_.get_depth_map_factor()) {
+        depth_scale_(sens_reader_.get_depth_map_factor()),
+        tsdf_path_(tsdf_path) {
     spdlog::debug("[RGBD Intrinsics] fx: {} fy: {} cx: {} cy: {}", intrinsics_.fx, intrinsics_.fy,
                   intrinsics_.cx, intrinsics_.cy);
   }
@@ -82,7 +83,7 @@ class DatasetEvaluator {
     spdlog::info("Evaluation completed! Extracting TSDF now...");
     const auto voxel_pos_prob = tsdf_.GatherValidSemantic();
     spdlog::info("Visible TSDF blocks count: {}", voxel_pos_prob.size());
-    std::ofstream fout("/tmp/data.bin", std::ios::out | std::ios::binary);
+    std::ofstream fout(tsdf_path_, std::ios::out | std::ios::binary);
     fout.write((char*)voxel_pos_prob.data(), voxel_pos_prob.size() * sizeof(VoxelSpatialTSDFSEGM));
     fout.close();
   }
@@ -93,6 +94,7 @@ class DatasetEvaluator {
   scannet_sens_reader sens_reader_;
   const CameraIntrinsics<float> intrinsics_;
   const float depth_scale_;
+  std::string tsdf_path_;
 };
 
 int main(int argc, char* argv[]) {
@@ -101,6 +103,7 @@ int main(int argc, char* argv[]) {
   auto debug_mode = op.add<popl::Switch>("", "debug", "debug mode");
   auto model = op.add<popl::Value<std::string>>("", "model", "path PyTorch JIT traced model");
   auto sens = op.add<popl::Value<std::string>>("", "sens", "path to scannet sensor stream .sens file");
+  auto tsdf_path = op.add<popl::Value<std::string>>("", "tsdf", "path to dump semantic TSDF reconstruction");
 
   spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] %^[%L] %v%$");
   try {
@@ -121,13 +124,13 @@ int main(int argc, char* argv[]) {
   else
     spdlog::set_level(spdlog::level::info);
 
-  if (!model->is_set() || !sens->is_set()) {
+  if (!model->is_set() || !sens->is_set() || !tsdf_path->is_set()) {
     spdlog::error("Invalid arguments");
     std::cerr << op << std::endl;
     return EXIT_FAILURE;
   }
 
-  DatasetEvaluator evaluator(model->value(), sens->value());
+  DatasetEvaluator evaluator(model->value(), sens->value(), tsdf_path->value());
   evaluator.run_all();
 
   return EXIT_SUCCESS;
