@@ -23,7 +23,7 @@ cv::Mat float_tensor_to_float_mat(const torch::Tensor& my_tensor) {
   cv::Mat ret(temp_tensor.sizes()[0], temp_tensor.sizes()[1], CV_32FC1);
   // copy the data from out_tensor to resultImg
   std::memcpy((void*)ret.data, temp_tensor.data_ptr(), sizeof(float) * temp_tensor.numel());
-  cv::resize(ret, ret, cv::Size(640, 360));
+  cv::resize(ret, ret, cv::Size(640, 480));
   return ret;
 }
 

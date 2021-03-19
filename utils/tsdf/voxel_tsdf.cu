@@ -364,8 +364,14 @@ void TSDFGrid::Integrate(const cv::Mat& img_rgb, const cv::Mat& img_depth, const
                          const CameraIntrinsics<float>& intrinsics, const SE3<float>& cam_T_world) {
   assert(img_rgb.type() == CV_8UC3);
   assert(img_depth.type() == CV_32FC1);
+  assert(img_ht.type() == CV_32FC1);
+  assert(img_lt.type() == CV_32FC1);
   assert(img_rgb.cols == img_depth.cols);
   assert(img_rgb.rows == img_depth.rows);
+  assert(img_depth.cols == img_ht.cols);
+  assert(img_depth.rows == img_ht.rows);
+  assert(img_depth.cols == img_lt.cols);
+  assert(img_depth.rows == img_lt.rows);
 
   const CameraParams cam_params(intrinsics, img_rgb.rows, img_rgb.cols);
 
@@ -374,9 +380,9 @@ void TSDFGrid::Integrate(const cv::Mat& img_rgb, const cv::Mat& img_depth, const
                                  cudaMemcpyHostToDevice, stream_));
   CUDA_SAFE_CALL(cudaMemcpyAsync(img_depth_, img_depth.data, sizeof(float) * img_depth.total(),
                                  cudaMemcpyHostToDevice, stream_));
-  CUDA_SAFE_CALL(cudaMemcpyAsync(img_ht_, img_ht.data, sizeof(float) * img_depth.total(),
+  CUDA_SAFE_CALL(cudaMemcpyAsync(img_ht_, img_ht.data, sizeof(float) * img_ht.total(),
                                  cudaMemcpyHostToDevice, stream2_));
-  CUDA_SAFE_CALL(cudaMemcpyAsync(img_lt_, img_lt.data, sizeof(float) * img_depth.total(),
+  CUDA_SAFE_CALL(cudaMemcpyAsync(img_lt_, img_lt.data, sizeof(float) * img_lt.total(),
                                  cudaMemcpyHostToDevice, stream2_));
   // compute
   spdlog::debug("[TSDF] pre integrate: {} active blocks", hash_table_.NumActiveBlock());

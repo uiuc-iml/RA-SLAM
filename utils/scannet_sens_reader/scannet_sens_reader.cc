@@ -1,6 +1,7 @@
 #include "utils/scannet_sens_reader/scannet_sens_reader.h"
 
 #include <iostream>
+#include <memory>
 #include <assert.h>
 
 scannet_sens_reader::scannet_sens_reader(const string & sens_filepath)
@@ -60,8 +61,12 @@ void scannet_sens_reader::get_color_frame_by_id(cv::Mat* rgb_img, int frame_idx)
 }
 
 SE3<float> scannet_sens_reader::get_camera_pose_by_id(int frame_idx) {
-  Eigen::Matrix<float, 4, 4> temp(sd_.m_frames[frame_idx].getCameraToWorld().matrix);
-  return SE3<float>(temp);
+  // SE3 matrix has 16 elements
+  const float* pose_arr_pointer = sd_.m_frames[frame_idx].getCameraToWorld().matrix;
+  std::vector<float> pose_arr(pose_arr_pointer, pose_arr_pointer + 16);
+  Eigen::Matrix<float, 4, 4> col_major_temp =
+      Eigen::Map<Eigen::Matrix<float, 4, 4, Eigen::RowMajor>>(pose_arr.data());
+  return SE3<float>(col_major_temp).Inverse();
 }
 
 int scannet_sens_reader::get_size() {
