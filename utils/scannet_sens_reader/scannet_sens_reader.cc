@@ -41,6 +41,8 @@ void scannet_sens_reader::get_depth_frame_by_id(cv::Mat* depth_img, int frame_id
   unsigned short* depth_data = sd_.decompressDepthAlloc(frame_idx);
   unsigned int depth_width = sd_.m_depthWidth;
 	unsigned int depth_height = sd_.m_depthHeight;
+  assert(depth_height == 480);
+  assert(depth_width == 640);
   *depth_img = cv::Mat(cv::Size(depth_width, depth_height), CV_16UC1,
                          (void*)(depth_data), cv::Mat::AUTO_STEP);
   // std::free(depth_data);
@@ -48,12 +50,12 @@ void scannet_sens_reader::get_depth_frame_by_id(cv::Mat* depth_img, int frame_id
 
 void scannet_sens_reader::get_color_frame_by_id(cv::Mat* rgb_img, int frame_idx) {
   ml::vec3uc* color_data = sd_.decompressColorAlloc(frame_idx);
-  std::cout << "Size of ml::vec3uc: " << sizeof(ml::vec3uc) << std::endl;
   unsigned int color_width = sd_.m_colorWidth;
 	unsigned int color_height = sd_.m_colorHeight;
   // TODO: check memory leak?
   *rgb_img = cv::Mat(cv::Size(color_width, color_height), CV_8UC3,
                        (void*)(color_data), cv::Mat::AUTO_STEP);
+  cv::resize(*rgb_img, *rgb_img, cv::Size(640, 480));
   // std::free(color_data);
 }
 

@@ -32,9 +32,13 @@ int main(int argc, char* argv[]) {
   // save RGB image
   cv::Mat rgb_img;
   my_reader.get_color_frame_by_id(&rgb_img, 0);
+  std::cout << "Rgb image cols: " << rgb_img.cols << std::endl;
+  std::cout << "Rgb image rows: " << rgb_img.rows << std::endl;
   cv::imwrite("rgb_img_0.jpg", rgb_img);
   // save depth image
   cv::Mat depth_img;
   my_reader.get_depth_frame_by_id(&depth_img, 0);
+  std::cout << "Depth image cols: " << depth_img.cols << std::endl;
+  std::cout << "Depth image rows: " << depth_img.rows << std::endl;
   cv::imwrite("depth_img_0.png", depth_img);
 }
