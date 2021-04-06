@@ -1,5 +1,5 @@
 add_executable(sens_reader_manual_test sens_reader_manual_test.cc)
-target_link_libraries(sens_reader_manual_test cuda_util ${OpenCV_LIBS} scannet_sens_reader)
+target_link_libraries(sens_reader_manual_test cuda_util ${OpenCV_LIBS} segmentation scannet_sens_reader)
 
 add_executable(eval_one_w_vis eval_one_w_vis.cc)
 target_link_libraries(eval_one_w_vis

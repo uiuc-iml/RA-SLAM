@@ -43,7 +43,7 @@ inference_engine::inference_engine(const std::string& compiled_engine_path) {
   this->engine = torch::jit::load(compiled_engine_path);
   this->engine.to(torch::kCUDA);
 
-  std::cout << "Model loaded." << std::endl;
+  spdlog::debug("[SEGM] Model loaded on GPU.");
 }
 
 std::vector<cv::Mat> inference_engine::infer_one(const cv::Mat& rgb_img, bool ret_uint8_flag) {

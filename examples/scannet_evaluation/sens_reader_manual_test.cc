@@ -1,5 +1,6 @@
 #include <iostream>
 
+#include "segmentation/inference.h"
 #include "utils/scannet_sens_reader/scannet_sens_reader.h"
 
 int main(int argc, char* argv[]) {
@@ -31,13 +32,22 @@ int main(int argc, char* argv[]) {
   std::cout << "Stream size: " << stream_size << std::endl;
   // save RGB image at frame 0
   cv::Mat rgb_img;
-  my_reader.get_color_frame_by_id(&rgb_img, 0);
+  inference_engine my_engine("/home/roger/disinfect-slam/segmentation/ht_lt.pt");
+  my_reader.get_color_frame_by_id(&rgb_img, 243);
   std::cout << "Rgb image cols: " << rgb_img.cols << std::endl;
   std::cout << "Rgb image rows: " << rgb_img.rows << std::endl;
+  std::vector<cv::Mat> ret_prob_map = my_engine.infer_one(rgb_img, false);
+  cv::Mat vis_ht, vis_lt;
+  ret_prob_map[0].convertTo(vis_ht, CV_8UC1,
+                            255);  // scale range from 0-1 to 0-255
+  ret_prob_map[1].convertTo(vis_lt, CV_8UC1,
+                            255);  // scale range from 0-1 to 0-255
+  cv::imwrite("float_ht_prob.png", vis_ht);
+  cv::imwrite("float_lt_prob.png", vis_lt);
   cv::imwrite("rgb_img_0.jpg", rgb_img);
   // save depth image at frame 0
   cv::Mat depth_img;
-  my_reader.get_depth_frame_by_id(&depth_img, 0);
+  my_reader.get_depth_frame_by_id(&depth_img, 243);
   std::cout << "Depth image cols: " << depth_img.cols << std::endl;
   std::cout << "Depth image rows: " << depth_img.rows << std::endl;
   cv::imwrite("depth_img_0.png", depth_img);
