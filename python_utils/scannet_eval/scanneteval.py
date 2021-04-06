@@ -19,7 +19,7 @@ class ScannetEval:
     Given a semantic TSDF reconstruction of the scene and the groundtruth
     annotated triangle mesh file, compute various evaluation statistics
     """
-    def __init__(self, tsdf_path, gt_poly_path, p_cutoff = 0.27, nn_method = "point"):
+    def __init__(self, tsdf_path, gt_poly_path, p_cutoff = 0.5, nn_method = "point"):
         """
         Initialize evaluation process
 
@@ -98,7 +98,7 @@ class ScannetEval:
         return: IoU (Intersection-over-Union) of voxels
         """
         confusion_mat = self.get_confusion_matrix()
-        return confusion_mat[0, 0] / (confusion_mat[0, 0] + confusion_mat[0, 1] + confusion_mat[1, 0])
+        return confusion_mat[0, 0] / (confusion_mat[0, 0] + confusion_mat[0, 1] + confusion_mat[1, 0] + 1e-15)
 
     def get_voxel_acc(self):
         """
@@ -115,14 +115,14 @@ class ScannetEval:
         return: precision = TP / (TP + FP)
         """
         confusion_mat = self.get_confusion_matrix()
-        return confusion_mat[0, 0] / (confusion_mat[0, 0] + confusion_mat[0, 1])
+        return confusion_mat[0, 0] / (confusion_mat[0, 0] + confusion_mat[0, 1] + 1e-15)
 
     def get_recall(self):
         """
         return: recall = TP / (TP + FN)
         """
         confusion_mat = self.get_confusion_matrix()
-        return confusion_mat[0, 0] / (confusion_mat[0, 0] + confusion_mat[1, 0])
+        return confusion_mat[0, 0] / (confusion_mat[0, 0] + confusion_mat[1, 0] + 1e-15)
 
     def get_confusion_matrix(self):
         """
@@ -180,7 +180,7 @@ if __name__ == '__main__':
     from pprint import pprint
 
     tsdf_path = "/tmp/data.bin"
-    gt_poly_path = "/media/roger/My Book/data/scannet_v2/scans/scene0000_00/scene0000_00_vh_clean_2.labels.ply"
+    gt_poly_path = "/media/roger/My Book/data/scannet_v2/scans/scene0327_00/scene0327_00_vh_clean_2.labels.ply"
 
     for method in ["point", "mesh"]:
         print("======== Evaluating using nearest {} ========".format(method))

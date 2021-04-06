@@ -94,3 +94,8 @@ class LabelParser:
         for k in self.nyu40_dict:
             ret[int(k)] = NYU40_HT_DICT[self.nyu40_dict[k]]
         return ret
+
+if __name__ == '__main__':
+    my_parser = LabelParser()
+    print(my_parser.nyu40_dict)
+    print(repr(my_parser.get_nyuid_to_ht_map()))

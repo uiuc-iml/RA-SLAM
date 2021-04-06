@@ -45,8 +45,8 @@ void scannet_sens_reader::get_depth_frame_by_id(cv::Mat* depth_img, int frame_id
   assert(depth_height == 480);
   assert(depth_width == 640);
   *depth_img = cv::Mat(cv::Size(depth_width, depth_height), CV_16UC1,
-                         (void*)(depth_data), cv::Mat::AUTO_STEP);
-  // std::free(depth_data);
+                         (void*)(depth_data), cv::Mat::AUTO_STEP).clone();
+  std::free(depth_data);
 }
 
 void scannet_sens_reader::get_color_frame_by_id(cv::Mat* rgb_img, int frame_idx) {
@@ -55,9 +55,9 @@ void scannet_sens_reader::get_color_frame_by_id(cv::Mat* rgb_img, int frame_idx)
 	unsigned int color_height = sd_.m_colorHeight;
   // TODO: check memory leak?
   *rgb_img = cv::Mat(cv::Size(color_width, color_height), CV_8UC3,
-                       (void*)(color_data), cv::Mat::AUTO_STEP);
+                       (void*)(color_data), cv::Mat::AUTO_STEP).clone();
   cv::resize(*rgb_img, *rgb_img, cv::Size(640, 480));
-  // std::free(color_data);
+  std::free(color_data);
 }
 
 SE3<float> scannet_sens_reader::get_camera_pose_by_id(int frame_idx) {
