@@ -498,9 +498,10 @@ void TSDFGrid::RayCast(float max_depth, const CameraParams& virtual_cam,
       voxel_size_, img_tsdf_rgba_, img_tsdf_normal_);
   CUDA_STREAM_CHECK_ERROR(stream_);
   if (tsdf_rgba) {
-    tsdf_rgba->LoadCuda(img_tsdf_rgba_);
+    tsdf_rgba->LoadCuda(img_tsdf_rgba_, stream_);
   }
   if (tsdf_normal) {
-    tsdf_normal->LoadCuda(img_tsdf_normal_);
+    tsdf_normal->LoadCuda(img_tsdf_normal_, stream_);
   }
+  CUDA_SAFE_CALL(cudaStreamSynchronize(stream_));
 }

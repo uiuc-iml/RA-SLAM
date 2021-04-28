@@ -103,7 +103,6 @@ void ImageRenderer::Render() {
   // render
   const auto st = GetTimestamp<std::chrono::milliseconds>();
   tsdf_->Render(virtual_cam_, virtual_cam_T_world_, &tsdf_normal_);
-  CUDA_SAFE_CALL(cudaDeviceSynchronize());
   const auto end = GetTimestamp<std::chrono::milliseconds>();
   ImGui::Text("Rendering takes %lu ms", end - st);
   tsdf_normal_.Draw();
