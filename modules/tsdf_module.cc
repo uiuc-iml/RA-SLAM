@@ -2,6 +2,8 @@
 
 #include <spdlog/spdlog.h>
 
+#include "utils/time.hpp"
+
 TSDFSystem::TSDFSystem(float voxel_size, float truncation, float max_depth,
                        const CameraIntrinsics<float>& intrinsics, const SE3<float>& extrinsics)
     : tsdf_(voxel_size, truncation),
@@ -15,37 +17,50 @@ TSDFSystem::TSDFSystem(float voxel_size, float truncation, float max_depth,
       intrinsics.fx, intrinsics.fy, intrinsics.cx, intrinsics.cy);
 }
 
-TSDFSystem::~TSDFSystem() {
-  {
-    std::lock_guard<std::mutex> lock(mtx_terminate_);
-    terminate_ = true;
-  }
-  t_.join();
-}
+TSDFSystem::~TSDFSystem() { this->terminate(); }
 
 void TSDFSystem::Integrate(const SE3<float>& posecam_T_world, const cv::Mat& img_rgb,
                            const cv::Mat& img_depth, const cv::Mat& img_ht, const cv::Mat& img_lt) {
+  std::unique_lock<std::mutex> pause_lock(mtx_pause_);
+  while (pause_) cv_pause_.wait(pause_lock);
   std::lock_guard<std::mutex> lock(mtx_queue_);
   if (img_ht.empty() || img_lt.empty()) {
     inputs_.push(std::make_unique<TSDFSystemInput>(
-        cam_T_posecam_ * posecam_T_world, img_rgb, img_depth,
+        cam_T_posecam_ * posecam_T_world, img_rgb.clone(), img_depth.clone(),
         cv::Mat::ones(img_depth.rows, img_depth.cols, img_depth.type()),
         cv::Mat::ones(img_depth.rows, img_depth.cols, img_depth.type())));
   } else {
-    inputs_.push(std::make_unique<TSDFSystemInput>(cam_T_posecam_ * posecam_T_world, img_rgb,
-                                                   img_depth, img_ht, img_lt));
+    inputs_.push(std::make_unique<TSDFSystemInput>(cam_T_posecam_ * posecam_T_world,
+                                                   img_rgb.clone(), img_depth.clone(),
+                                                   img_ht.clone(), img_lt.clone()));
   }
 }
 
 std::vector<VoxelSpatialTSDF> TSDFSystem::Query(const BoundingCube<float>& volumn) {
   std::lock_guard<std::mutex> lock(mtx_read_);
-  return tsdf_.GatherVoxels(volumn);
+  std::vector<VoxelSpatialTSDF> ret = tsdf_.GatherVoxels(volumn);
+  return ret;
 }
 
 void TSDFSystem::Render(const CameraParams& virtual_cam, const SE3<float> cam_T_world,
-                        GLImage8UC4* img_normal) {
+                        GLImage8UC4* img_rgba, GLImage8UC4* img_normal) {
   std::lock_guard<std::mutex> lock(mtx_read_);
-  tsdf_.RayCast(max_depth_, virtual_cam, cam_T_world, nullptr, img_normal);
+  tsdf_.RayCast(max_depth_ * 2, virtual_cam, cam_T_world, img_rgba, img_normal);
+}
+
+void TSDFSystem::Render(const CameraParams& virtual_cam, const SE3<float> cam_T_world,
+                        GLImage8UC4* img_rgba, GLImage8UC4* img_normal, float max_depth) {
+  std::lock_guard<std::mutex> lock(mtx_read_);
+  tsdf_.RayCast(max_depth, virtual_cam, cam_T_world, img_rgba, img_normal);
+}
+
+void TSDFSystem::DownloadAll(const std::string& file_path) {
+  std::lock_guard<std::mutex> lock(mtx_read_);
+  const auto voxel_pos_prob = tsdf_.GatherValidSemantic();
+  spdlog::debug("Visible TSDF blocks count: {}", voxel_pos_prob.size());
+  std::ofstream fout(file_path, std::ios::out | std::ios::binary);
+  fout.write((char*)voxel_pos_prob.data(), voxel_pos_prob.size() * sizeof(VoxelSpatialTSDFSEGM));
+  fout.close();
 }
 
 void TSDFSystem::Run() {
@@ -68,8 +83,27 @@ void TSDFSystem::Run() {
     // tsdf integration
     {
       std::lock_guard<std::mutex> lock(mtx_read_);
+      const auto st = GetTimestamp<std::chrono::milliseconds>();
       tsdf_.Integrate(input->img_rgb, input->img_depth, input->img_ht, input->img_lt, max_depth_,
                       intrinsics_, input->cam_T_world);
+      const auto end = GetTimestamp<std::chrono::milliseconds>();
+      spdlog::debug("[TSDF Module] Integration took: {} ms", end - st);
     }
   }
+}
+
+bool TSDFSystem::is_terminated() { return terminate_; }
+
+void TSDFSystem::terminate() {
+  {
+    std::lock_guard<std::mutex> lock(mtx_terminate_);
+    terminate_ = true;
+  }
+  t_.join();
+}
+
+void TSDFSystem::SetPause(bool pause) {
+  std::unique_lock<std::mutex> pause_lock(mtx_pause_);
+  pause_ = pause;
+  cv_pause_.notify_all();
 }
