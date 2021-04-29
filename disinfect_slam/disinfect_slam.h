@@ -50,4 +50,6 @@ class DISINFSystem {
   std::shared_ptr<pose_manager> camera_pose_manager_;
 
   float depthmap_factor_;
+  int tsdf_width_;
+  int tsdf_height_;
 };
