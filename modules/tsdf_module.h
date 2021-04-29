@@ -105,6 +105,19 @@ class TSDFSystem {
   void DownloadAll(const std::string& file_path);
 
   /**
+   * @brief download the entire reconstructed scene in triangular mesh
+   * 
+   * @TODO(roger): right now, the mesh does not contain semantic probability
+   *
+   * @param vertices_path file path for the vertices file (x/y/z coordinate of vertices)
+   * @param indices_path  file path for the vertices index (every group of indices contains
+   *                      3 indices, which represents three vertices in a single constructed
+   *                      triangle mesh. The indices are ordered counter-clockwise can therefore
+   *                      can be directly used to compute normal vector).
+   */
+  void DownloadAllMesh(const std::string& vertices_path, const std::string& indices_path);
+
+  /**
    * @brief test if current TSDF instance has finished
    *
    * @return return True if the TSDF module has been terminated

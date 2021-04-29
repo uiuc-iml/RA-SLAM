@@ -6,6 +6,7 @@ if (TORCH_FOUND)
         target_include_directories(live_camera
             PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
         
+        # TODO(roger): offline_eval should not strictly depend on ROS.
         if(catkin_FOUND)
             add_executable(offline_eval offline_eval.cc)
             target_link_libraries(offline_eval

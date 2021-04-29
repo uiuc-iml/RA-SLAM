@@ -38,7 +38,7 @@ SE3<float> rosbag_reader::get_camera_extrinsics() {
   return SE3<float>(tmp);
 }
 
-float rosbag_reader::get_depth_map_factor() { return std::stof(depth_factor_str_); }
+float rosbag_reader::get_depth_map_factor() { return 1000; }
 
 void rosbag_reader::get_depth_frame_by_id(cv::Mat* depth_img, int frame_idx) {
   if ((frame_idx < 0) || (frame_idx >= size_)) {

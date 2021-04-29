@@ -140,8 +140,11 @@ void ImageRenderer::DefineGUIButton() {
   if (ImGui::Button("Terminate", button_size)) {
     tsdf_->terminate();
   }
-  if (ImGui::Button("Download", button_size)) {
+  if (ImGui::Button("Download PC", button_size)) {
     tsdf_->DownloadAll("data.bin");
+  }
+  if (ImGui::Button("Download mesh", button_size)) {
+    tsdf_->DownloadAllMesh("mesh_vertices.bin", "mesh_indices.bin");
   }
   if (ImGui::Button("Follow Camera", button_size)) {
     follow_cam_ = true;
