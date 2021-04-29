@@ -17,9 +17,13 @@ class pose_manager {
  public:
   pose_manager();
 
-  void register_valid_pose(const int64_t timestamp, const SE3<float> pose);
+  void register_valid_pose(const int64_t timestamp, const SE3<float>& pose);
+
+  void register_valid_pose(const int64_t timestamp, const Eigen::Matrix4d& pose);
 
   SE3<float> query_pose(const int64_t timestamp);
+
+  SE3<float> get_latest_pose();
 
  private:
   // get index to the maximum timestamp that is smaller than the given
