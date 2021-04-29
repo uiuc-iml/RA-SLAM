@@ -5,7 +5,7 @@ __device__ __host__ VoxelRGBW::VoxelRGBW(const Eigen::Matrix<unsigned char, 3, 1
                                          unsigned char weight)
     : rgb(rgb), weight(weight) {}
 
-__device__ __host__ VoxelTSDF::VoxelTSDF() : tsdf(1.) {}
+__device__ __host__ VoxelTSDF::VoxelTSDF() : tsdf(-10) {}
 __device__ __host__ VoxelTSDF::VoxelTSDF(float tsdf) : tsdf(tsdf) {}
 
 __device__ __host__ VoxelSEGM::VoxelSEGM() : probability(0.) {}

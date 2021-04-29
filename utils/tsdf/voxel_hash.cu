@@ -187,6 +187,36 @@ __device__ float VoxelHashTable::RetrieveTSDF(const Eigen::Vector3f& point,
   return tsdf_0 * alpha[0] + tsdf_1 * (1 - alpha[0]);
 }
 
+__device__ void VoxelHashTable::GetBlock(const Eigen::Matrix<short, 3, 1>& block_pos,
+                                         VoxelBlock* block) const {
+  assert(block != nullptr);
+
+  const unsigned int bucket_idx = Hash(block_pos);
+  const unsigned int entry_idx = (bucket_idx << NUM_ENTRY_PER_BUCKET_BITS);
+
+// check for current bucket
+#pragma unroll
+  for (int i = 0; i < NUM_ENTRY_PER_BUCKET; ++i) {
+    *block = hash_table_[entry_idx + i];
+    if (block->position == block_pos && block->idx >= 0) {
+      return;
+    }
+  }
+  // traverse list
+  unsigned int entry_idx_last = entry_idx + NUM_ENTRY_PER_BUCKET - 1;
+  while (hash_table_[entry_idx_last].offset) {
+    entry_idx_last = (entry_idx_last + hash_table_[entry_idx_last].offset) & ENTRY_MASK;
+    *block = hash_table_[entry_idx_last];
+    if (block->position == block_pos && block->idx >= 0) {
+      return;
+    }
+  }
+  // not found
+  block->position = block_pos;
+  block->offset = -1;
+  block->idx = -1;
+}
+
 __device__ const VoxelBlock& VoxelHashTable::GetBlock(const int idx) const {
   assert(idx < NUM_ENTRY);
   return hash_table_[idx];

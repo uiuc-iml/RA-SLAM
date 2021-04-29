@@ -84,7 +84,7 @@ TEST_F(VoxelMemTest, Test1) {
     CUDA_SAFE_CALL(cudaMemcpy(voxels, voxel_blocks[i], sizeof(VoxelRGBW) * BLOCK_VOLUME,
                               cudaMemcpyDeviceToHost));
     for (int j = 0; j < BLOCK_VOLUME; ++j) {
-      EXPECT_TRUE(voxels[j].weight == 0);
+      EXPECT_TRUE(voxels[j].weight == 1);
     }
   }
 }

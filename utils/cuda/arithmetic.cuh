@@ -87,7 +87,8 @@ __global__ void scan_kernel(T* input, T* output, T* auxout, int len) {
 }
 
 /**
- * @brief CPU wrapper for a GPU parallel sum kernel
+ * @brief CPU wrapper for a one-level GPU parallel sum kernel
+ *        [for length up to (SCAN_BLOCK_SIZE * 2)^2]
  *
  * @tparam T      data type
  * @param input   pointer to GPU input buffer
@@ -97,16 +98,76 @@ __global__ void scan_kernel(T* input, T* output, T* auxout, int len) {
  * @param stream  optional CUDA stream
  */
 template <typename T>
-void prefix_sum(T* input, T* output, T* auxout, int len, cudaStream_t stream = NULL) {
+void prefix_sum_1(T* input, T* output, T* auxout, int len, cudaStream_t stream = NULL) {
   // cannot handle more than (1 << 22) elements
   assert(len <= SCAN_BLOCK_SIZE * SCAN_BLOCK_SIZE * 4);
 
   const int num_aux = ceil((float)len / (2 * SCAN_BLOCK_SIZE));
 
-  scan_kernel<T><<<num_aux, SCAN_BLOCK_SIZE, 0, stream>>>(input, output, auxout, len);
+  // allocate if necessary
+  T* aux_tmp = auxout;
+  if (!auxout) {
+    CUDA_SAFE_CALL(cudaMalloc(&aux_tmp, sizeof(T) * num_aux));
+  }
+
+  scan_kernel<T><<<num_aux, SCAN_BLOCK_SIZE, 0, stream>>>(input, output, aux_tmp, len);
   CUDA_STREAM_CHECK_ERROR(stream);
-  scan_kernel<T><<<1, SCAN_BLOCK_SIZE, 0, stream>>>(auxout, auxout, NULL, num_aux);
+  scan_kernel<T><<<1, SCAN_BLOCK_SIZE, 0, stream>>>(aux_tmp, aux_tmp, NULL, num_aux);
   CUDA_STREAM_CHECK_ERROR(stream);
-  auxiliary_sum_kernel<T><<<num_aux, SCAN_BLOCK_SIZE, 0, stream>>>(output, output, auxout, len);
+
+  auxiliary_sum_kernel<T><<<num_aux, SCAN_BLOCK_SIZE, 0, stream>>>(output, output, aux_tmp, len);
   CUDA_STREAM_CHECK_ERROR(stream);
+
+  // deallocate if necessary
+  if (!auxout) {
+    CUDA_SAFE_CALL(cudaFree(aux_tmp));
+  }
+}
+
+/**
+ * @brief CPU wrapper for a GPU parallel sum kernel [for length up to (SCAN_BLOCK_SIZE * 2)^3]
+ *
+ * @tparam T      data type
+ * @param input   pointer to GPU input buffer
+ * @param output  pointer to GPU output buffer
+ * @param auxout  pointer to GPU auxiliary buffer for all levels
+ * @param len     length of input / ouput array
+ * @param stream  optional CUDA stream
+ */
+template <typename T>
+void prefix_sum(T* input, T* output, T* auxout, int len, cudaStream_t stream = NULL) {
+  // cannot handle more than (1 << 22) elements
+  assert(len <= SCAN_BLOCK_SIZE * SCAN_BLOCK_SIZE * SCAN_BLOCK_SIZE * 8);
+
+  const int num_aux1 = ceil((float)len / (2 * SCAN_BLOCK_SIZE));
+  const int num_aux2 = ceil((float)num_aux1 / (2 * SCAN_BLOCK_SIZE));
+
+  if (num_aux2 <= 1) {
+    prefix_sum_1<T>(input, output, auxout, len, stream);
+    return;
+  }
+
+  // allocate if necessary
+  T* aux1 = auxout;
+  if (!auxout) {
+    CUDA_SAFE_CALL(cudaMalloc(&aux1, sizeof(T) * (num_aux1 + num_aux2)));
+  }
+  T* aux2 = aux1 + num_aux1;
+
+  scan_kernel<T><<<num_aux1, SCAN_BLOCK_SIZE, 0, stream>>>(input, output, aux1, len);
+  CUDA_STREAM_CHECK_ERROR(stream);
+  scan_kernel<T><<<num_aux2, SCAN_BLOCK_SIZE, 0, stream>>>(aux1, aux1, aux2, num_aux1);
+  CUDA_STREAM_CHECK_ERROR(stream);
+  scan_kernel<T><<<1, SCAN_BLOCK_SIZE, 0, stream>>>(aux2, aux2, nullptr, num_aux2);
+  CUDA_STREAM_CHECK_ERROR(stream);
+
+  auxiliary_sum_kernel<T><<<num_aux2, SCAN_BLOCK_SIZE, 0, stream>>>(aux1, aux1, aux2, num_aux1);
+  CUDA_STREAM_CHECK_ERROR(stream);
+  auxiliary_sum_kernel<T><<<num_aux1, SCAN_BLOCK_SIZE, 0, stream>>>(output, output, aux1, len);
+  CUDA_STREAM_CHECK_ERROR(stream);
+
+  // deallocate if necessary
+  if (!auxout) {
+    CUDA_SAFE_CALL(cudaFree(aux1));
+  }
 }

@@ -124,6 +124,7 @@ class VoxelHashTable {
   template <typename Voxel>
   __device__ Voxel* RetrieveMutable(const Eigen::Matrix<short, 3, 1>& point,
                                     VoxelBlock& cache) const {
+    // try cache hit
     const Eigen::Matrix<short, 3, 1> block_pos = PointToBlock(point);
     if (cache.position == block_pos) {
       if (cache.idx >= 0) {
@@ -132,32 +133,13 @@ class VoxelHashTable {
         return nullptr;
       }
     }
-    const unsigned int bucket_idx = Hash(block_pos);
-    const unsigned int entry_idx = (bucket_idx << NUM_ENTRY_PER_BUCKET_BITS);
-// check for current bucket
-#pragma unroll
-    for (int i = 0; i < NUM_ENTRY_PER_BUCKET; ++i) {
-      VoxelBlock& block = hash_table_[entry_idx + i];
-      if (block.position == block_pos && block.idx >= 0) {
-        cache = block;
-        return &(mem.GetVoxel<Voxel>(point, cache));
-      }
+
+    GetBlock(block_pos, &cache);
+    if (cache.idx >= 0) {
+      return &(mem.GetVoxel<Voxel>(point, cache));
+    } else {
+      return nullptr;
     }
-    // traverse list
-    unsigned int entry_idx_last = entry_idx + NUM_ENTRY_PER_BUCKET - 1;
-    while (hash_table_[entry_idx_last].offset) {
-      entry_idx_last = (entry_idx_last + hash_table_[entry_idx_last].offset) & ENTRY_MASK;
-      const VoxelBlock& block = hash_table_[entry_idx_last];
-      if (block.position == block_pos && block.idx >= 0) {
-        cache = block;
-        return &(mem.GetVoxel<Voxel>(point, cache));
-      }
-    }
-    // not found
-    cache.position = block_pos;
-    cache.offset = -1;
-    cache.idx = -1;
-    return NULL;
   }
 
   /**
@@ -168,6 +150,10 @@ class VoxelHashTable {
    * @return  voxel block meta data
    */
   __device__ const VoxelBlock& GetBlock(const int idx) const;
+
+  __device__ void GetBlock(const Eigen::Matrix<short, 3, 1>& block_pos,
+                           VoxelBlock* block) const;
+
 
   /**
    * @return number of active voxel blocks
