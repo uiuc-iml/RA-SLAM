@@ -58,7 +58,7 @@ RendererBase::~RendererBase() {
 }
 
 void RendererBase::Run() {
-  while (!glfwWindowShouldClose(window_)) {
+  while (running_ && !glfwWindowShouldClose(window_)) {
     // new frame + dispatch events
     glfwPollEvents();
     ImGui_ImplOpenGL3_NewFrame();
