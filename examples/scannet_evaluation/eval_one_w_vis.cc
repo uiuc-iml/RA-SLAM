@@ -15,24 +15,25 @@
 #include <string>
 #include <vector>
 
+#include "segmentation/inference.h"
 #include "utils/cuda/errors.cuh"
 #include "utils/cuda/vector.cuh"
 #include "utils/gl/image.h"
 #include "utils/gl/renderer_base.h"
+#include "utils/offline_data_provider/scannet_sens_reader.h"
 #include "utils/time.hpp"
 #include "utils/tsdf/voxel_tsdf.cuh"
-#include "utils/scannet_sens_reader/scannet_sens_reader.h"
-#include "segmentation/inference.h"
 
 class ImageRenderer : public RendererBase {
  public:
-  ImageRenderer(const std::string& name, const std::string& segm_model_path, const std::string& sens_path)
+  ImageRenderer(const std::string& name, const std::string& segm_model_path,
+                const std::string& sens_path)
       : RendererBase(name),
         sens_reader_(sens_path),
         tsdf_(0.01, 0.06),
         intrinsics_(sens_reader_.get_camera_intrinsics()),
         depth_scale_(sens_reader_.get_depth_map_factor()),
-        segm_(segm_model_path) {
+        segm_(segm_model_path, sens_reader_.get_width(), sens_reader_.get_height()) {
     ImGuiIO& io = ImGui::GetIO();
     io.FontGlobalScale = 2;
     spdlog::debug("[RGBD Intrinsics] fx: {} fy: {} cx: {} cy: {}", intrinsics_.fx, intrinsics_.fy,
@@ -102,7 +103,8 @@ class ImageRenderer : public RendererBase {
         const auto voxel_pos_prob = tsdf_.GatherValidSemantic();
         spdlog::info("Visible TSDF blocks count: {}", voxel_pos_prob.size());
         std::ofstream fout("/tmp/data.bin", std::ios::out | std::ios::binary);
-        fout.write((char*)voxel_pos_prob.data(), voxel_pos_prob.size() * sizeof(VoxelSpatialTSDFSEGM));
+        fout.write((char*)voxel_pos_prob.data(),
+                   voxel_pos_prob.size() * sizeof(VoxelSpatialTSDFSEGM));
         fout.close();
         exit(0);
       }
@@ -119,7 +121,7 @@ class ImageRenderer : public RendererBase {
       }
       std::vector<cv::Mat> prob_map = segm_.infer_one(img_rgb_, false);
       const auto st = GetTimestamp<std::chrono::milliseconds>();
-      tsdf_.Integrate(img_rgb_, img_depth_, prob_map[0], prob_map[1], 4, intrinsics_, cam_T_world_);
+      tsdf_.Integrate(img_rgb_, img_depth_, prob_map[0], prob_map[1], 5, intrinsics_, cam_T_world_);
       const auto end = GetTimestamp<std::chrono::milliseconds>();
       CUDA_SAFE_CALL(cudaDeviceSynchronize());
       ImGui::Text("Integration takes %lu ms", end - st);
@@ -177,7 +179,8 @@ int main(int argc, char* argv[]) {
   auto help = op.add<popl::Switch>("h", "help", "produce help message");
   auto debug_mode = op.add<popl::Switch>("", "debug", "debug mode");
   auto model = op.add<popl::Value<std::string>>("", "model", "path PyTorch JIT traced model");
-  auto sens = op.add<popl::Value<std::string>>("", "sens", "path to scannet sensor stream .sens file");
+  auto sens =
+      op.add<popl::Value<std::string>>("", "sens", "path to scannet sensor stream .sens file");
 
   spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] %^[%L] %v%$");
   try {

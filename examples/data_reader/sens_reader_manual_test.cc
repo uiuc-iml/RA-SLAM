@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include "segmentation/inference.h"
-#include "utils/scannet_sens_reader/scannet_sens_reader.h"
+#include "utils/offline_data_provider/scannet_sens_reader.h"
 
 int main(int argc, char* argv[]) {
   std::string filename = "scene0001_00.sens";
@@ -32,7 +32,8 @@ int main(int argc, char* argv[]) {
   std::cout << "Stream size: " << stream_size << std::endl;
   // save RGB image at frame 0
   cv::Mat rgb_img;
-  inference_engine my_engine("/home/roger/disinfect-slam/segmentation/ht_lt.pt");
+  inference_engine my_engine("/home/roger/disinfect-slam/segmentation/ht_lt.pt",
+                             my_reader.get_width(), my_reader.get_height());
   my_reader.get_color_frame_by_id(&rgb_img, 243);
   std::cout << "Rgb image cols: " << rgb_img.cols << std::endl;
   std::cout << "Rgb image rows: " << rgb_img.rows << std::endl;

@@ -15,20 +15,20 @@
 #include <string>
 #include <vector>
 
+#include "segmentation/inference.h"
+#include "third_party/indicators.hpp"
 #include "utils/cuda/errors.cuh"
 #include "utils/cuda/vector.cuh"
 #include "utils/gl/image.h"
+#include "utils/offline_data_provider/scannet_sens_reader.h"
 #include "utils/time.hpp"
-#include "utils/indicators.hpp"
 #include "utils/tsdf/voxel_tsdf.cuh"
-#include "utils/scannet_sens_reader/scannet_sens_reader.h"
-#include "segmentation/inference.h"
 
 class DatasetEvaluator {
  public:
-  DatasetEvaluator(const std::string& segm_model_path, const std::string& sens_path, const std::string&tsdf_path)
-      :
-        segm_(segm_model_path),
+  DatasetEvaluator(const std::string& segm_model_path, const std::string& sens_path,
+                   const std::string& tsdf_path)
+      : segm_(segm_model_path, 640, 480),
         sens_reader_(sens_path),
         tsdf_(0.01, 0.06),
         intrinsics_(sens_reader_.get_camera_intrinsics()),
@@ -41,18 +41,16 @@ class DatasetEvaluator {
   void run_all() {
     cv::Mat img_rgb, img_depth, img_ht, img_lt;
     int cur_percentage = 0;
-    indicators::ProgressBar bar_{
-      indicators::option::BarWidth{50},
-      indicators::option::Start{" ["},
-      indicators::option::Fill{"█"},
-      indicators::option::Lead{"█"},
-      indicators::option::Remainder{"-"},
-      indicators::option::End{"]"},
-      indicators::option::PrefixText{"Evaluating ScanNet scene"},
-      indicators::option::ForegroundColor{indicators::Color::yellow},
-      indicators::option::ShowElapsedTime{true},
-      indicators::option::ShowRemainingTime{true}
-    };
+    indicators::ProgressBar bar_{indicators::option::BarWidth{50},
+                                 indicators::option::Start{" ["},
+                                 indicators::option::Fill{"█"},
+                                 indicators::option::Lead{"█"},
+                                 indicators::option::Remainder{"-"},
+                                 indicators::option::End{"]"},
+                                 indicators::option::PrefixText{"Evaluating ScanNet scene"},
+                                 indicators::option::ForegroundColor{indicators::Color::yellow},
+                                 indicators::option::ShowElapsedTime{true},
+                                 indicators::option::ShowRemainingTime{true}};
     spdlog::info("Starting evaluation! Total frame count: {}", sens_reader_.get_size());
     for (int frame_idx = 0; frame_idx < sens_reader_.get_size(); ++frame_idx) {
       if (((int)(frame_idx * 1.0 / sens_reader_.get_size() * 100)) > cur_percentage) {
@@ -102,8 +100,10 @@ int main(int argc, char* argv[]) {
   auto help = op.add<popl::Switch>("h", "help", "produce help message");
   auto debug_mode = op.add<popl::Switch>("", "debug", "debug mode");
   auto model = op.add<popl::Value<std::string>>("", "model", "path PyTorch JIT traced model");
-  auto sens = op.add<popl::Value<std::string>>("", "sens", "path to scannet sensor stream .sens file");
-  auto tsdf_path = op.add<popl::Value<std::string>>("", "tsdf", "path to dump semantic TSDF reconstruction");
+  auto sens =
+      op.add<popl::Value<std::string>>("", "sens", "path to scannet sensor stream .sens file");
+  auto tsdf_path =
+      op.add<popl::Value<std::string>>("", "tsdf", "path to dump semantic TSDF reconstruction");
 
   spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] %^[%L] %v%$");
   try {
