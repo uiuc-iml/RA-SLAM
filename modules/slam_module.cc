@@ -65,6 +65,48 @@ void SLAMSystem::SaveMatchedTrajectory(const std::string& path,
   resume_other_threads();
 }
 
+std::vector<Eigen::Matrix4d> SLAMSystem::get_saved_trajectory(const std::vector<unsigned int>& frame_ids) {
+  pause_other_threads();
+
+  const std::unordered_set<unsigned int> frame_ids_set(frame_ids.begin(), frame_ids.end());
+
+  std::lock_guard<std::mutex> lock(data::map_database::mtx_database_);
+  /* xTy: rigid body transformation from x frame to y frame
+   * c: camera
+   * w: world
+   * k: keyframe */
+  const auto frame_stats = map_db_->get_frame_statistics();
+  const auto num_valid_frames = frame_stats.get_num_valid_frames();
+  const auto reference_keyframes = frame_stats.get_reference_keyframes();
+  const auto cam_poses_cTk = frame_stats.get_relative_cam_poses();
+  const auto is_lost_frames = frame_stats.get_lost_frames();
+  const auto rk_iter_end = reference_keyframes.end();
+  const auto rc_iter_end = cam_poses_cTk.end();
+  auto rk_iter = reference_keyframes.begin();
+  auto rc_iter = cam_poses_cTk.begin();
+
+  std::vector<Mat44_t> ret;
+
+  for (; rk_iter != rk_iter_end && rc_iter != rc_iter_end; ++rk_iter, ++rc_iter) {
+    const auto frame_id = rk_iter->first;
+    if (is_lost_frames.at(frame_id) || frame_ids_set.find(frame_id) == frame_ids_set.end())
+      continue;
+    const auto ref_keyframe = rk_iter->second;
+    const Mat44_t cam_pose_kTw = ref_keyframe->get_cam_pose();
+    const Mat44_t cam_pose_cTk = rc_iter->second;
+    const Mat44_t cam_pose_cTw = cam_pose_cTk * cam_pose_kTw;
+
+    ret.push_back(cam_pose_cTw);
+  }
+
+  if (rk_iter != rk_iter_end || rc_iter != rc_iter_end)
+    spdlog::error("sizes of frame statistics are not matched");
+
+  resume_other_threads();
+
+  return ret;
+}
+
 unsigned int SLAMSystem::FeedStereoImages(const cv::Mat& img_left, const cv::Mat& img_right,
                                           const double timestamp, const cv::Mat& mask) {
   assert(camera_->setup_type_ == camera::setup_type_t::Stereo);
