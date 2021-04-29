@@ -26,9 +26,10 @@ void reconstruct(const ZEDNative& zed_native, const L515& l515,
                                            GetExtrinsicsFromFile(config_file_path));
   SLAM->startup();
 
-  ImageRenderer renderer("tsdf", SLAM, TSDF, config_file_path);
-
   auto POSE_MANAGER = std::make_shared<pose_manager>();
+
+  ImageRenderer renderer("tsdf", std::bind(&pose_manager::get_latest_pose, POSE_MANAGER), TSDF,
+                         GetIntrinsicsFromFile(config_file_path));
 
   std::thread t_slam([&]() {
     while (true) {
