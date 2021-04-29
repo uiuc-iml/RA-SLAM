@@ -1,6 +1,7 @@
 #include "zed.h"
 
 ZED::ZED() {
+  // set up initial parameters of ZED camera
   sl::InitParameters init_params;
   init_params.camera_resolution = sl::RESOLUTION::VGA;
   init_params.camera_fps = 30;
@@ -19,11 +20,13 @@ sl::CameraConfiguration ZED::GetConfig() const { return config_; }
 
 void ZED::GetStereoAndRGBDFrame(cv::Mat* left_img, cv::Mat* right_img, cv::Mat* rgb_img,
                                 cv::Mat* depth_img) {
+  // if the given pointers are null pointer/point to an emptyimage, allocate memory for them.
   AllocateIfNeeded(left_img, CV_8UC1);
   AllocateIfNeeded(right_img, CV_8UC1);
   AllocateIfNeeded(rgb_img, CV_8UC4);
   AllocateIfNeeded(depth_img, CV_32FC1);
 
+  // use ZED SDK Mat to wrap data pointer in the cv::Mat
   sl::Mat left_sl(config_.resolution, sl::MAT_TYPE::U8_C1, left_img->data,
                   config_.resolution.width);
   sl::Mat right_sl(config_.resolution, sl::MAT_TYPE::U8_C1, right_img->data,
@@ -33,6 +36,7 @@ void ZED::GetStereoAndRGBDFrame(cv::Mat* left_img, cv::Mat* right_img, cv::Mat* 
   sl::Mat depth_sl(config_.resolution, sl::MAT_TYPE::F32_C1, depth_img->data,
                    config_.resolution.width * sizeof(float));
 
+  // retrieve images from the ZED buffer
   if (zed_.grab(rt_params_) == sl::ERROR_CODE::SUCCESS) {
     zed_.retrieveImage(left_sl, sl::VIEW::LEFT_GRAY);
     zed_.retrieveImage(right_sl, sl::VIEW::RIGHT_GRAY);

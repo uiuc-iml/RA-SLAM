@@ -14,6 +14,12 @@ ZEDNative::ZEDNative(const openvslam::config& cfg, int dev_id)
     spdlog::critical("Cannot open zed camera on device {}", dev_id);
     exit(EXIT_FAILURE);
   }
+
+  /*
+   * Images from native ZED stream are formed by concatenated images
+   * from left and right stereo views. Thus, the width of the stream
+   * is set to num_cols * 2
+   */
   cap_.set(cv::CAP_PROP_FRAME_WIDTH, cam_model_->cols_ * 2);
   cap_.set(cv::CAP_PROP_FRAME_HEIGHT, cam_model_->rows_);
   cap_.set(cv::CAP_PROP_FPS, cam_model_->fps_);
@@ -24,6 +30,7 @@ ZEDNative::~ZEDNative() { cap_.release(); }
 int64_t ZEDNative::GetStereoFrame(cv::Mat* left_img, cv::Mat* right_img) const {
   cv::Mat raw_img;
   if (cap_.read(raw_img)) {
+    // left and right images are cropped from the stream and sent to rectifier
     rectifier_.rectify(
         raw_img(cv::Rect(0, 0, cam_model_->cols_, cam_model_->rows_)),
         raw_img(cv::Rect(cam_model_->cols_, 0, cam_model_->cols_, cam_model_->rows_)), *left_img,

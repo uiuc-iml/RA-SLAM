@@ -28,6 +28,12 @@ class ZED {
                              cv::Mat* depth_img);
 
  private:
+  /**
+   * @brief Allocate heap memory for a cv::Mat pointer if needed
+   *
+   * @param img    given pointer to cv::Mat
+   * @param type   cv::Mat type (e.g. float 32 with 1 channel) to be used
+   */
   void AllocateIfNeeded(cv::Mat* img, int type) const;
 
   sl::Camera zed_;

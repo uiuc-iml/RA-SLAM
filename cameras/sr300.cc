@@ -27,7 +27,7 @@ rs2_intrinsics SR300::get_camera_intrinsics() const {
 void SR300::get_rgbd_frame(cv::Mat* color_img, cv::Mat* depth_img) const {
   auto frameset = pipe_.wait_for_frames();
   frameset = align_to_color_.process(frameset);
-  // TODO: check memory leak?
+
   *color_img = cv::Mat(cv::Size(WIDTH, HEIGHT), CV_8UC3,
                        (void*)frameset.get_color_frame().get_data(), cv::Mat::AUTO_STEP);
   *depth_img = cv::Mat(cv::Size(WIDTH, HEIGHT), CV_16UC1,

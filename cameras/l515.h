@@ -34,8 +34,17 @@ class L515 {
    */
   void SetDepthSensorOption(const rs2_option option, const float value);
 
+  /**
+   * L515 Camera Specs mandates a set of parameters to set up the
+   * camera stream. Changing these parameters without following spec
+   * may result in "Couldn't resolve requests" error.
+   *
+   * Spec: https://docs.rs-online.com/f31c/A700000006942953.pdf
+   */
   static const int WIDTH = 1280;
   static const int HEIGHT = 720;
+  static const int DEPTH_WIDTH = 640;
+  static const int DEPTH_HEIGHT = 480;
   static const int FPS = 30;
 
  private:
