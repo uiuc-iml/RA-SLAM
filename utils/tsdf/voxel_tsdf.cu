@@ -245,6 +245,66 @@ __global__ static void space_carving_kernel(VoxelHashTable hash_table, const Vox
   }
 }
 
+__device__ float get_tri_interp_tsdf(const VoxelHashTable hash_table, const Eigen::Vector3f pos_grid) {
+  // Use trilinear interpolation to compute a more accuracy tsdf_curr
+  // notation follows wikepedia
+  const auto floorf_func = [](const float x) { return floorf(x); };
+  __shared__ float tsdf_trilinear_interp_first[2][2][2];
+  __shared__ float tsdf_trilinear_interp_second[2][2];
+  __shared__ float tsdf_trilinear_interp_third[2];
+  // unrolled coordinate gen
+  __shared__ Eigen::Matrix<short, 3, 1> C_pos[2][2][2];
+  VoxelBlock temp_cache;
+  const Eigen::Matrix<short, 3, 1> floor_grid = pos_grid.unaryExpr(floorf_func).cast<short>();
+  const float x_d = pos_grid[0] - (float)(floor_grid[0]);
+  const float y_d = pos_grid[1] - (float)(floor_grid[1]);
+  const float z_d = pos_grid[2] - (float)(floor_grid[2]);
+  const float sub_x_d = 1 - x_d;
+  const float sub_y_d = 1 - y_d;
+  const float sub_z_d = 1 - z_d;
+  #pragma unroll
+  for (int i = 0; i < 2; ++i) {
+    #pragma unroll
+    for (int j = 0; j < 2; ++j) {
+      #pragma unroll
+      for (int k = 0; k < 2; ++k) {
+        C_pos[i][j][k] = Eigen::Matrix<short, 3, 1>(floor_grid[0] + i, floor_grid[1] + j, floor_grid[2] + k);
+      }
+    }
+  }
+  // fill first layer
+  #pragma unroll
+  for (int i = 0; i < 2; ++i) {
+    #pragma unroll
+    for (int j = 0; j < 2; ++j) {
+      #pragma unroll
+      for (int k = 0; k < 2; ++k) {
+        // TODO(roger): this access pattern breaks cache and affect performance
+        tsdf_trilinear_interp_first[i][j][k] = hash_table.Retrieve<VoxelTSDF>(C_pos[i][j][k], temp_cache).tsdf;
+      }
+    }
+  }
+  // fill second layer
+  #pragma unroll
+  for (int j = 0; j < 2; ++j) {
+    #pragma unroll
+    for (int k = 0; k < 2; ++k) {
+      tsdf_trilinear_interp_second[j][k] =
+        tsdf_trilinear_interp_first[0][j][k] * sub_x_d + tsdf_trilinear_interp_first[1][j][k] * x_d;
+    }
+  }
+  // fill third layer
+  #pragma unroll
+  for (int k = 0; k < 2; ++k) {
+    tsdf_trilinear_interp_third[k] =
+      tsdf_trilinear_interp_second[0][k] * sub_y_d + tsdf_trilinear_interp_second[1][k] * y_d;
+  }
+  // finally
+  const float ret = tsdf_trilinear_interp_third[0] * sub_z_d + tsdf_trilinear_interp_third[1] * z_d;
+  // End of trilinear interpolation
+  return ret;
+}
+
 __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
                                        const CameraParams cam_params, const SE3<float> cam_T_world,
                                        const SE3<float> world_T_cam, const float step_size,
@@ -281,8 +341,10 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
     if (tsdf_prev > 0 && tsdf_curr <= 0 && tsdf_prev - tsdf_curr <= 2.0) {
       const Eigen::Vector3f pos1_grid = pos_grid - ray_step_grid;
       const Eigen::Vector3f pos2_grid = pos_grid;
+      const auto accurate_tsdf_curr = get_tri_interp_tsdf(hash_table, pos2_grid);
+      const auto accurate_tsdf_prev = get_tri_interp_tsdf(hash_table, pos1_grid);
       const Eigen::Vector3f pos_interp_grid =
-          pos_grid + tsdf_curr / (tsdf_prev - tsdf_curr) * ray_step_grid;
+          pos_grid + accurate_tsdf_curr / (accurate_tsdf_prev - accurate_tsdf_curr) * ray_step_grid;
       const Eigen::Matrix<short, 3, 1> final_grid =
           pos_interp_grid.unaryExpr(roundf_func).cast<short>();
 
