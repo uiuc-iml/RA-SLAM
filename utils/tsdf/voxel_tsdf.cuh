@@ -2,12 +2,21 @@
 
 #include <cuda_runtime.h>
 
+#include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
+
+#include <Eigen/Dense>
 
 #include "utils/cuda/camera.cuh"
 #include "utils/cuda/lie_group.cuh"
 #include "utils/gl/image.h"
 #include "utils/tsdf/voxel_hash.cuh"
+
+template <typename T>
+using CubeVertices = Eigen::Matrix<T, 3, 1>[3];
+
+typedef CubeVertices<float> CubeVerticesf;
+typedef CubeVertices<double> CubeVerticesd;
 
 template <typename T>
 struct BoundingCube {
@@ -79,6 +88,13 @@ class TSDFGrid {
   std::vector<VoxelSpatialTSDF> GatherValid();
 
   /**
+   * @brief gather all valid semantic voxels
+   *
+   * @return an array of voxels with spatial location and tsdf values
+   */
+  std::vector<VoxelSpatialTSDFSEGM> GatherValidSemantic();
+
+  /**
    * @brief gather all voxels within certain bound
    *
    * @param volumn volumn of interest
@@ -86,6 +102,9 @@ class TSDFGrid {
    * @return an array of voxels with spatial location and tsdf values
    */
   std::vector<VoxelSpatialTSDF> GatherVoxels(const BoundingCube<float>& volumn);
+
+  void GatherValidMesh(std::vector<Eigen::Vector3f>* vertex_buffer,
+                       std::vector<Eigen::Vector3i>* index_buffer);
 
  protected:
   void Allocate(const cv::Mat& img_rgb, const cv::Mat& img_depth, float max_depth,

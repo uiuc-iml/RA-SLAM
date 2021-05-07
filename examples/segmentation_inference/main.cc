@@ -8,11 +8,13 @@
 #include "segmentation/inference.h"
 
 int main() {
-  inference_engine my_engine("/home/roger/disinfect-slam/segmentation/ht_lt.pt");
   // Load image for test run
   cv::Mat image_rgb, image_bgr;
   image_bgr = cv::imread("/home/roger/hospital_images/24.jpg");
   cv::cvtColor(image_bgr, image_rgb, cv::COLOR_BGR2RGB);
+
+  inference_engine my_engine("/home/roger/disinfect-slam/segmentation/ht_lt.pt", image_bgr.cols,
+                             image_bgr.rows);
 
   // Test inference and uint8 conversion
   const auto start = std::chrono::steady_clock::now();

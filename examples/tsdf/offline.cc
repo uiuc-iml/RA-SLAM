@@ -87,7 +87,7 @@ class ImageRenderer : public RendererBase {
   ImageRenderer(const std::string& name, const std::string& logdir, const YAML::Node& config)
       : RendererBase(name),
         logdir_(logdir),
-        tsdf_(0.01, 0.06),
+        tsdf_(0.02, 0.12),
         intrinsics_(get_intrinsics(config)),
         log_entries_(parse_log_entries(logdir, config)),
         depth_scale_(config["depthmap_factor"].as<float>()) {
@@ -186,6 +186,19 @@ class ImageRenderer : public RendererBase {
       std::ofstream fout("/tmp/data.bin", std::ios::out | std::ios::binary);
       fout.write((char*)voxel_pos_tsdf.data(), voxel_pos_tsdf.size() * sizeof(VoxelSpatialTSDF));
       fout.close();
+    }
+    if (ImGui::Button("Save Mesh")) {
+      std::vector<Eigen::Vector3f> vertex_buffer;
+      std::vector<Eigen::Vector3i> index_buffer;
+      tsdf_.GatherValidMesh(&vertex_buffer, &index_buffer);
+      std::ofstream vout("/tmp/vertices.bin", std::ios::out | std::ios::binary);
+      std::ofstream iout("/tmp/indices.bin", std::ios::out | std::ios::binary);
+
+      vout.write((char*)vertex_buffer.data(), vertex_buffer.size() * sizeof(Eigen::Vector3f));
+      iout.write((char*)index_buffer.data(), index_buffer.size() * sizeof(Eigen::Vector3i));
+
+      vout.close();
+      iout.close();
     }
     // render
     if (!img_depth_.empty() && !img_rgb_.empty()) {

@@ -29,9 +29,10 @@ void reconstruct(const ZEDNative& zed_native, const L515& l515,
                                            GetExtrinsicsFromFile(config_file_path));
   SLAM->startup();
 
-  ImageRenderer renderer("tsdf", SLAM, TSDF, config_file_path);
-
   auto POSE_MANAGER = std::make_shared<pose_manager>();
+
+  ImageRenderer renderer("tsdf", std::bind(&pose_manager::get_latest_pose, POSE_MANAGER), TSDF,
+                         GetIntrinsicsFromFile(config_file_path));
 
   std::thread t_slam([&]() {
     while (true) {
@@ -117,8 +118,12 @@ int main(int argc, char* argv[]) {
   ZEDNative zed_native(*cfg, device_id->value());
   L515 l515;
   // initialize slam
+  YAML::Node yaml_node = YAML::LoadFile(config_file_path->value());
+  int tsdf_width = yaml_node["tsdf.width"].as<int>();
+  int tsdf_height = yaml_node["tsdf.height"].as<int>();
   auto SLAM = std::make_shared<SLAMSystem>(cfg, vocab_file_path->value());
-  auto my_engine = std::make_shared<inference_engine>(seg_model_path->value());
+  auto my_engine =
+      std::make_shared<inference_engine>(seg_model_path->value(), tsdf_width, tsdf_height);
   reconstruct(zed_native, l515, SLAM, my_engine, config_file_path->value());
 
   return EXIT_SUCCESS;

@@ -47,4 +47,6 @@ class SLAMSystem : public openvslam::system {
   pose_valid_tuple feed_RGBD_images_w_feedback(const cv::Mat& rgb_img, const cv::Mat& depthmap,
                                                const double timestamp,
                                                const cv::Mat& mask = cv::Mat{});
+
+  std::vector<Eigen::Matrix4d> get_saved_trajectory(const std::vector<unsigned int>& frame_ids);
 };

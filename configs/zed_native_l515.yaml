@@ -1,3 +1,6 @@
+# TSDF parameters
+tsdf.width: 640
+tsdf.height: 480
 # Camera Model
 Camera.name: "ZED Rev 1"
 Camera.setup: "stereo"

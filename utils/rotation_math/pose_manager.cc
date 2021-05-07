@@ -4,11 +4,26 @@ pose_manager::pose_manager() {
   // nothing
 }
 
-void pose_manager::register_valid_pose(const int64_t timestamp, const SE3<float> pose) {
+void pose_manager::register_valid_pose(const int64_t timestamp, const SE3<float> &pose) {
   std::lock_guard<std::mutex> lock(vec_lock);
   timed_pose_tuple new_observation;
   new_observation.first = timestamp;
   new_observation.second = pose;
+
+  timed_pose_vec.push_back(new_observation);
+}
+
+void pose_manager::register_valid_pose(const int64_t timestamp, const Eigen::Matrix4d& pose) {
+  std::lock_guard<std::mutex> lock(vec_lock);
+  timed_pose_tuple new_observation;
+  new_observation.first = timestamp;
+
+  /* Translate Eigen::Matrix4d to SE3<float> */
+  new_observation.second = SE3<float>(
+    Eigen::Matrix<float, 4, 4>(
+      pose.cast<float>()
+    )
+  );
 
   timed_pose_vec.push_back(new_observation);
 }
@@ -40,6 +55,16 @@ SE3<float> pose_manager::query_pose(const int64_t timestamp) {
       return timed_pose_vec[max_lower_idx + 1].second;
     }
   }
+}
+
+SE3<float> pose_manager::get_latest_pose() {
+  std::lock_guard<std::mutex> lock(vec_lock);
+  if (timed_pose_vec.empty()) {
+    // return identity matrix
+    return SE3<float>::Identity();
+  }
+  size_t latest_idx = (size_t)(timed_pose_vec.size() - 1);
+  return timed_pose_vec[latest_idx].second;
 }
 
 uint64_t pose_manager::get_max_lower_idx(const int64_t timestamp, uint64_t start_idx,

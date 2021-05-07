@@ -6,16 +6,32 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -expt-relaxed-constexpr")
 set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -G")
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
-set(CMAKE_CUDA_ARCHITECTURES 61 72 75 80)
+set(CMAKE_CUDA_ARCHITECTURES 61 72 75 80 86)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Attempt to find catkin
+find_package(catkin QUIET COMPONENTS
+    geometry_msgs
+    nodelet
+    roscpp
+    rospy
+    rosbag
+    sensor_msgs
+    std_msgs
+    tf2_geometry_msgs
+    tf2_ros
+    cv_bridge
+    shape_msgs
+)
+
 # OpenGL
 find_package(GLEW REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(glfw3 REQUIRED)
+find_package(GLUT REQUIRED)
 find_package(OpenGL REQUIRED)
 # Slam
 find_package(Eigen3 3.3.7 REQUIRED)
@@ -29,20 +45,31 @@ find_package(ZED 3 QUIET)
 find_package(realsense2 REQUIRED)
 find_package(OpenCV REQUIRED)
 # DL Inference
-find_package(Torch QUIET HINTS ${CMAKE_SOURCE_DIR}/third_party/libtorch)
-if (NOT Torch_FOUND)
+find_package(Torch QUIET HINTS ${PROJECT_SOURCE_DIR}/third_party/libtorch)
+if(NOT Torch_FOUND)
     MESSAGE(WARNING "libtorch not found. Excluding DL inference engine and examples.")
 endif()
 
-# enable testing
-enable_testing()
-include(GoogleTest)
+# ROS comes with gtest. Enable testing if no ROS
+if(NOT catkin_FOUND)
+    enable_testing()
+    include(GoogleTest)
+endif()
 
 # Compile Flags
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=native -march=native")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mtune=native -march=native")
 
-include_directories(${CMAKE_SOURCE_DIR})
+if(NOT catkin_FOUND)
+    include_directories(${OpenCV_INCLUDE_DIRS})
+    include_directories(${CMAKE_SOURCE_DIR})
+else()
+    include_directories(${OpenCV_INCLUDE_DIRS})
+    include_directories(${PROJECT_SOURCE_DIR})
+    include_directories(${catkin_INCLUDE_DIRS})
+    include_directories(${GLUT_INCLUDE_DIRS})
+endif()
+
 # Interface wrapper lib for OpenVSLAM
 add_library(openvslam INTERFACE)
 target_link_libraries(openvslam
@@ -57,6 +84,7 @@ if (TORCH_FOUND)
     add_subdirectory(disinfect_slam)
 endif ()
 add_subdirectory(examples)
+add_subdirectory(main)
 
 # -------------------------------------------------------------------- #
 # ----------------------- clang format target ------------------------ #

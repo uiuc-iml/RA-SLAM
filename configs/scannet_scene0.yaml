@@ -1,0 +1,16 @@
+# TUM-RGBD RGBD model for 01
+
+#==============#
+# Camera Model #
+#==============#
+
+Camera.name: "SCANNET RGBD"
+Camera.setup: "RGBD"
+Camera.model: "perspective"
+
+# RGBD camera parameter
+Camera.fx: 571.623718
+Camera.fy: 571.623718
+Camera.cx: 319.500000
+Camera.cy: 239.500000
+depthmap_factor: 1000.0

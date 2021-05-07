@@ -1,11 +1,13 @@
 #pragma once
 
+#include <condition_variable>
 #include <memory>
 #include <mutex>
 #include <queue>
 #include <thread>
 
 #include "utils/cuda/camera.cuh"
+#include "utils/cuda/errors.cuh"
 #include "utils/cuda/lie_group.cuh"
 #include "utils/gl/image.h"
 #include "utils/tsdf/voxel_tsdf.cuh"
@@ -81,8 +83,58 @@ class TSDFSystem {
    * @param cam_T_world virtual camera pose
    * @param img_normal  output normal shaded image
    */
-  void Render(const CameraParams& virtual_cam, const SE3<float> cam_T_world,
+  void Render(const CameraParams& virtual_cam, const SE3<float> cam_T_world, GLImage8UC4* img_rgba,
               GLImage8UC4* img_normal);
+
+  /**
+   * @brief render a virtual view of the TSDF scene into a GLImage (w/ variable max depth)
+   *
+   * @param virtual_cam virtual camera paramteres
+   * @param cam_T_world virtual camera pose
+   * @param img_normal  output normal shaded image
+   * @param max_depth   maximum ray casting depth
+   */
+  void Render(const CameraParams& virtual_cam, const SE3<float> cam_T_world, GLImage8UC4* img_rgba,
+              GLImage8UC4* img_normal, float max_depth);
+
+  /**
+   * @brief download semantic reconstruction of the entire reconstructed scene
+   *
+   * @param file_path file path where the downloaded scene will reside
+   */
+  void DownloadAll(const std::string& file_path);
+
+  /**
+   * @brief download the entire reconstructed scene in triangular mesh
+   * 
+   * @TODO(roger): right now, the mesh does not contain semantic probability
+   *
+   * @param vertices_path file path for the vertices file (x/y/z coordinate of vertices)
+   * @param indices_path  file path for the vertices index (every group of indices contains
+   *                      3 indices, which represents three vertices in a single constructed
+   *                      triangle mesh. The indices are ordered counter-clockwise can therefore
+   *                      can be directly used to compute normal vector).
+   */
+  void DownloadAllMesh(const std::string& vertices_path, const std::string& indices_path);
+
+  /**
+   * @brief test if current TSDF instance has finished
+   *
+   * @return return True if the TSDF module has been terminated
+   */
+  bool is_terminated();
+
+  /**
+   * @brief terminate current TSDF instance
+   */
+  void terminate();
+
+  /**
+   * @brief allow an external program to pause to TSDF module
+   *
+   * @param pause   set True to pause; false to unpause
+   */
+  void SetPause(bool pause);
 
  private:
   void Run();
@@ -102,6 +154,10 @@ class TSDFSystem {
   // termination lock
   std::mutex mtx_terminate_;
   bool terminate_ = false;
+  // pause lock
+  std::mutex mtx_pause_;
+  std::condition_variable cv_pause_;
+  bool pause_ = false;
   // main integration thread
   std::thread t_;
 };
