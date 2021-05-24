@@ -6,6 +6,7 @@
 #define NUM_VERTICES_PER_CUBE   8
 #define NUM_EDGES_PER_CUBE      12
 
+// +1 to handle voxels in the outmost row
 #define BLOCK_VERT_LEN    (BLOCK_LEN + 1)
 #define BLOCK_VERT_AREA   (BLOCK_VERT_LEN * BLOCK_VERT_LEN)
 #define BLOCK_VERT_VOLUME (BLOCK_VERT_AREA * BLOCK_VERT_LEN)
@@ -23,6 +24,8 @@ __constant__ int offset_table[NUM_VERTICES_PER_CUBE][3] = {
 
 __constant__ int offset_dim_indics[3] = { 1, 4, 3 };
 
+// 12 edges in a cube.
+// this translates edge index to vertices indices on two ends
 __constant__ int edge_table[NUM_EDGES_PER_CUBE][2] = {
  {0, 1},
  {1, 2},
@@ -88,6 +91,13 @@ __constant__ int edge_vertex_map[NUM_EDGES_PER_CUBE][2] = {
 //  0x70c, 0x605, 0x50f, 0x406, 0x30a, 0x203, 0x109, 0x0
 //};
 
+// the first length is to be indexed using the cubeindex variable
+// computed in marching_cube_kernel
+
+// the second length is supposed to be 15 elements long, it is
+// packed to 16 by appending -1 at the end for memory alignment.
+
+// for full reference, read http://paulbourke.net/geometry/polygonise/
 __constant__ int tri_table[256][16] =
 {{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 {0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},

@@ -132,11 +132,16 @@ __global__ static void block_allocate_kernel(VoxelHashTable hash_table, const fl
   const float depth = img_depth[idx];
   // calculate depth2range scale
   const Eigen::Vector3f pos_img_h(x, y, 1.);
+
+  // homogeneous -> camera coordinate
   const Eigen::Vector3f pos_cam = cam_params.intrinsics_inv * pos_img_h;
+
+  // range
   img_depth_to_range[idx] = pos_cam.norm();
   if (depth == 0 || depth > max_depth) {
     return;
   }
+
   // transform coordinate from image to world
   const Eigen::Vector3f pos_world = world_T_cam.Apply(pos_cam * depth);
   // calculate end coordinates of sample ray
@@ -168,25 +173,46 @@ __global__ static void tsdf_integrate_kernel(
     const float truncation, const float voxel_size, const uchar3* img_rgb, const float* img_depth,
     const float* img_ht, const float* img_lt, const float* img_depth_to_range) {
   if (blockIdx.x >= num_visible_blocks) {
+    // If voxel block idx is not visible, return.
     return;
   }
+  // voxel position w.r.t. its block (which contains 8 * 8 * 8 voxels)
   const Eigen::Matrix<short, 3, 1> pos_grid_rel(threadIdx.x, threadIdx.y, threadIdx.z);
-  // transform to camera / image coordinates
+  
+  // voxel position in discrete world coordinate
   const Eigen::Matrix<short, 3, 1> pos_grid_abs =
       BlockToPoint(blocks[blockIdx.x].position) + pos_grid_rel;
+  
+  // voxel position in continuous world coordinate (in meter)
   const Eigen::Vector3f pos_world = pos_grid_abs.cast<float>() * voxel_size;
+
+  // voxel position in camera coordinate
   const Eigen::Vector3f pos_cam = cam_T_world.Apply(pos_world);
+
+  // voxel position in (img_i * depth, img_j * depth, depth)
   const Eigen::Vector3f pos_img_h = cam_params.intrinsics * pos_cam;
+
+  // original (img_i * depth, img_j * depth, depth) -> (img_i, img_j)
   const Eigen::Vector2f pos_img = pos_img_h.hnormalized();
+
+  // corresponding pixel index in camera width
   const int u = roundf(pos_img[0]);
+
+  // corresponding pixel index in camera height
   const int v = roundf(pos_img[1]);
+
   // update if visible
   if (u >= 0 && u < cam_params.img_w && v >= 0 && v < cam_params.img_h) {
+    // image coordinate access
     const int img_idx = v * cam_params.img_w + u;
+
+    // get depth
     const float depth = img_depth[img_idx];
     if (depth == 0 || depth > max_depth) {
       return;
     }
+
+    // multiple voxels -> same 
     const float sdf = img_depth_to_range[img_idx] * (depth - pos_img_h[2]);
     if (sdf > -truncation) {
       const float tsdf = fminf(1, sdf / truncation);
@@ -194,10 +220,13 @@ __global__ static void tsdf_integrate_kernel(
       VoxelTSDF& voxel_tsdf = voxel_mem.GetVoxel<VoxelTSDF>(idx, blocks[blockIdx.x]);
       VoxelRGBW& voxel_rgbw = voxel_mem.GetVoxel<VoxelRGBW>(idx, blocks[blockIdx.x]);
       VoxelSEGM& voxel_segm = voxel_mem.GetVoxel<VoxelSEGM>(idx, blocks[blockIdx.x]);
+
       // weight running average
+      // heuristic
       const float weight_new = (1 - depth / max_depth) * 4;  // TODO(alvin): better weighting here
       const float weight_old = voxel_rgbw.weight;
       const float weight_combined = weight_old + weight_new;
+
       // rgb running average
       const uchar3 rgb = img_rgb[img_idx];
       const Eigen::Vector3f rgb_old = voxel_rgbw.rgb.cast<float>();
@@ -205,6 +234,7 @@ __global__ static void tsdf_integrate_kernel(
       const Eigen::Vector3f rgb_combined =
           (rgb_old * weight_old + rgb_new * weight_new) / weight_combined;
       voxel_tsdf.tsdf = (voxel_tsdf.tsdf * weight_old + tsdf * weight_new) / weight_combined;
+      // TODO(roger): should be tuned/not hardcoded
       voxel_rgbw.weight = fminf(roundf(weight_combined), 40);
       voxel_rgbw.rgb =
           rgb_combined.unaryExpr([](const float x) { return roundf(x); }).cast<unsigned char>();
@@ -245,66 +275,6 @@ __global__ static void space_carving_kernel(VoxelHashTable hash_table, const Vox
   }
 }
 
-__device__ float get_tri_interp_tsdf(const VoxelHashTable hash_table, const Eigen::Vector3f pos_grid) {
-  // Use trilinear interpolation to compute a more accuracy tsdf_curr
-  // notation follows wikepedia
-  const auto floorf_func = [](const float x) { return floorf(x); };
-  __shared__ float tsdf_trilinear_interp_first[2][2][2];
-  __shared__ float tsdf_trilinear_interp_second[2][2];
-  __shared__ float tsdf_trilinear_interp_third[2];
-  // unrolled coordinate gen
-  __shared__ Eigen::Matrix<short, 3, 1> C_pos[2][2][2];
-  VoxelBlock temp_cache;
-  const Eigen::Matrix<short, 3, 1> floor_grid = pos_grid.unaryExpr(floorf_func).cast<short>();
-  const float x_d = pos_grid[0] - (float)(floor_grid[0]);
-  const float y_d = pos_grid[1] - (float)(floor_grid[1]);
-  const float z_d = pos_grid[2] - (float)(floor_grid[2]);
-  const float sub_x_d = 1 - x_d;
-  const float sub_y_d = 1 - y_d;
-  const float sub_z_d = 1 - z_d;
-  #pragma unroll
-  for (int i = 0; i < 2; ++i) {
-    #pragma unroll
-    for (int j = 0; j < 2; ++j) {
-      #pragma unroll
-      for (int k = 0; k < 2; ++k) {
-        C_pos[i][j][k] = Eigen::Matrix<short, 3, 1>(floor_grid[0] + i, floor_grid[1] + j, floor_grid[2] + k);
-      }
-    }
-  }
-  // fill first layer
-  #pragma unroll
-  for (int i = 0; i < 2; ++i) {
-    #pragma unroll
-    for (int j = 0; j < 2; ++j) {
-      #pragma unroll
-      for (int k = 0; k < 2; ++k) {
-        // TODO(roger): this access pattern breaks cache and affect performance
-        tsdf_trilinear_interp_first[i][j][k] = hash_table.Retrieve<VoxelTSDF>(C_pos[i][j][k], temp_cache).tsdf;
-      }
-    }
-  }
-  // fill second layer
-  #pragma unroll
-  for (int j = 0; j < 2; ++j) {
-    #pragma unroll
-    for (int k = 0; k < 2; ++k) {
-      tsdf_trilinear_interp_second[j][k] =
-        tsdf_trilinear_interp_first[0][j][k] * sub_x_d + tsdf_trilinear_interp_first[1][j][k] * x_d;
-    }
-  }
-  // fill third layer
-  #pragma unroll
-  for (int k = 0; k < 2; ++k) {
-    tsdf_trilinear_interp_third[k] =
-      tsdf_trilinear_interp_second[0][k] * sub_y_d + tsdf_trilinear_interp_second[1][k] * y_d;
-  }
-  // finally
-  const float ret = tsdf_trilinear_interp_third[0] * sub_z_d + tsdf_trilinear_interp_third[1] * z_d;
-  // End of trilinear interpolation
-  return ret;
-}
-
 __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
                                        const CameraParams cam_params, const SE3<float> cam_T_world,
                                        const SE3<float> world_T_cam, const float step_size,
@@ -341,8 +311,8 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
     if (tsdf_prev > 0 && tsdf_curr <= 0 && tsdf_prev - tsdf_curr <= 2.0) {
       const Eigen::Vector3f pos1_grid = pos_grid - ray_step_grid;
       const Eigen::Vector3f pos2_grid = pos_grid;
-      const auto accurate_tsdf_curr = get_tri_interp_tsdf(hash_table, pos2_grid);
-      const auto accurate_tsdf_prev = get_tri_interp_tsdf(hash_table, pos1_grid);
+      const auto accurate_tsdf_curr = hash_table.RetrieveTSDF(pos2_grid, cache);
+      const auto accurate_tsdf_prev = hash_table.RetrieveTSDF(pos1_grid, cache);
       const Eigen::Vector3f pos_interp_grid =
           pos_grid + accurate_tsdf_curr / (accurate_tsdf_prev - accurate_tsdf_curr) * ray_step_grid;
       const Eigen::Matrix<short, 3, 1> final_grid =
@@ -386,7 +356,7 @@ TSDFGrid::TSDFGrid(float voxel_size, float truncation)
   CUDA_SAFE_CALL(cudaMalloc(&visible_mask_, sizeof(int) * NUM_ENTRY));
   CUDA_SAFE_CALL(cudaMalloc(&visible_indics_, sizeof(int) * NUM_ENTRY));
   CUDA_SAFE_CALL(cudaMalloc(&visible_indics_aux_, sizeof(int) * NUM_ENTRY / (2 * SCAN_BLOCK_SIZE)));
-  CUDA_SAFE_CALL(cudaMalloc(&visible_blocks_, sizeof(VoxelBlock) * NUM_ENTRY));
+  CUDA_SAFE_CALL(cudaMalloc(&visible_blocks_, sizeof(VoxelBlock) * NUM_ENTRY)); // TODO(roger): change to NUM_BLOCKS and test
   CUDA_SAFE_CALL(cudaMalloc(&img_rgb_, sizeof(uint3) * MAX_IMG_SIZE));
   CUDA_SAFE_CALL(cudaMalloc(&img_depth_, sizeof(float) * MAX_IMG_SIZE));
   CUDA_SAFE_CALL(cudaMalloc(&img_ht_, sizeof(float) * MAX_IMG_SIZE));
@@ -449,6 +419,8 @@ void TSDFGrid::Integrate(const cv::Mat& img_rgb, const cv::Mat& img_depth, const
   const int num_visible_blocks = GatherVisible(max_depth, cam_params, cam_T_world);
   CUDA_SAFE_CALL(cudaStreamSynchronize(stream2_));  // synchronize ht / lt img copy
   UpdateTSDF(num_visible_blocks, max_depth, cam_params, cam_T_world);
+
+  // Deallocate empty voxels
   SpaceCarving(num_visible_blocks);
   CUDA_SAFE_CALL(cudaStreamSynchronize(stream_));
   spdlog::debug("[TSDF] post integrate: {} active blocks", hash_table_.NumActiveBlock());
@@ -567,7 +539,13 @@ __global__ static void marching_cube_kernel(const VoxelHashTable hash_table,
                                             Eigen::Vector3i* triangle_ids, int* vertex_mask,
                                             int* triangle_mask) {
   __shared__ float cube_tsdf[BLOCK_LEN * 2][BLOCK_LEN * 2][BLOCK_LEN * 2];
+
+  // initalized as uint8_t array because shared memory buffer in CUDA
+  // do not support object array instantiation
   __shared__ uint8_t cube_blocks_buff[8 * sizeof(VoxelBlock)];
+
+  // reinterpret the above uint8_t array as VoxelBlock array of size [2][2][2]
+  // cube_blocks in declared here as a reference to this array
   VoxelBlock(&cube_blocks)[2][2][2] = *reinterpret_cast<VoxelBlock(*)[2][2][2]>(cube_blocks_buff);
 
   const VoxelBlock& base_block = blocks[blockIdx.x];
@@ -589,12 +567,14 @@ __global__ static void marching_cube_kernel(const VoxelHashTable hash_table,
     for (int j = 0; j < 2; ++j) {
 #pragma unroll
       for (int k = 0; k < 2; ++k) {
+        // test if this block has been allocated in the voxel hashmap
         if (cube_blocks[i][j][k].idx >= 0) {
           const VoxelTSDF& tsdf =
               hash_table.mem.GetVoxel<VoxelTSDF>(offset_idx, cube_blocks[i][j][k]);
           const int weight =
               hash_table.mem.GetVoxel<VoxelRGBW>(offset_idx, cube_blocks[i][j][k]).weight;
           if (weight > 10) {
+            // if mutliple measurement, plug in tsdf
             cube_tsdf[i * BLOCK_LEN + threadIdx.z][j * BLOCK_LEN + threadIdx.y]
                      [k * BLOCK_LEN + threadIdx.x] = tsdf.tsdf;
           } else {
@@ -612,11 +592,13 @@ __global__ static void marching_cube_kernel(const VoxelHashTable hash_table,
 
   // local caching of the cube tsdf values + compute cube scenario
   float local_tsdf[NUM_VERTICES_PER_CUBE];
+  // local 8-bit binary mask (lowest 8 bit)
   int cubeindex = 0;
 #pragma unroll
   for (int i = 0; i < NUM_VERTICES_PER_CUBE; ++i) {
     local_tsdf[i] = cube_tsdf[threadIdx.z + offset_table[i][2]][threadIdx.y + offset_table[i][1]]
                              [threadIdx.x + offset_table[i][0]];
+    // if tsdf < 0 for some i, the lowest i-th bit in the final cubeindex will be 1
     cubeindex |= ((local_tsdf[i] < 0) << i);
   }
 
@@ -640,6 +622,8 @@ __global__ static void marching_cube_kernel(const VoxelHashTable hash_table,
         const float t2 = cube_tsdf[vertex_offset[2] + v_offset[2]][vertex_offset[1] + v_offset[1]]
                                   [vertex_offset[0] + v_offset[0]];
         vertices[cube_idx * 3 + j] = (v1 + (-t1) / (t2 - t1) * v_offset.cast<float>()) * voxel_size;
+        // not actually filling the array. This is placed here
+        // as a speed up to initialize everything as zeros.
         vertex_mask[cube_idx * 3 + j] = 0;
       }
     }
@@ -656,21 +640,26 @@ __global__ static void marching_cube_kernel(const VoxelHashTable hash_table,
       triangle_mask[triangle_idx] = 1;
 #pragma unroll
       for (int j = 0; j < 3; ++j) {
+        // get relative vertex index
         const int v1_idx = edge_table[tri_table[cubeindex][i * 3 + j]][0];
         const int v2_idx = edge_table[tri_table[cubeindex][i * 3 + j]][1];
 
         // check for accidental back faces due to constant initialization
+        // First case: TSDF shouldn't be too close (potential numerical instability)
+        // Second case: tsdf values are normalized (ranged in -1 to 1)
         if (fabsf(local_tsdf[v2_idx] - local_tsdf[v1_idx]) < 1e-3 ||
             fabsf(local_tsdf[v2_idx] - local_tsdf[v1_idx]) >= 2) {
           triangle_mask[triangle_idx] = 0;
           break;
         }
 
-        const int v_edge_idx = edge_vertex_map[tri_table[cubeindex][i * 3 + j]][0];
+        // we use lower vertex idx here because
+        // every voxel is in charge of positive x/y/z directions only
+        const int lower_vertex_idx = edge_vertex_map[tri_table[cubeindex][i * 3 + j]][0];
         const int v_dim_offset = edge_vertex_map[tri_table[cubeindex][i * 3 + j]][1];
-        const int cube_offset_idx = (offset_table[v_edge_idx][2] + threadIdx.z) * BLOCK_VERT_AREA +
-                                    (offset_table[v_edge_idx][1] + threadIdx.y) * BLOCK_VERT_LEN +
-                                    (offset_table[v_edge_idx][0] + threadIdx.x);
+        const int cube_offset_idx = (offset_table[lower_vertex_idx][2] + threadIdx.z) * BLOCK_VERT_AREA +
+                                    (offset_table[lower_vertex_idx][1] + threadIdx.y) * BLOCK_VERT_LEN +
+                                    (offset_table[lower_vertex_idx][0] + threadIdx.x);
         const int cube_idx = blockIdx.x * BLOCK_VERT_VOLUME + cube_offset_idx;
 
         triangle_ids[triangle_idx][j] = cube_idx * 3 + v_dim_offset;
@@ -706,10 +695,14 @@ void TSDFGrid::GatherValidMesh(std::vector<Eigen::Vector3f>* vertex_buffer,
                                std::vector<Eigen::Vector3i>* index_buffer) {
   constexpr int GATHER_BLOCK_DIM = NUM_ENTRY / BLOCK_VOLUME;
 
+  // write binary valid mask to visible_mask_
   check_valid_kernel<<<GATHER_BLOCK_DIM, BLOCK_VOLUME, 0, stream_>>>(hash_table_, visible_mask_);
   CUDA_STREAM_CHECK_ERROR(stream_);
 
+  // convert to contiguous block array
   const int num_visible_blocks = GatherBlock();
+  
+  // maximum possible number of vertices
   const int num_vertices = num_visible_blocks * BLOCK_VERT_VOLUME * 3;
   const int num_triangles = num_visible_blocks * BLOCK_VOLUME * MAX_TRIANGLES_PER_CUBE;
   int num_valid_triangles, num_valid_vertices;
@@ -718,9 +711,13 @@ void TSDFGrid::GatherValidMesh(std::vector<Eigen::Vector3f>* vertex_buffer,
   Eigen::Vector3f* valid_vertices;
   Eigen::Vector3i* triangle_ids;
   Eigen::Vector3i* valid_triangle_ids;
+
+  // boolean arrays indicating whether a particular vertex or triangle is valid
   int* vertex_mask;
-  int* vertex_valid_map;
   int* triangle_mask;
+
+  // map from sparse indices of triangles to contiguous triangles
+  int* vertex_valid_map;
   int* triangle_valid_map;
 
   CUDA_SAFE_CALL(cudaMalloc(&vertices, sizeof(Eigen::Vector3f) * num_vertices));
@@ -751,11 +748,16 @@ void TSDFGrid::GatherValidMesh(std::vector<Eigen::Vector3f>* vertex_buffer,
   CUDA_SAFE_CALL(cudaMalloc(&valid_triangle_ids, sizeof(Eigen::Vector3i) * num_valid_triangles));
   CUDA_SAFE_CALL(cudaMalloc(&valid_vertices, sizeof(Eigen::Vector3f) * num_valid_vertices));
 
+  // Compactify sparse triangles to contiguous triangles
   compactify_kernel<<<ceil((float)num_triangles / 512), 512, 0, stream_>>>(
       valid_triangle_ids, triangle_ids, triangle_mask, triangle_valid_map, num_triangles);
+
+  // Transform sparse vertices indices referenced by triangles
+  // to contiguous triangles idx (which is to be obtained by next compactify call)
   transform_triangle_id_kernel<<<ceil((float)num_valid_triangles * 3 / 512), 512, 0, stream_>>>(
       (int*)valid_triangle_ids, vertex_valid_map, num_valid_triangles * 3);
 
+  // Compactify sparse vertices to contiguous representation
   compactify_kernel<<<ceil((float)num_vertices / 512), 512, 0, stream2_>>>(
       valid_vertices, vertices, vertex_mask, vertex_valid_map, num_vertices);
 
@@ -787,13 +789,17 @@ int TSDFGrid::GatherBlock() {
   constexpr int GATHER_THREAD_DIM = 512;
   constexpr int GATHER_BLOCK_DIM = NUM_ENTRY / GATHER_THREAD_DIM;
   // parallel prefix sum scan
+  // e.g., 1 0 1 0 0 1 0 -> 0 1 1 2 2 2 3
+  // write to visible_indices
   prefix_sum<int>(visible_mask_, visible_indics_, visible_indics_aux_, NUM_ENTRY, stream_);
+
   // gather visible blocks into contiguous array
   gather_visible_blocks_kernel<<<GATHER_BLOCK_DIM, GATHER_THREAD_DIM, 0, stream_>>>(
       hash_table_, visible_mask_, visible_indics_, visible_blocks_);
   CUDA_STREAM_CHECK_ERROR(stream_);
   // get number of visible blocks from scanned index array
   int num_visible_blocks;
+
   CUDA_SAFE_CALL(cudaMemcpyAsync(&num_visible_blocks, visible_indics_ + NUM_ENTRY - 1, sizeof(int),
                                  cudaMemcpyDeviceToHost, stream_));
   CUDA_SAFE_CALL(cudaStreamSynchronize(stream_));
