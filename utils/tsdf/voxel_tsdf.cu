@@ -291,7 +291,10 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
   const Eigen::Vector3f ray_dir_cam = pos_cam.normalized();
   const Eigen::Quaternionf world_R_cam = world_T_cam.GetR();
   const Eigen::Vector3f ray_dir_world = world_R_cam * ray_dir_cam;
-  const Eigen::Vector3f ray_step_grid = ray_dir_world * step_size / voxel_size;
+
+  // ray casting step vector
+
+  Eigen::Vector3f ray_step_grid = ray_dir_world * step_size / voxel_size;
   const int max_step = ceil(max_depth / step_size);
   Eigen::Vector3f pos_grid = world_T_cam.GetT() / voxel_size;
   VoxelBlock cache;
@@ -299,28 +302,38 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
   float tsdf_prev =
       hash_table.Retrieve<VoxelTSDF>(pos_grid.unaryExpr(roundf_func).cast<short>(), cache).tsdf;
   pos_grid += ray_step_grid;
-  for (int i = 1; i < max_step; ++i, pos_grid += ray_step_grid) {
+  for (int i = 1; i < max_step; ++i) {
     const float tsdf_curr =
         hash_table.Retrieve<VoxelTSDF>(pos_grid.unaryExpr(roundf_func).cast<short>(), cache).tsdf;
     const unsigned char weight_curr =
         hash_table.Retrieve<VoxelRGBW>(pos_grid.unaryExpr(roundf_func).cast<short>(), cache).weight;
+
+    // Skip voxels with insufficient observations.
     if (weight_curr < 10) {
+      pos_grid += ray_step_grid;
+      tsdf_prev = tsdf_curr;
       continue;
     }
     // ray hit front surface
     if (tsdf_prev > 0 && tsdf_curr <= 0 && tsdf_prev - tsdf_curr <= 2.0) {
       const Eigen::Vector3f pos1_grid = pos_grid - ray_step_grid;
       const Eigen::Vector3f pos2_grid = pos_grid;
+
+      // When zero-cross happens, we use trilinear interpolation to get better TSDF estimate
       const auto accurate_tsdf_curr = hash_table.RetrieveTSDF(pos2_grid, cache);
       const auto accurate_tsdf_prev = hash_table.RetrieveTSDF(pos1_grid, cache);
+
+      // computing zero-crossing voxel coordinates
       const Eigen::Vector3f pos_interp_grid =
           pos_grid + accurate_tsdf_curr / (accurate_tsdf_prev - accurate_tsdf_curr) * ray_step_grid;
       const Eigen::Matrix<short, 3, 1> final_grid =
           pos_interp_grid.unaryExpr(roundf_func).cast<short>();
 
+      // Retrieve RGBW and SEGM voxel
       const VoxelRGBW voxel_rgbw = hash_table.Retrieve<VoxelRGBW>(final_grid, cache);
       const VoxelSEGM voxel_segm = hash_table.Retrieve<VoxelSEGM>(final_grid, cache);
-      // calculate gradient
+
+      // calculate gradient for rendering diffusivity
       const Eigen::Matrix<short, 3, 1> x_pos(final_grid[0] + 1, final_grid[1], final_grid[2]);
       const Eigen::Matrix<short, 3, 1> x_neg(final_grid[0] - 1, final_grid[1], final_grid[2]);
       const Eigen::Matrix<short, 3, 1> y_pos(final_grid[0], final_grid[1] + 1, final_grid[2]);
@@ -344,8 +357,18 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
       return;
     }
     tsdf_prev = tsdf_curr;
+    
+    if (tsdf_curr < 0.5) {
+      // if we get close enough to a surface, use smaller step size for finer estimation
+      ray_step_grid = (ray_dir_world * step_size / voxel_size) / 10;
+    } else {
+      // far away from surface. Use coarse step size to speed up
+      ray_step_grid = ray_dir_world * step_size / voxel_size;
+    }
+    pos_grid += ray_step_grid;
   }
-  // no surface intersection found
+
+  // For loop terminates with no result. No surface intersection (zero-crossing) found
   img_tsdf_rgba[idx] = make_uchar4(0, 0, 0, 0);
   img_tsdf_normal[idx] = make_uchar4(0, 0, 0, 0);
 }

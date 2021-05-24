@@ -47,7 +47,14 @@ void run(const std::string& segm_model_path, const std::string& data_path, bool 
   }
 
   /* Initialize various modules */
-  auto my_tsdf = std::make_shared<TSDFSystem>(0.01, 0.06, 6, my_datareader->get_camera_intrinsics(),
+  /*
+    1st param: TSDF voxel size. Small size => fine-grained and more memory usage. Large size => coarse-grained.
+    2nd param: TSDF Truncation. Small => Less Memory usage and rough surface
+      - Empirically, 6x voxel size gives good performance
+    3rd param: Depth camera maximum range cutoff
+  */
+  float voxel_size = 0.01;
+  auto my_tsdf = std::make_shared<TSDFSystem>(voxel_size, voxel_size * 6, 6, my_datareader->get_camera_intrinsics(),
                                               my_datareader->get_camera_extrinsics());
   pose_manager camera_pose_manager;
   ImageRenderer my_renderer("tsdf", std::bind(&pose_manager::get_latest_pose, &camera_pose_manager),
