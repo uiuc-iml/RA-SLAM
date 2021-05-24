@@ -2,6 +2,7 @@
 
 #include <cuda_runtime.h>
 
+#include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
 
 #include <Eigen/Dense>

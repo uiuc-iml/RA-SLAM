@@ -8,3 +8,5 @@ add_subdirectory(imgui-1.77)
 if (NOT catkin_FOUND)
     add_subdirectory(googletest-1.10.0)
 endif ()
+
+add_subdirectory(lcm-1.4.0)

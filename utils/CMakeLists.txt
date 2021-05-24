@@ -6,7 +6,8 @@ add_subdirectory(cuda)
 add_subdirectory(gl)
 add_subdirectory(tsdf)
 
-if(NOT catkin_FOUND) # TODO(roger): figure out why tests can't be compiled in ROS
+# TODO(roger): figure out why tests can't be compiled in ROS
+if(NOT catkin_FOUND)
     add_subdirectory(tests)
 endif()
 
