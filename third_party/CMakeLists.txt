@@ -3,7 +3,6 @@ target_include_directories(popl SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/pop
 
 add_subdirectory(scannet)
 add_subdirectory(imgui-1.77)
-#add_subdirectory(spdlog-1.6.1)
 
 # ROS comes with gtest. This causes conflict with ROS.
 if (NOT catkin_FOUND)

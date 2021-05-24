@@ -55,6 +55,7 @@ void folder_reader::get_depth_frame_by_id(cv::Mat* depth_img, int frame_idx) {
   if ((frame_idx < 0) || (frame_idx >= size_)) {
     spdlog::error("Invalid frame idx {} supplied!", frame_idx);
   }
+  frame_idx = this->log_entries_[frame_idx].id;
   const std::string depth_path = logdir_ + "/" + std::to_string(frame_idx) + "_depth.png";
   *depth_img = cv::imread(depth_path, cv::IMREAD_UNCHANGED);
 }
@@ -63,6 +64,7 @@ void folder_reader::get_color_frame_by_id(cv::Mat* rgb_img, int frame_idx) {
   if ((frame_idx < 0) || (frame_idx >= size_)) {
     spdlog::error("Invalid frame idx {} supplied!", frame_idx);
   }
+  frame_idx = this->log_entries_[frame_idx].id;
   const std::string rgb_path = logdir_ + "/" + std::to_string(frame_idx) + "_rgb.png";
   *rgb_img = cv::imread(rgb_path);
   cv::cvtColor(*rgb_img, *rgb_img, cv::COLOR_BGR2RGB);

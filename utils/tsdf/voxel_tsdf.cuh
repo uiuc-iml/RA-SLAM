@@ -127,7 +127,10 @@ class TSDFGrid {
   const float truncation_;
 
   // visibility buffer
+  // visibility: 
   VoxelBlock* visible_blocks_;
+
+  // visible_mask_ is initialized to have NUM_BLOCKS of elements
   int* visible_mask_;
   int* visible_indics_;
   int* visible_indics_aux_;
