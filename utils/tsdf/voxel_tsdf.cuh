@@ -104,7 +104,8 @@ class TSDFGrid {
   std::vector<VoxelSpatialTSDF> GatherVoxels(const BoundingCube<float>& volumn);
 
   void GatherValidMesh(std::vector<Eigen::Vector3f>* vertex_buffer,
-                       std::vector<Eigen::Vector3i>* index_buffer);
+                       std::vector<Eigen::Vector3i>* index_buffer,
+                       std::vector<float>* vertex_prob_buffer);
 
  protected:
   void Allocate(const cv::Mat& img_rgb, const cv::Mat& img_depth, float max_depth,

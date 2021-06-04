@@ -559,9 +559,11 @@ std::vector<VoxelSpatialTSDF> TSDFGrid::GatherVoxels(const BoundingCube<float>& 
 __global__ static void marching_cube_kernel(const VoxelHashTable hash_table,
                                             const VoxelBlock* blocks, const float voxel_size,
                                             Eigen::Vector3f* vertices,
+                                            float* vertices_prob_arr,
                                             Eigen::Vector3i* triangle_ids, int* vertex_mask,
                                             int* triangle_mask) {
   __shared__ float cube_tsdf[BLOCK_LEN * 2][BLOCK_LEN * 2][BLOCK_LEN * 2];
+  __shared__ float cube_segm_prob[BLOCK_LEN * 2][BLOCK_LEN * 2][BLOCK_LEN * 2];
 
   // initalized as uint8_t array because shared memory buffer in CUDA
   // do not support object array instantiation
@@ -596,17 +598,25 @@ __global__ static void marching_cube_kernel(const VoxelHashTable hash_table,
               hash_table.mem.GetVoxel<VoxelTSDF>(offset_idx, cube_blocks[i][j][k]);
           const int weight =
               hash_table.mem.GetVoxel<VoxelRGBW>(offset_idx, cube_blocks[i][j][k]).weight;
+          const float segm_prob =
+              hash_table.mem.GetVoxel<VoxelSEGM>(offset_idx, cube_blocks[i][j][k]).probability;
           if (weight > 10) {
             // if mutliple measurement, plug in tsdf
             cube_tsdf[i * BLOCK_LEN + threadIdx.z][j * BLOCK_LEN + threadIdx.y]
                      [k * BLOCK_LEN + threadIdx.x] = tsdf.tsdf;
+            cube_segm_prob[i * BLOCK_LEN + threadIdx.z][j * BLOCK_LEN + threadIdx.y]
+                     [k * BLOCK_LEN + threadIdx.x] = segm_prob;
           } else {
             cube_tsdf[i * BLOCK_LEN + threadIdx.z][j * BLOCK_LEN + threadIdx.y]
                      [k * BLOCK_LEN + threadIdx.x] = -10;
+            cube_segm_prob[i * BLOCK_LEN + threadIdx.z][j * BLOCK_LEN + threadIdx.y]
+                     [k * BLOCK_LEN + threadIdx.x] = 0;
           }
         } else {
           cube_tsdf[i * BLOCK_LEN + threadIdx.z][j * BLOCK_LEN + threadIdx.y]
                    [k * BLOCK_LEN + threadIdx.x] = -10;
+          cube_segm_prob[i * BLOCK_LEN + threadIdx.z][j * BLOCK_LEN + threadIdx.y]
+                   [k * BLOCK_LEN + threadIdx.x] = 0;
         }
       }
     }
@@ -636,6 +646,7 @@ __global__ static void marching_cube_kernel(const VoxelHashTable hash_table,
       const Eigen::Vector3f v1 = (BlockToPoint(base_block.position) + vertex_offset).cast<float>();
 
       const float t1 = cube_tsdf[vertex_offset[2]][vertex_offset[1]][vertex_offset[0]];
+      const float prob1 = cube_segm_prob[vertex_offset[2]][vertex_offset[1]][vertex_offset[0]];
       const int cube_idx = blockIdx.x * BLOCK_VERT_VOLUME + cube_offset_idx;
 
 #pragma unroll
@@ -644,7 +655,12 @@ __global__ static void marching_cube_kernel(const VoxelHashTable hash_table,
         const Eigen::Map<Eigen::Vector3i> v_offset(offset_table[v2_idx]);
         const float t2 = cube_tsdf[vertex_offset[2] + v_offset[2]][vertex_offset[1] + v_offset[1]]
                                   [vertex_offset[0] + v_offset[0]];
+        const float prob2 = cube_segm_prob[vertex_offset[2] + v_offset[2]][vertex_offset[1] + v_offset[1]]
+                                  [vertex_offset[0] + v_offset[0]];
         vertices[cube_idx * 3 + j] = (v1 + (-t1) / (t2 - t1) * v_offset.cast<float>()) * voxel_size;
+
+        // TODO(roger): is there a better way to compute vertex probabilities?
+        vertices_prob_arr[cube_idx * 3 + j] = (prob1 + prob2) / 2;
         // not actually filling the array. This is placed here
         // as a speed up to initialize everything as zeros.
         vertex_mask[cube_idx * 3 + j] = 0;
@@ -715,7 +731,8 @@ __global__ static void transform_triangle_id_kernel(int* triangle_ids, const int
 }
 
 void TSDFGrid::GatherValidMesh(std::vector<Eigen::Vector3f>* vertex_buffer,
-                               std::vector<Eigen::Vector3i>* index_buffer) {
+                               std::vector<Eigen::Vector3i>* index_buffer,
+                               std::vector<float>* vertex_prob_buffer) {
   constexpr int GATHER_BLOCK_DIM = NUM_ENTRY / BLOCK_VOLUME;
 
   // write binary valid mask to visible_mask_
@@ -735,6 +752,9 @@ void TSDFGrid::GatherValidMesh(std::vector<Eigen::Vector3f>* vertex_buffer,
   Eigen::Vector3i* triangle_ids;
   Eigen::Vector3i* valid_triangle_ids;
 
+  float* vertices_prob_arr;
+  float* valid_vertices_prob_arr;
+
   // boolean arrays indicating whether a particular vertex or triangle is valid
   int* vertex_mask;
   int* triangle_mask;
@@ -744,6 +764,7 @@ void TSDFGrid::GatherValidMesh(std::vector<Eigen::Vector3f>* vertex_buffer,
   int* triangle_valid_map;
 
   CUDA_SAFE_CALL(cudaMalloc(&vertices, sizeof(Eigen::Vector3f) * num_vertices));
+  CUDA_SAFE_CALL(cudaMalloc(&vertices_prob_arr, sizeof(float) * num_vertices));
   CUDA_SAFE_CALL(cudaMalloc(&vertex_mask, sizeof(int) * num_vertices));
   CUDA_SAFE_CALL(cudaMalloc(&vertex_valid_map, sizeof(int) * num_vertices));
   CUDA_SAFE_CALL(cudaMalloc(&triangle_ids, sizeof(Eigen::Vector3i) * num_triangles));
@@ -752,7 +773,8 @@ void TSDFGrid::GatherValidMesh(std::vector<Eigen::Vector3f>* vertex_buffer,
 
   constexpr dim3 DOWNLOAD_THREAD_DIM(BLOCK_LEN, BLOCK_LEN, BLOCK_LEN);
   marching_cube_kernel<<<num_visible_blocks, DOWNLOAD_THREAD_DIM, 0, stream_>>>(
-      hash_table_, visible_blocks_, voxel_size_, vertices, triangle_ids, vertex_mask,
+      hash_table_, visible_blocks_, voxel_size_, vertices, vertices_prob_arr,
+      triangle_ids, vertex_mask,
       triangle_mask);
 
   prefix_sum<int>(triangle_mask, triangle_valid_map, nullptr, num_triangles, stream_);
@@ -770,6 +792,7 @@ void TSDFGrid::GatherValidMesh(std::vector<Eigen::Vector3f>* vertex_buffer,
 
   CUDA_SAFE_CALL(cudaMalloc(&valid_triangle_ids, sizeof(Eigen::Vector3i) * num_valid_triangles));
   CUDA_SAFE_CALL(cudaMalloc(&valid_vertices, sizeof(Eigen::Vector3f) * num_valid_vertices));
+  CUDA_SAFE_CALL(cudaMalloc(&valid_vertices_prob_arr, sizeof(float) * num_valid_vertices));
 
   // Compactify sparse triangles to contiguous triangles
   compactify_kernel<<<ceil((float)num_triangles / 512), 512, 0, stream_>>>(
@@ -783,10 +806,15 @@ void TSDFGrid::GatherValidMesh(std::vector<Eigen::Vector3f>* vertex_buffer,
   // Compactify sparse vertices to contiguous representation
   compactify_kernel<<<ceil((float)num_vertices / 512), 512, 0, stream2_>>>(
       valid_vertices, vertices, vertex_mask, vertex_valid_map, num_vertices);
+  
+  compactify_kernel<<<ceil((float)num_vertices / 512), 512, 0, stream2_>>>(
+      valid_vertices_prob_arr, vertices_prob_arr, vertex_mask, vertex_valid_map, num_vertices);
 
   vertex_buffer->reserve(num_valid_vertices);
+  vertex_prob_buffer->reserve(num_valid_vertices);
   index_buffer->reserve(num_valid_triangles);
   vertex_buffer->resize(num_valid_vertices);
+  vertex_prob_buffer->resize(num_valid_vertices);
   index_buffer->resize(num_valid_triangles);
 
   CUDA_SAFE_CALL(cudaMemcpyAsync(index_buffer->data(), valid_triangle_ids,
@@ -795,14 +823,20 @@ void TSDFGrid::GatherValidMesh(std::vector<Eigen::Vector3f>* vertex_buffer,
   CUDA_SAFE_CALL(cudaMemcpyAsync(vertex_buffer->data(), valid_vertices,
                                  sizeof(Eigen::Vector3f) * num_valid_vertices,
                                  cudaMemcpyDeviceToHost, stream2_));
+  CUDA_SAFE_CALL(cudaMemcpyAsync(vertex_prob_buffer->data(), valid_vertices_prob_arr,
+                                 sizeof(float) * num_valid_vertices,
+                                 cudaMemcpyDeviceToHost, stream2_));
 
   CUDA_SAFE_CALL(cudaStreamSynchronize(stream_));
   CUDA_SAFE_CALL(cudaStreamSynchronize(stream2_));
 
   CUDA_SAFE_CALL(cudaFree(vertices));
+  CUDA_SAFE_CALL(cudaFree(vertices_prob_arr));
   CUDA_SAFE_CALL(cudaFree(triangle_ids));
   CUDA_SAFE_CALL(cudaFree(vertex_mask));
   CUDA_SAFE_CALL(cudaFree(vertex_valid_map));
+  CUDA_SAFE_CALL(cudaFree(valid_vertices));
+  CUDA_SAFE_CALL(cudaFree(valid_vertices_prob_arr));
   CUDA_SAFE_CALL(cudaFree(valid_triangle_ids));
   CUDA_SAFE_CALL(cudaFree(triangle_valid_map));
   CUDA_SAFE_CALL(cudaFree(triangle_mask));

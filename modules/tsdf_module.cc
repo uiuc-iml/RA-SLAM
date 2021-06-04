@@ -63,20 +63,24 @@ void TSDFSystem::DownloadAll(const std::string& file_path) {
   fout.close();
 }
 
-void TSDFSystem::DownloadAllMesh(const std::string& vertices_path, const std::string& indices_path) {
+void TSDFSystem::DownloadAllMesh(const std::string& vertices_path, const std::string& indices_path, const std::string& prob_path) {
   std::lock_guard<std::mutex> lock(mtx_read_);
   std::vector<Eigen::Vector3f> vertex_buffer;
   std::vector<Eigen::Vector3i> index_buffer;
-  tsdf_.GatherValidMesh(&vertex_buffer, &index_buffer);
+  std::vector<float> vertex_prob_buffer;
+  tsdf_.GatherValidMesh(&vertex_buffer, &index_buffer, &vertex_prob_buffer);
   spdlog::debug("Dumped triangle vertices count: {}", vertex_buffer.size());
   spdlog::debug("Dumped indices count: {}", index_buffer.size());
   std::ofstream vout(vertices_path, std::ios::out | std::ios::binary);
+  std::ofstream pout(prob_path, std::ios::out | std::ios::binary);
   std::ofstream iout(indices_path, std::ios::out | std::ios::binary);
 
   vout.write((char*)vertex_buffer.data(), vertex_buffer.size() * sizeof(Eigen::Vector3f));
+  pout.write((char*)vertex_prob_buffer.data(), vertex_prob_buffer.size() * sizeof(float));
   iout.write((char*)index_buffer.data(), index_buffer.size() * sizeof(Eigen::Vector3i));
 
   vout.close();
+  pout.close();
   iout.close();
 }
 

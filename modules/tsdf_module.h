@@ -115,7 +115,7 @@ class TSDFSystem {
    *                      triangle mesh. The indices are ordered counter-clockwise can therefore
    *                      can be directly used to compute normal vector).
    */
-  void DownloadAllMesh(const std::string& vertices_path, const std::string& indices_path);
+  void DownloadAllMesh(const std::string& vertices_path, const std::string& indices_path, const std::string& prob_path);
 
   /**
    * @brief test if current TSDF instance has finished
