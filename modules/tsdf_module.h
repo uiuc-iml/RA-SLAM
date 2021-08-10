@@ -106,7 +106,7 @@ class TSDFSystem {
 
   /**
    * @brief download the entire reconstructed scene in triangular mesh
-   * 
+   *
    * @TODO(roger): right now, the mesh does not contain semantic probability
    *
    * @param vertices_path file path for the vertices file (x/y/z coordinate of vertices)
@@ -115,7 +115,8 @@ class TSDFSystem {
    *                      triangle mesh. The indices are ordered counter-clockwise can therefore
    *                      can be directly used to compute normal vector).
    */
-  void DownloadAllMesh(const std::string& vertices_path, const std::string& indices_path, const std::string& prob_path);
+  void DownloadAllMesh(const std::string& vertices_path, const std::string& indices_path,
+                       const std::string& prob_path);
 
   /**
    * @brief test if current TSDF instance has finished

@@ -220,14 +220,15 @@ void rosbag_reader::process_stereodata(const rosbag::Bag& my_bag_) {
   for (size_t i = 0; i < valid_stereo_cnt_; ++i) {
     spdlog::info("Feeding image {}/{}", i, valid_stereo_cnt_);
     int64_t cur_timestamp = std::min(left_ts_vec_[i], right_ts_vec_[i]);
-    unsigned int frame_id = my_slam_sys->FeedStereoImages(left_img_vec_[i], right_img_vec_[i], cur_timestamp / 1e9);
+    unsigned int frame_id =
+        my_slam_sys->FeedStereoImages(left_img_vec_[i], right_img_vec_[i], cur_timestamp / 1e9);
     frame_idx_list.push_back(frame_id);
   }
 
   /* Extract computed/loop-closed poses from SLAM module */
   std::vector<Eigen::Matrix4d> extracted_poses = my_slam_sys->get_saved_trajectory(frame_idx_list);
   my_slam_sys->SaveMatchedTrajectory("/tmp/icu_trajectory.txt", frame_idx_list);
-  assert (extracted_poses.size() == (size_t)valid_stereo_cnt_);
+  assert(extracted_poses.size() == (size_t)valid_stereo_cnt_);
 
   /* Register SLAM poses */
   for (size_t i = 0; i < valid_stereo_cnt_; ++i) {

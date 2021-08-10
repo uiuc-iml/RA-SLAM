@@ -178,11 +178,11 @@ __global__ static void tsdf_integrate_kernel(
   }
   // voxel position w.r.t. its block (which contains 8 * 8 * 8 voxels)
   const Eigen::Matrix<short, 3, 1> pos_grid_rel(threadIdx.x, threadIdx.y, threadIdx.z);
-  
+
   // voxel position in discrete world coordinate
   const Eigen::Matrix<short, 3, 1> pos_grid_abs =
       BlockToPoint(blocks[blockIdx.x].position) + pos_grid_rel;
-  
+
   // voxel position in continuous world coordinate (in meter)
   const Eigen::Vector3f pos_world = pos_grid_abs.cast<float>() * voxel_size;
 
@@ -212,7 +212,7 @@ __global__ static void tsdf_integrate_kernel(
       return;
     }
 
-    // multiple voxels -> same 
+    // multiple voxels -> same
     const float sdf = img_depth_to_range[img_idx] * (depth - pos_img_h[2]);
     if (sdf > -truncation) {
       const float tsdf = fminf(1, sdf / truncation);
@@ -357,7 +357,7 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
       return;
     }
     tsdf_prev = tsdf_curr;
-    
+
     if (tsdf_curr < 0.5) {
       // if we get close enough to a surface, use smaller step size for finer estimation
       ray_step_grid = (ray_dir_world * step_size / voxel_size) / 10;
@@ -379,7 +379,9 @@ TSDFGrid::TSDFGrid(float voxel_size, float truncation)
   CUDA_SAFE_CALL(cudaMalloc(&visible_mask_, sizeof(int) * NUM_ENTRY));
   CUDA_SAFE_CALL(cudaMalloc(&visible_indics_, sizeof(int) * NUM_ENTRY));
   CUDA_SAFE_CALL(cudaMalloc(&visible_indics_aux_, sizeof(int) * NUM_ENTRY / (2 * SCAN_BLOCK_SIZE)));
-  CUDA_SAFE_CALL(cudaMalloc(&visible_blocks_, sizeof(VoxelBlock) * NUM_ENTRY)); // TODO(roger): change to NUM_BLOCKS and test
+  CUDA_SAFE_CALL(
+      cudaMalloc(&visible_blocks_,
+                 sizeof(VoxelBlock) * NUM_ENTRY));  // TODO(roger): change to NUM_BLOCKS and test
   CUDA_SAFE_CALL(cudaMalloc(&img_rgb_, sizeof(uint3) * MAX_IMG_SIZE));
   CUDA_SAFE_CALL(cudaMalloc(&img_depth_, sizeof(float) * MAX_IMG_SIZE));
   CUDA_SAFE_CALL(cudaMalloc(&img_ht_, sizeof(float) * MAX_IMG_SIZE));
@@ -558,8 +560,7 @@ std::vector<VoxelSpatialTSDF> TSDFGrid::GatherVoxels(const BoundingCube<float>& 
 
 __global__ static void marching_cube_kernel(const VoxelHashTable hash_table,
                                             const VoxelBlock* blocks, const float voxel_size,
-                                            Eigen::Vector3f* vertices,
-                                            float* vertices_prob_arr,
+                                            Eigen::Vector3f* vertices, float* vertices_prob_arr,
                                             Eigen::Vector3i* triangle_ids, int* vertex_mask,
                                             int* triangle_mask) {
   __shared__ float cube_tsdf[BLOCK_LEN * 2][BLOCK_LEN * 2][BLOCK_LEN * 2];
@@ -605,18 +606,18 @@ __global__ static void marching_cube_kernel(const VoxelHashTable hash_table,
             cube_tsdf[i * BLOCK_LEN + threadIdx.z][j * BLOCK_LEN + threadIdx.y]
                      [k * BLOCK_LEN + threadIdx.x] = tsdf.tsdf;
             cube_segm_prob[i * BLOCK_LEN + threadIdx.z][j * BLOCK_LEN + threadIdx.y]
-                     [k * BLOCK_LEN + threadIdx.x] = segm_prob;
+                          [k * BLOCK_LEN + threadIdx.x] = segm_prob;
           } else {
             cube_tsdf[i * BLOCK_LEN + threadIdx.z][j * BLOCK_LEN + threadIdx.y]
                      [k * BLOCK_LEN + threadIdx.x] = -10;
             cube_segm_prob[i * BLOCK_LEN + threadIdx.z][j * BLOCK_LEN + threadIdx.y]
-                     [k * BLOCK_LEN + threadIdx.x] = 0;
+                          [k * BLOCK_LEN + threadIdx.x] = 0;
           }
         } else {
           cube_tsdf[i * BLOCK_LEN + threadIdx.z][j * BLOCK_LEN + threadIdx.y]
                    [k * BLOCK_LEN + threadIdx.x] = -10;
           cube_segm_prob[i * BLOCK_LEN + threadIdx.z][j * BLOCK_LEN + threadIdx.y]
-                   [k * BLOCK_LEN + threadIdx.x] = 0;
+                        [k * BLOCK_LEN + threadIdx.x] = 0;
         }
       }
     }
@@ -655,8 +656,9 @@ __global__ static void marching_cube_kernel(const VoxelHashTable hash_table,
         const Eigen::Map<Eigen::Vector3i> v_offset(offset_table[v2_idx]);
         const float t2 = cube_tsdf[vertex_offset[2] + v_offset[2]][vertex_offset[1] + v_offset[1]]
                                   [vertex_offset[0] + v_offset[0]];
-        const float prob2 = cube_segm_prob[vertex_offset[2] + v_offset[2]][vertex_offset[1] + v_offset[1]]
-                                  [vertex_offset[0] + v_offset[0]];
+        const float prob2 =
+            cube_segm_prob[vertex_offset[2] + v_offset[2]][vertex_offset[1] + v_offset[1]]
+                          [vertex_offset[0] + v_offset[0]];
         vertices[cube_idx * 3 + j] = (v1 + (-t1) / (t2 - t1) * v_offset.cast<float>()) * voxel_size;
 
         // TODO(roger): is there a better way to compute vertex probabilities?
@@ -696,9 +698,10 @@ __global__ static void marching_cube_kernel(const VoxelHashTable hash_table,
         // every voxel is in charge of positive x/y/z directions only
         const int lower_vertex_idx = edge_vertex_map[tri_table[cubeindex][i * 3 + j]][0];
         const int v_dim_offset = edge_vertex_map[tri_table[cubeindex][i * 3 + j]][1];
-        const int cube_offset_idx = (offset_table[lower_vertex_idx][2] + threadIdx.z) * BLOCK_VERT_AREA +
-                                    (offset_table[lower_vertex_idx][1] + threadIdx.y) * BLOCK_VERT_LEN +
-                                    (offset_table[lower_vertex_idx][0] + threadIdx.x);
+        const int cube_offset_idx =
+            (offset_table[lower_vertex_idx][2] + threadIdx.z) * BLOCK_VERT_AREA +
+            (offset_table[lower_vertex_idx][1] + threadIdx.y) * BLOCK_VERT_LEN +
+            (offset_table[lower_vertex_idx][0] + threadIdx.x);
         const int cube_idx = blockIdx.x * BLOCK_VERT_VOLUME + cube_offset_idx;
 
         triangle_ids[triangle_idx][j] = cube_idx * 3 + v_dim_offset;
@@ -741,7 +744,7 @@ void TSDFGrid::GatherValidMesh(std::vector<Eigen::Vector3f>* vertex_buffer,
 
   // convert to contiguous block array
   const int num_visible_blocks = GatherBlock();
-  
+
   // maximum possible number of vertices
   const int num_vertices = num_visible_blocks * BLOCK_VERT_VOLUME * 3;
   const int num_triangles = num_visible_blocks * BLOCK_VOLUME * MAX_TRIANGLES_PER_CUBE;
@@ -773,9 +776,8 @@ void TSDFGrid::GatherValidMesh(std::vector<Eigen::Vector3f>* vertex_buffer,
 
   constexpr dim3 DOWNLOAD_THREAD_DIM(BLOCK_LEN, BLOCK_LEN, BLOCK_LEN);
   marching_cube_kernel<<<num_visible_blocks, DOWNLOAD_THREAD_DIM, 0, stream_>>>(
-      hash_table_, visible_blocks_, voxel_size_, vertices, vertices_prob_arr,
-      triangle_ids, vertex_mask,
-      triangle_mask);
+      hash_table_, visible_blocks_, voxel_size_, vertices, vertices_prob_arr, triangle_ids,
+      vertex_mask, triangle_mask);
 
   prefix_sum<int>(triangle_mask, triangle_valid_map, nullptr, num_triangles, stream_);
   CUDA_SAFE_CALL(cudaMemcpyAsync(&num_valid_triangles, triangle_valid_map + num_triangles - 1,
@@ -806,7 +808,7 @@ void TSDFGrid::GatherValidMesh(std::vector<Eigen::Vector3f>* vertex_buffer,
   // Compactify sparse vertices to contiguous representation
   compactify_kernel<<<ceil((float)num_vertices / 512), 512, 0, stream2_>>>(
       valid_vertices, vertices, vertex_mask, vertex_valid_map, num_vertices);
-  
+
   compactify_kernel<<<ceil((float)num_vertices / 512), 512, 0, stream2_>>>(
       valid_vertices_prob_arr, vertices_prob_arr, vertex_mask, vertex_valid_map, num_vertices);
 
@@ -824,8 +826,8 @@ void TSDFGrid::GatherValidMesh(std::vector<Eigen::Vector3f>* vertex_buffer,
                                  sizeof(Eigen::Vector3f) * num_valid_vertices,
                                  cudaMemcpyDeviceToHost, stream2_));
   CUDA_SAFE_CALL(cudaMemcpyAsync(vertex_prob_buffer->data(), valid_vertices_prob_arr,
-                                 sizeof(float) * num_valid_vertices,
-                                 cudaMemcpyDeviceToHost, stream2_));
+                                 sizeof(float) * num_valid_vertices, cudaMemcpyDeviceToHost,
+                                 stream2_));
 
   CUDA_SAFE_CALL(cudaStreamSynchronize(stream_));
   CUDA_SAFE_CALL(cudaStreamSynchronize(stream2_));

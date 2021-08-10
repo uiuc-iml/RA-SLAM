@@ -5,8 +5,6 @@
 #include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
 
-#include <Eigen/Dense>
-
 #include "utils/cuda/camera.cuh"
 #include "utils/cuda/lie_group.cuh"
 #include "utils/gl/image.h"
@@ -128,7 +126,7 @@ class TSDFGrid {
   const float truncation_;
 
   // visibility buffer
-  // visibility: 
+  // visibility:
   VoxelBlock* visible_blocks_;
 
   // visible_mask_ is initialized to have NUM_BLOCKS of elements

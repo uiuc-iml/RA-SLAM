@@ -151,8 +151,7 @@ class VoxelHashTable {
    */
   __device__ const VoxelBlock& GetBlock(const int idx) const;
 
-  __device__ void GetBlock(const Eigen::Matrix<short, 3, 1>& block_pos,
-                           VoxelBlock* block) const;
+  __device__ void GetBlock(const Eigen::Matrix<short, 3, 1>& block_pos, VoxelBlock* block) const;
   /**
    * @return number of active voxel blocks
    */

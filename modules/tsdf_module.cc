@@ -63,7 +63,8 @@ void TSDFSystem::DownloadAll(const std::string& file_path) {
   fout.close();
 }
 
-void TSDFSystem::DownloadAllMesh(const std::string& vertices_path, const std::string& indices_path, const std::string& prob_path) {
+void TSDFSystem::DownloadAllMesh(const std::string& vertices_path, const std::string& indices_path,
+                                 const std::string& prob_path) {
   std::lock_guard<std::mutex> lock(mtx_read_);
   std::vector<Eigen::Vector3f> vertex_buffer;
   std::vector<Eigen::Vector3i> index_buffer;

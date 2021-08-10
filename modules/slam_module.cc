@@ -65,7 +65,8 @@ void SLAMSystem::SaveMatchedTrajectory(const std::string& path,
   resume_other_threads();
 }
 
-std::vector<Eigen::Matrix4d> SLAMSystem::get_saved_trajectory(const std::vector<unsigned int>& frame_ids) {
+std::vector<Eigen::Matrix4d> SLAMSystem::get_saved_trajectory(
+    const std::vector<unsigned int>& frame_ids) {
   pause_other_threads();
 
   const std::unordered_set<unsigned int> frame_ids_set(frame_ids.begin(), frame_ids.end());
