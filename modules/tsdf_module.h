@@ -1,6 +1,7 @@
 #pragma once
 
 #include <condition_variable>
+#include <fstream>
 #include <memory>
 #include <mutex>
 #include <queue>
