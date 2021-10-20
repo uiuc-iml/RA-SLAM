@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.18)
 
-project(disinfslam LANGUAGES CXX C CUDA)
+project(semantic_reconstruction LANGUAGES CXX C CUDA)
 set(CMAKE_CUDA_STANDARD 14)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -expt-relaxed-constexpr")
 set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -G")
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
-set(CMAKE_CUDA_ARCHITECTURES 61 72 75 80 86)
+set(CMAKE_CUDA_ARCHITECTURES 75)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -34,7 +34,7 @@ find_package(glfw3 REQUIRED)
 find_package(GLUT REQUIRED)
 find_package(OpenGL REQUIRED)
 # Slam
-find_package(Eigen3 3.3.7 REQUIRED)
+find_package(Eigen3 3.4.0 EXACT)
 find_package(openvslam REQUIRED)
 find_package(Pangolin REQUIRED) # TODO(alvin): to be completely replaced by Dear ImGUI
 find_package(OpenCV REQUIRED)
@@ -64,6 +64,8 @@ if(NOT catkin_FOUND)
     include_directories(${OpenCV_INCLUDE_DIRS})
     include_directories(${CMAKE_SOURCE_DIR})
 else()
+    catkin_package()
+
     include_directories(${OpenCV_INCLUDE_DIRS})
     include_directories(${PROJECT_SOURCE_DIR})
     include_directories(${catkin_INCLUDE_DIRS})
