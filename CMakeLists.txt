@@ -20,17 +20,19 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Attempt to find catkin
 find_package(catkin QUIET COMPONENTS
+    cv_bridge
     geometry_msgs
+    image_transport
     nodelet
+    rosbag
     roscpp
     rospy
-    rosbag
+    rviz_visual_tools
     sensor_msgs
+    shape_msgs
     std_msgs
     tf2_geometry_msgs
     tf2_ros
-    cv_bridge
-    shape_msgs
 )
 
 # OpenGL
