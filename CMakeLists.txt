@@ -8,6 +8,12 @@ set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -G")
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 set(CMAKE_CUDA_ARCHITECTURES 75)
 
+SET(TOOLS_ROOT /home/yu/tools CACHE PATH "Tools root directory")
+SET(KLAMPT_ROOT ${TOOLS_ROOT}/Klampt CACHE PATH "Klampt root directory")
+list(APPEND CMAKE_MODULE_PATH "${KLAMPT_ROOT}/CMakeModules")
+FIND_PACKAGE(Klampt REQUIRED)
+ADD_DEFINITIONS(${KLAMPT_DEFINITIONS})
+
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -65,11 +71,13 @@ if(NOT catkin_FOUND)
     include_directories(${CMAKE_SOURCE_DIR})
 else()
     catkin_package()
-
-    include_directories(${OpenCV_INCLUDE_DIRS})
-    include_directories(${PROJECT_SOURCE_DIR})
-    include_directories(${catkin_INCLUDE_DIRS})
-    include_directories(${GLUT_INCLUDE_DIRS})
+    include_directories(
+        ${OpenCV_INCLUDE_DIRS}
+        ${PROJECT_SOURCE_DIR}
+        ${catkin_INCLUDE_DIRS}
+        ${GLUT_INCLUDE_DIRS}
+        ${KLAMPT_INCLUDE_DIRS}
+    )
 endif()
 
 # Interface wrapper lib for OpenVSLAM
