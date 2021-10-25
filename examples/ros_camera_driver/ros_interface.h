@@ -1,0 +1,4 @@
+class RosInterface {
+ public:
+  RosInterface();
+};

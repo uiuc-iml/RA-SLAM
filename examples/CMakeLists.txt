@@ -1,6 +1,7 @@
-add_subdirectory(simple_renderer)
+# add_subdirectory(simple_renderer)
 add_subdirectory(tsdf)
 add_subdirectory(visual_slam)
+add_subdirectory(ros_camera_driver)
 if (TORCH_FOUND)
     add_subdirectory(scannet_evaluation)
     add_subdirectory(segmentation_inference)
