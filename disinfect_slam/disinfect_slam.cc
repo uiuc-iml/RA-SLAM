@@ -9,7 +9,6 @@ DISINFSystem::DISINFSystem(std::string camera_config_path, std::string vocab_pat
   tsdf_height_ = yaml_node["tsdf.height"].as<int>();
   std::shared_ptr<openvslam::config> cfg = GetAndSetConfig(camera_config_path);
   SLAM_ = std::make_shared<SLAMSystem>(cfg, vocab_path);
-  SEG_ = std::make_shared<inference_engine>(seg_model_path, tsdf_width_, tsdf_height_);
   TSDF_ = std::make_shared<TSDFSystem>(0.01, 0.06, 4, GetIntrinsicsFromFile(camera_config_path),
                                        GetExtrinsicsFromFile(camera_config_path));
 
@@ -38,8 +37,7 @@ void DISINFSystem::feed_rgbd_frame(const cv::Mat& img_rgb, const cv::Mat& img_de
   cv::resize(img_depth, my_img_depth, cv::Size(tsdf_width_, tsdf_height_));
   my_img_depth.convertTo(my_img_depth, CV_32FC1,
                          1. / depthmap_factor_);  // depth scale
-  std::vector<cv::Mat> prob_map = SEG_->infer_one(my_img_rgb, false);
-  TSDF_->Integrate(posecam_P_world, my_img_rgb, my_img_depth, prob_map[0], prob_map[1]);
+  TSDF_->Integrate(posecam_P_world, my_img_rgb, my_img_depth);
 }
 
 void DISINFSystem::feed_stereo_frame(const cv::Mat& img_left, const cv::Mat& img_right,

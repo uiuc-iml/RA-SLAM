@@ -17,7 +17,6 @@
 #include "modules/renderer_module.h"
 #include "modules/slam_module.h"
 #include "modules/tsdf_module.h"
-#include "segmentation/inference.h"
 #include "utils/config_reader.hpp"
 #include "utils/cuda/errors.cuh"
 #include "utils/gl/renderer_base.h"
@@ -43,7 +42,6 @@ class DISINFSystem {
 
  private:
   std::shared_ptr<SLAMSystem> SLAM_;
-  std::shared_ptr<inference_engine> SEG_;
   std::shared_ptr<TSDFSystem> TSDF_;
   std::shared_ptr<ImageRenderer> RENDERER_;
 
