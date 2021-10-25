@@ -125,8 +125,7 @@ void RosInterface::tsdfCb(std::vector<VoxelSpatialTSDF> & SemanticReconstr)
         // std::cout<<mesh.tris[i].a<<std::endl;
     }
     meshPub.publish(mMeshMsg);
-    // TODO Not working
-    // visual_tools_->publishMesh(T_ws, *mMeshMsg, rviz_visual_tools::ORANGE, 1, "mesh", 1); // rviz_visual_tools::TRANSLUCENT_LIGHT
+    visual_tools_->publishMesh(T_ws, *mMeshMsg, rviz_visual_tools::ORANGE, 1, "mesh", 1); // rviz_visual_tools::TRANSLUCENT_LIGHT
     // Don't forget to trigger the publisher!
     visual_tools_->trigger();
 }
@@ -162,9 +161,9 @@ void RosInterface::run() {
     ros::Time ros_stamp;
     while (ros::ok()) {
       const int64_t timestamp = l515->GetRGBDFrame(&img_rgb, &img_depth);
-        mask_lock.lock();
-        l515MaskL = l515Mask.clone();
-        mask_lock.unlock();
+      mask_lock.lock();
+      l515MaskL = l515Mask.clone();
+      mask_lock.unlock();
       my_sys->feed_rgbd_frame(img_rgb, img_depth, timestamp);
       // my_sys->feed_rgbd_frame(img_rgb, img_depth, timestamp,l515MaskL);
       ros_stamp.sec = timestamp / 1000;
@@ -197,8 +196,8 @@ void RosInterface::run() {
           float x_off   = transformStamped.transform.translation.x,
                 y_off   = transformStamped.transform.translation.y,
                 z_off   = transformStamped.transform.translation.z;
-          std::cout << "x_off: " << x_off << "  y_off: " << y_off << "  z_off: " << z_off
-                    << std::endl;
+          // std::cout << "x_off: " << x_off << "  y_off: " << y_off << "  z_off: " << z_off
+          //           << std::endl;
           volumn = {x_off + x_range[0],
                       x_off + x_range[1],
                       y_off + y_range[0],
@@ -212,8 +211,8 @@ void RosInterface::run() {
       const auto end                   = (int64_t)(GetSystemTimestamp<std::chrono::milliseconds>());
       last_query_time                  = end - st;
       last_query_amount                = mSemanticReconstr.size();
-      std::cout << "Last queried %lu voxels " << last_query_amount << ", took " << last_query_time
-                  << " ms" << std::endl;
+      // std::cout << "Last queried %lu voxels " << last_query_amount << ", took " << last_query_time
+      //             << " ms" << std::endl;
       tsdfCb(mSemanticReconstr);
       ros::spinOnce();
       rate.sleep();
@@ -231,9 +230,9 @@ void RosInterface::run() {
 
       Eigen::Quaternion<float> R = mSlamPose.GetR();
       Eigen::Matrix<float, 3, 1> T = mSlamPose.GetT();
-      // std::cout<<"Queried pose at "<<t_query<<std::endl;
-      // std::cout<<"Rotation: "<<R.x()<<", "<< R.y()<<", "<< R.z()<<", "<<R.w()<<", "<<std::endl;
-      // std::cout<<"Translation: "<<T.x()<<", "<< T.y()<<", "<< T.z()<<", "<<std::endl;
+      std::cout<<"Queried pose at "<<t_query<<std::endl;
+      std::cout<<"Rotation: "<<R.x()<<", "<< R.y()<<", "<< R.z()<<", "<<R.w()<<", "<<std::endl;
+      std::cout<<"Translation: "<<T.x()<<", "<< T.y()<<", "<< T.z()<<", "<<std::endl;
 
       tf2::Transform tf2_trans;
       tf2::Transform tf2_trans_inv;
