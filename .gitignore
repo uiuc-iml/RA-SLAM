@@ -43,3 +43,6 @@ compile_commands.json
 
 # python cache
 __pycache__/
+
+# VSCode
+.vscode/
