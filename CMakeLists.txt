@@ -8,8 +8,7 @@ set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -G")
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 set(CMAKE_CUDA_ARCHITECTURES 75)
 
-SET(TOOLS_ROOT /home/yu/tools CACHE PATH "Tools root directory")
-SET(KLAMPT_ROOT ${TOOLS_ROOT}/Klampt CACHE PATH "Klampt root directory")
+SET(KLAMPT_ROOT /home/motion/Klampt CACHE PATH "Klampt root directory")
 list(APPEND CMAKE_MODULE_PATH "${KLAMPT_ROOT}/CMakeModules")
 FIND_PACKAGE(Klampt REQUIRED)
 ADD_DEFINITIONS(${KLAMPT_DEFINITIONS})
@@ -42,7 +41,7 @@ find_package(glfw3 REQUIRED)
 find_package(GLUT REQUIRED)
 find_package(OpenGL REQUIRED)
 # Slam
-find_package(Eigen3 3.4.0 EXACT)
+find_package(Eigen3 REQUIRED)
 find_package(openvslam REQUIRED)
 find_package(Pangolin REQUIRED) # TODO(alvin): to be completely replaced by Dear ImGUI
 find_package(OpenCV REQUIRED)
