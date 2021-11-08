@@ -126,7 +126,7 @@ class VoxelHashTable {
                                     VoxelBlock& cache) const {
     // try cache hit
     const Eigen::Matrix<short, 3, 1> block_pos = PointToBlock(point);
-    if (cache.position == block_pos) {
+    if (Equals(cache.position, point)) {
       if (cache.idx >= 0) {
         return &(mem.GetVoxel<Voxel>(point, cache));
       } else if (cache.offset < 0) {

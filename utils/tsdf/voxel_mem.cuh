@@ -21,6 +21,13 @@
 #define BLOCK_AREA (1 << BLOCK_AREA_BITS)       // square
 #define BLOCK_VOLUME (1 << BLOCK_VOLUME_BITS)   // cubic
 
+__device__ __host__ inline bool Equals(
+  const Eigen::Matrix<short, 3, 1>& a,
+  const Eigen::Matrix<short, 3, 1>& b
+) {
+  return a.x() == b.x() && a.y() == b.y() && a.z() == b.z();
+}
+
 /**
  * @brief convert voxel coordinate to block coordinate
  *
@@ -133,7 +140,7 @@ class VoxelMemPool {
   __device__ Voxel& GetVoxel(const Eigen::Matrix<short, 3, 1>& point,
                              const VoxelBlock& block) const {
     assert(block.idx >= 0 && block.idx < NUM_BLOCK);
-    assert(PointToBlock(point) == block.position);
+    assert(Equals(PointToBlock(point), block.position));
     const Eigen::Matrix<short, 3, 1> offset = PointToOffset(point);
     const unsigned short idx = OffsetToIndex(offset);
     return GetVoxel<Voxel>(idx, block);
