@@ -2,6 +2,8 @@
 
 #include <spdlog/spdlog.h>
 
+#include "utils/time.hpp"
+
 const int L515::FPS;
 const int L515::WIDTH;
 const int L515::HEIGHT;
@@ -43,7 +45,11 @@ int64_t L515::GetRGBDFrame(cv::Mat* color_img, cv::Mat* depth_img) const {
 
   // Timestamp of depth frame and color frame is not exactly the same
   // But depth frame is used in reconstruction. So we are returning this.
-  return (int64_t)(depth_frame.get_frame_metadata(RS2_FRAME_METADATA_BACKEND_TIMESTAMP));
+  // int64_t timestamp = (int64_t)(depth_frame.get_frame_metadata(RS2_FRAME_METADATA_BACKEND_TIMESTAMP));
+  // TODO MAJOR frame_metadata is 0 for some reason
+  int64_t timestamp = (int64_t) (GetSystemTimestamp<std::chrono::milliseconds>());
+  std::cout << "CAMERA:    " << timestamp << std::endl;
+  return timestamp;
 }
 
 void L515::SetDepthSensorOption(const rs2_option option, const float value) {
