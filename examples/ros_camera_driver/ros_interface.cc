@@ -160,6 +160,12 @@ void RosInterface::run() {
     cv::Mat img_rgb, img_depth, l515MaskL;
     ros::Time ros_stamp;
     while (ros::ok()) {
+      // Do not feed data if not tracking yet
+      // TODO Possibly should reset mesh when tracking is lost?
+      if (my_sys->query_camera_pose(GetSystemTimestamp<std::chrono::milliseconds>()) == SE3<float>::Identity()) {
+        continue;
+      }
+
       const int64_t timestamp = l515->GetRGBDFrame(&img_rgb, &img_depth);
       mask_lock.lock();
       l515MaskL = l515Mask.clone();
@@ -230,9 +236,9 @@ void RosInterface::run() {
 
       Eigen::Quaternion<float> R = mSlamPose.GetR();
       Eigen::Matrix<float, 3, 1> T = mSlamPose.GetT();
-      std::cout<<"Queried pose at "<<t_query<<std::endl;
-      std::cout<<"Rotation: "<<R.x()<<", "<< R.y()<<", "<< R.z()<<", "<<R.w()<<", "<<std::endl;
-      std::cout<<"Translation: "<<T.x()<<", "<< T.y()<<", "<< T.z()<<", "<<std::endl;
+      // std::cout<<"Queried pose at "<<t_query<<std::endl;
+      // std::cout<<"Rotation: "<<R.x()<<", "<< R.y()<<", "<< R.z()<<", "<<R.w()<<", "<<std::endl;
+      // std::cout<<"Translation: "<<T.x()<<", "<< T.y()<<", "<< T.z()<<", "<<std::endl;
 
       tf2::Transform tf2_trans;
       tf2::Transform tf2_trans_inv;
