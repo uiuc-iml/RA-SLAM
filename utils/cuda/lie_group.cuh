@@ -39,6 +39,10 @@ class SE3 {
     return SE3<T>(R_ * others.R_, R_ * others.t_ + t_);
   }
 
+  __device__ __host__ inline bool operator==(const SE3<T>& other) const {
+    return (R_.isApprox(other.R_)) && (t_.isApprox(other.t_));
+  }
+
  private:
   Eigen::Quaternion<T> R_;
   Eigen::Matrix<T, 3, 1> t_;
