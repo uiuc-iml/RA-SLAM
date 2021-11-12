@@ -1,5 +1,7 @@
 #include "ros_interface.h"
 
+#include <iomanip>
+
 RosInterface::RosInterface() {
   mNh.getParam("/ros_disinf_slam/model_path", model_path);
   mNh.getParam("/ros_disinf_slam/calib_path", calib_path); 
@@ -159,11 +161,17 @@ void RosInterface::run() {
     std::cout<<"Start TSDF thread!"<<std::endl;
     cv::Mat img_rgb, img_depth, l515MaskL;
     ros::Time ros_stamp;
+    static bool has_started = false;
     while (ros::ok()) {
       // Do not feed data if not tracking yet
       // TODO Possibly should reset mesh when tracking is lost?
       if (my_sys->query_camera_pose(GetSystemTimestamp<std::chrono::milliseconds>()) == SE3<float>::Identity()) {
         continue;
+      }
+      
+      if (!has_started) {
+        std::cout << "Starting to build TSDF!" << std::endl;
+        has_started = true;
       }
 
       const int64_t timestamp = l515->GetRGBDFrame(&img_rgb, &img_depth);
@@ -202,8 +210,7 @@ void RosInterface::run() {
           float x_off   = transformStamped.transform.translation.x,
                 y_off   = transformStamped.transform.translation.y,
                 z_off   = transformStamped.transform.translation.z;
-          // std::cout << "x_off: " << x_off << "  y_off: " << y_off << "  z_off: " << z_off
-          //           << std::endl;
+          // std::cout << std::setw(15) << "OFFSET: " << std::setprecision(3) << x_off << y_off << z_off << std::endl;
           volumn = {x_off + x_range[0],
                       x_off + x_range[1],
                       y_off + y_range[0],
@@ -237,8 +244,17 @@ void RosInterface::run() {
       Eigen::Quaternion<float> R = mSlamPose.GetR();
       Eigen::Matrix<float, 3, 1> T = mSlamPose.GetT();
       // std::cout<<"Queried pose at "<<t_query<<std::endl;
-      // std::cout<<"Rotation: "<<R.x()<<", "<< R.y()<<", "<< R.z()<<", "<<R.w()<<", "<<std::endl;
-      // std::cout<<"Translation: "<<T.x()<<", "<< T.y()<<", "<< T.z()<<", "<<std::endl;
+      // std::cout << std::setw(5) << "|T: "
+      //     << std::setprecision(3)
+      //     << std::setw(12) << T.x() << " "
+      //     << std::setw(12) << T.y() << " "
+      //     << std::setw(12) << T.z() << " ";
+      // std::cout << std::setw(5) << "|R: "
+      //     << std::setprecision(3)
+      //     << std::setw(12) << R.x() << " "
+      //     << std::setw(12) << R.y() << " "
+      //     << std::setw(12) << R.z() << " "
+      //     << std::setw(12) << R.w() << std::endl;
 
       tf2::Transform tf2_trans;
       tf2::Transform tf2_trans_inv;
