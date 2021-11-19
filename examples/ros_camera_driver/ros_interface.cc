@@ -145,8 +145,8 @@ void RosInterface::run() {
       zed_mask_lock.lock();
       zedLeftMaskL = zedLeftMask.clone();
       zed_mask_lock.unlock();
-      my_sys->feed_stereo_frame(img_left, img_right, timestamp);
-      // my_sys->feed_stereo_frame(img_left, img_right, timestamp, zedLeftMaskL);
+      // my_sys->feed_stereo_frame(img_left, img_right, timestamp);
+      my_sys->feed_stereo_frame(img_left, img_right, timestamp, zedLeftMaskL);
       ros_stamp.sec = timestamp / 1000;
       ros_stamp.nsec = (timestamp % 1000) * 1000 * 1000;
       if(mPubZEDImgL.getNumSubscribers()>0)
@@ -178,8 +178,8 @@ void RosInterface::run() {
       mask_lock.lock();
       l515MaskL = l515Mask.clone();
       mask_lock.unlock();
-      my_sys->feed_rgbd_frame(img_rgb, img_depth, timestamp);
-      // my_sys->feed_rgbd_frame(img_rgb, img_depth, timestamp,l515MaskL);
+      // my_sys->feed_rgbd_frame(img_rgb, img_depth, timestamp);
+      my_sys->feed_rgbd_frame(img_rgb, img_depth, timestamp,l515MaskL);
       ros_stamp.sec = timestamp / 1000;
       ros_stamp.nsec = (timestamp % 1000) * 1000 * 1000;
       if(mPubL515RGB.getNumSubscribers()>0)

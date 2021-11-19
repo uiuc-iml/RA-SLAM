@@ -32,7 +32,13 @@ class DISINFSystem {
 
   void feed_rgbd_frame(const cv::Mat& img_rgb, const cv::Mat& img_depth, int64_t timestamp);
 
+  void feed_rgbd_frame(const cv::Mat& img_rgb, const cv::Mat& img_depth,
+                                   int64_t timestamp, const cv::Mat& mask);
+
   void feed_stereo_frame(const cv::Mat& img_left, const cv::Mat& img_right, int64_t timestamp);
+
+  void feed_stereo_frame(const cv::Mat& img_left, const cv::Mat& img_right,
+                                     int64_t timestamp, const cv::Mat& mask);
 
   std::vector<VoxelSpatialTSDF> query_tsdf(const BoundingCube<float>& volumn);
 
