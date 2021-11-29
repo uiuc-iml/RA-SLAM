@@ -25,7 +25,12 @@
 
 class DISINFSystem {
  public:
-  DISINFSystem(std::string camera_config_path, std::string vocab_path, std::string seg_model_path,
+  DISINFSystem(std::string camera_config_path,
+               std::string vocab_path,
+               std::string seg_model_path,
+               float cell_size,                 // 0.05 (m)
+               float truncation_distance,       // 0.2  (m)
+               float max_depth,                 // 2    (m)
                bool rendering_flag);
 
   ~DISINFSystem();

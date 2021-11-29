@@ -38,7 +38,7 @@ RosInterface::RosInterface() {
   mZEDImgLBrg.reset(new cv_bridge::CvImage);
   mZEDImgRBrg.reset(new cv_bridge::CvImage);
 
-  my_sys   = std::make_shared<DISINFSystem>(calib_path, orb_vocab_path, model_path, renderFlag);
+  my_sys   = std::make_shared<DISINFSystem>(calib_path, orb_vocab_path, model_path, CELL_SIZE, 0.2, 4, renderFlag);
   visual_tools_.reset(new rviz_visual_tools::RvizVisualTools("world","/mesh_visual", mNh));
   visual_tools_->setPsychedelicMode(false);
   visual_tools_->loadMarkerPub();
@@ -85,6 +85,7 @@ void RosInterface::tsdfCb(std::vector<VoxelSpatialTSDF> & SemanticReconstr)
     // printf("   y range [%g,%g]\n",bbox.bmin.y,bbox.bmax.y);
     // printf("   z range [%g,%g]\n",bbox.bmin.z,bbox.bmax.z);
     float truncation_distance = TRUNCATION_DISTANCE;
+    // float truncation_distance = 2.0*0.99;
     if(TRUNCATION_DISTANCE < 0) {
         //auto-detect truncation distance
         truncation_distance = Max(-minValue,maxValue)*0.99;

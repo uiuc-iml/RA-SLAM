@@ -44,7 +44,7 @@
 #include "utils/config_reader.hpp"
 #include "utils/time.hpp"
 
-#define CELL_SIZE 0.01
+#define CELL_SIZE 0.05
 #define TRUNCATION_DISTANCE -0.1
 using namespace std;
 

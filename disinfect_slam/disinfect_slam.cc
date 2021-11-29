@@ -2,14 +2,19 @@
 
 #include "utils/time.hpp"
 
-DISINFSystem::DISINFSystem(std::string camera_config_path, std::string vocab_path,
-                           std::string seg_model_path, bool rendering_flag) {
+DISINFSystem::DISINFSystem(std::string camera_config_path,
+                           std::string vocab_path,
+                           std::string seg_model_path,
+                           float cell_size,
+                           float truncation_distance,
+                           float max_depth,
+                           bool rendering_flag) {
   YAML::Node yaml_node = YAML::LoadFile(camera_config_path);
   tsdf_width_ = yaml_node["tsdf.width"].as<int>();
   tsdf_height_ = yaml_node["tsdf.height"].as<int>();
   std::shared_ptr<openvslam::config> cfg = GetAndSetConfig(camera_config_path);
   SLAM_ = std::make_shared<SLAMSystem>(cfg, vocab_path);
-  TSDF_ = std::make_shared<TSDFSystem>(0.01, 0.06, 4, GetIntrinsicsFromFile(camera_config_path),
+  TSDF_ = std::make_shared<TSDFSystem>(cell_size, truncation_distance, max_depth, GetIntrinsicsFromFile(camera_config_path),
                                        GetExtrinsicsFromFile(camera_config_path));
 
   depthmap_factor_ = GetDepthFactorFromFile(camera_config_path);
