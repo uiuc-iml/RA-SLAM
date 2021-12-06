@@ -24,8 +24,8 @@ RosInterface::RosInterface() {
   l515.reset(new L515());
 
   image_transport::ImageTransport it(mNh);
-  maskLeft = it.subscribe("/maskLeft", 1, &RosInterface::zedMaskCb, this);
-  maskDepth = it.subscribe("/maskDepth", 1, &RosInterface::l515MaskCb, this);
+  maskLeft = it.subscribe("/robot_mask/zed_slam_left", 1, &RosInterface::zedMaskCb, this);
+  maskDepth = it.subscribe("/robot_mask/realsense_slam_l515", 1, &RosInterface::l515MaskCb, this);
   meshPub = mNh.advertise<shape_msgs::Mesh>("/mesh", 1);
   mPubL515RGB = mNh.advertise<sensor_msgs::Image>("/l515_rgb", 1);
   mPubL515Depth = mNh.advertise<sensor_msgs::Image>("/l515_depth", 1);
@@ -300,8 +300,8 @@ void RosInterface::zedMaskCb(const sensor_msgs::ImageConstPtr& msg)
   zed_mask_lock.unlock();
   // try
   // {
-  //   cv::imshow("zedMask", cv_bridge::toCvShare(msg, "bgr8")->image);
-  //   cv::waitKey(30);
+  //   cv::imshow("zedMask", zedLeftMask);
+  //   cv::waitKey(1);
   // }
   // catch (cv_bridge::Exception& e)
   // {
