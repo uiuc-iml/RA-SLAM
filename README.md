@@ -57,6 +57,10 @@ To run with ZED SDK (CUDA and ZED SDK is required)
 ## Running Reconstruction
 
 This section is still WIP
+```bash
+source devel/setup.bash
+roslaunch semantic_reconstruction disinfslam.launch
+```
 
 ## TODO
 
