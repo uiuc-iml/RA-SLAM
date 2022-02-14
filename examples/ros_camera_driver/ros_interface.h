@@ -43,6 +43,7 @@
 #include "disinfect_slam/disinfect_slam.h"
 #include "utils/config_reader.hpp"
 #include "utils/time.hpp"
+#include "semantic_reconstruction/Mesh.h"
 
 #define CELL_SIZE 0.05
 #define TRUNCATION_DISTANCE -0.1
@@ -59,6 +60,8 @@ public:
   void run();
   void zedMaskCb(const sensor_msgs::ImageConstPtr& msg);
   void l515MaskCb(const sensor_msgs::ImageConstPtr& msg);
+
+  bool meshServCb(semantic_reconstruction::Mesh::Request& request, semantic_reconstruction::Mesh::Response& response);
 
 private:
   ros::NodeHandle mNh;

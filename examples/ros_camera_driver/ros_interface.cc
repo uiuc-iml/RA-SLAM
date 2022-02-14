@@ -32,6 +32,8 @@ RosInterface::RosInterface() {
   mPubZEDImgL = mNh.advertise<sensor_msgs::Image>("/zed_left_rgb", 1);
   mPubZEDImgR = mNh.advertise<sensor_msgs::Image>("/zed_right_rgb", 1);
 
+  ros::ServiceServer meshServ = mNh.advertiseService("/meshserv", &RosInterface::meshServCb, this);
+
   // cv bridges
   mL515RGBBrg.reset(new cv_bridge::CvImage);
   mL515DepthBrg.reset(new cv_bridge::CvImage);
@@ -59,6 +61,10 @@ RosInterface::RosInterface() {
   }
 
   run();
+}
+
+bool RosInterface::meshServCb(semantic_reconstruction::Mesh::Request& request, semantic_reconstruction::Mesh::Response& response) {
+  return true;
 }
 
 void RosInterface::publishImage(cv_bridge::CvImagePtr & imgBrgPtr, const cv::Mat & img, ros::Publisher & pubImg, std::string imgFrameId, std::string dataType, ros::Time t){

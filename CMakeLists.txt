@@ -22,6 +22,7 @@ find_package(catkin QUIET COMPONENTS
     cv_bridge
     geometry_msgs
     image_transport
+    message_generation
     nodelet
     rosbag
     roscpp
@@ -71,6 +72,16 @@ if(NOT catkin_FOUND)
     include_directories(${OpenCV_INCLUDE_DIRS})
     include_directories(${CMAKE_SOURCE_DIR})
 else()
+    add_service_files(
+        FILES
+        Mesh.srv
+    )
+
+    generate_messages(
+        DEPENDENCIES
+        shape_msgs
+    )
+
     catkin_package()
     include_directories(
         ${OpenCV_INCLUDE_DIRS}

@@ -1,0 +1,6 @@
+# Request
+string value
+# TODO Should probably use time or something
+---
+# Response
+shape_msgs/Mesh value
