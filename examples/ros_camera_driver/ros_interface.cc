@@ -89,7 +89,7 @@ void RosInterface::tsdfCb(std::vector<VoxelSpatialTSDF> & SemanticReconstr)
     if(TRUNCATION_DISTANCE < 0) {
         //auto-detect truncation distance
         truncation_distance = Max(-minValue,maxValue)*0.99;
-        printf("Auto-detected truncation distance %g\n",truncation_distance);
+        // printf("Auto-detected truncation distance %g\n",truncation_distance);
     }
     // printf("Using cell size %g\n",CELL_SIZE);
     Geometry::SparseTSDFReconstruction tsdf(Math3D::Vector3(CELL_SIZE),truncation_distance);
@@ -107,7 +107,7 @@ void RosInterface::tsdfCb(std::vector<VoxelSpatialTSDF> & SemanticReconstr)
     int trisSize = mesh.tris.size();
     std::cout<<"trisSize: "<<trisSize<<std::endl;
     const auto end = (int64_t)(GetSystemTimestamp<std::chrono::milliseconds>());
-    std::cout<<"mesh processing time: "<<end-st<<" ms"<<std::endl;
+    // std::cout<<"mesh processing time: "<<end-st<<" ms"<<std::endl;
     shape_msgs::Mesh::Ptr mMeshMsg = boost::make_shared<shape_msgs::Mesh>();
     // geometry_msgs/Point[] 
     mMeshMsg->vertices.resize(vertsSize);
@@ -141,8 +141,8 @@ void RosInterface::run() {
     ros::Time ros_stamp;
     while (ros::ok()) {
       const int64_t timestamp = zed_native->GetStereoFrame(&img_left, &img_right);
-      // cv::imshow("zed_left", img_left);
-      // cv::waitKey(1);
+      cv::imshow("zed_left", img_left);
+      cv::waitKey(1);
       zed_mask_lock.lock();
       zedLeftMaskL = zedLeftMask.clone();
       zed_mask_lock.unlock();
