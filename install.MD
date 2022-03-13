@@ -1,0 +1,18 @@
+Configure OpenCV compilation
+
+```
+cmake \                            
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr/local \
+    -DENABLE_CXX11=ON \
+    -DBUILD_DOCS=OFF \
+    -DBUILD_EXAMPLES=OFF \
+    -DBUILD_JASPER=OFF \
+    -DBUILD_OPENEXR=OFF \
+    -DBUILD_PERF_TESTS=OFF \
+    -DBUILD_TESTS=OFF \
+    -DWITH_EIGEN=ON \
+    -DWITH_FFMPEG=ON \
+    -DWITH_OPENMP=OFF -DINSTALL_PYTHON_EXAMPLES=ON -DBUILD_OPENCV_PYTHON3=ON -DOPENCV_EXTRA_MODULES_PATH=/home/roger/dep/opencv_contrib-4.5.1/modules -DWITH_CUDA=ON -DENABLE_FAST_MATH=1 -DCUDA_FAST_MATH=1 -DWITH_CUBLAS=1 \
+    ..\
+```
