@@ -190,7 +190,8 @@ class ImageRenderer : public RendererBase {
     if (ImGui::Button("Save Mesh")) {
       std::vector<Eigen::Vector3f> vertex_buffer;
       std::vector<Eigen::Vector3i> index_buffer;
-      tsdf_.GatherValidMesh(&vertex_buffer, &index_buffer);
+      std::vector<float> vertex_prob_buffer;
+      tsdf_.GatherValidMesh(&vertex_buffer, &index_buffer, &vertex_prob_buffer);
       std::ofstream vout("/tmp/vertices.bin", std::ios::out | std::ios::binary);
       std::ofstream iout("/tmp/indices.bin", std::ios::out | std::ios::binary);
 

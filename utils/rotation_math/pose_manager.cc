@@ -4,7 +4,7 @@ pose_manager::pose_manager() {
   // nothing
 }
 
-void pose_manager::register_valid_pose(const int64_t timestamp, const SE3<float> &pose) {
+void pose_manager::register_valid_pose(const int64_t timestamp, const SE3<float>& pose) {
   std::lock_guard<std::mutex> lock(vec_lock);
   timed_pose_tuple new_observation;
   new_observation.first = timestamp;
@@ -19,11 +19,7 @@ void pose_manager::register_valid_pose(const int64_t timestamp, const Eigen::Mat
   new_observation.first = timestamp;
 
   /* Translate Eigen::Matrix4d to SE3<float> */
-  new_observation.second = SE3<float>(
-    Eigen::Matrix<float, 4, 4>(
-      pose.cast<float>()
-    )
-  );
+  new_observation.second = SE3<float>(Eigen::Matrix<float, 4, 4>(pose.cast<float>()));
 
   timed_pose_vec.push_back(new_observation);
 }

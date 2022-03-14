@@ -5,8 +5,6 @@
 #include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
 
-#include <Eigen/Dense>
-
 #include "utils/cuda/camera.cuh"
 #include "utils/cuda/lie_group.cuh"
 #include "utils/gl/image.h"
@@ -104,7 +102,8 @@ class TSDFGrid {
   std::vector<VoxelSpatialTSDF> GatherVoxels(const BoundingCube<float>& volumn);
 
   void GatherValidMesh(std::vector<Eigen::Vector3f>* vertex_buffer,
-                       std::vector<Eigen::Vector3i>* index_buffer);
+                       std::vector<Eigen::Vector3i>* index_buffer,
+                       std::vector<float>* vertex_prob_buffer);
 
  protected:
   void Allocate(const cv::Mat& img_rgb, const cv::Mat& img_depth, float max_depth,
@@ -127,7 +126,7 @@ class TSDFGrid {
   const float truncation_;
 
   // visibility buffer
-  // visibility: 
+  // visibility:
   VoxelBlock* visible_blocks_;
 
   // visible_mask_ is initialized to have NUM_BLOCKS of elements

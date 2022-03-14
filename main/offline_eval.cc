@@ -35,7 +35,8 @@ bool str_ends_with(std::string const& value, std::string const& ending) {
   return std::equal(ending.rbegin(), ending.rend(), value.rbegin());
 }
 
-void run(const std::string& segm_model_path, const std::string& data_path, bool rendering_flag) {
+void run(const std::string& segm_model_path, const std::string& data_path, bool rendering_flag,
+         bool download_flag) {
   /* Use abstract interface to supply data */
   std::unique_ptr<offline_data_provider> my_datareader;
   if (str_ends_with(data_path, ".sens")) {
@@ -48,13 +49,14 @@ void run(const std::string& segm_model_path, const std::string& data_path, bool 
 
   /* Initialize various modules */
   /*
-    1st param: TSDF voxel size. Small size => fine-grained and more memory usage. Large size => coarse-grained.
-    2nd param: TSDF Truncation. Small => Less Memory usage and rough surface
+    1st param: TSDF voxel size. Small size => fine-grained and more memory usage. Large size =>
+    coarse-grained. 2nd param: TSDF Truncation. Small => Less Memory usage and rough surface
       - Empirically, 6x voxel size gives good performance
     3rd param: Depth camera maximum range cutoff
   */
-  float voxel_size = 0.01;
-  auto my_tsdf = std::make_shared<TSDFSystem>(voxel_size, voxel_size * 6, 6, my_datareader->get_camera_intrinsics(),
+  float voxel_size = 0.05;
+  auto my_tsdf = std::make_shared<TSDFSystem>(voxel_size, voxel_size * 6, 6,
+                                              my_datareader->get_camera_intrinsics(),
                                               my_datareader->get_camera_extrinsics());
   pose_manager camera_pose_manager;
   ImageRenderer my_renderer("tsdf", std::bind(&pose_manager::get_latest_pose, &camera_pose_manager),
@@ -87,14 +89,27 @@ void run(const std::string& segm_model_path, const std::string& data_path, bool 
     if (!my_tsdf->is_terminated()) my_tsdf->terminate();
   });
 
-  my_renderer.Run();
+  if (rendering_flag) {
+    my_renderer.Run();
+  }
   if (t_tsdf.joinable()) t_tsdf.join();
+
+  // thread exit
+  if (download_flag) {
+    spdlog::info("Downloading Mesh...");
+    my_tsdf->DownloadAllMesh("mesh_vertices.bin", "mesh_indices.bin", "mesh_vertices_prob.bin");
+  }
 }
 
 int main(int argc, char* argv[]) {
+  bool rendering_flag = false;
+  bool download_flag = false;
   popl::OptionParser op("Allowed options");
   auto help = op.add<popl::Switch>("h", "help", "produce help message");
   auto debug_mode = op.add<popl::Switch>("", "debug", "debug mode");
+  auto render_switch = op.add<popl::Switch>("", "render", "live renderer switch");
+  auto download_switch =
+      op.add<popl::Switch>("", "download", "download mesh+PC after reader is exhausted");
   auto model = op.add<popl::Value<std::string>>("", "model", "path PyTorch JIT traced model");
   auto sens =
       op.add<popl::Value<std::string>>("", "sens", "path to scannet sensor stream .sens file");
@@ -124,7 +139,15 @@ int main(int argc, char* argv[]) {
     return EXIT_FAILURE;
   }
 
-  run(model->value(), sens->value(), true);
+  if (render_switch->is_set()) {
+    rendering_flag = true;
+  }
+
+  if (download_switch->is_set()) {
+    download_flag = true;
+  }
+
+  run(model->value(), sens->value(), rendering_flag, download_flag);
 
   return EXIT_SUCCESS;
 }

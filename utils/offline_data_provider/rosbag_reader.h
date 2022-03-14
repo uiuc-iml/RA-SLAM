@@ -25,13 +25,12 @@
 #include <utility>
 #include <vector>
 
+#include "modules/slam_module.h"
+#include "utils/config_reader.hpp"
 #include "utils/cuda/camera.cuh"
 #include "utils/cuda/lie_group.cuh"
-#include "utils/config_reader.hpp"
 #include "utils/offline_data_provider/offline_data_provider.h"
 #include "utils/rotation_math/pose_manager.h"
-
-#include "modules/slam_module.h"
 
 using std::string;
 
@@ -131,7 +130,8 @@ class rosbag_reader : public offline_data_provider {
   const std::string pose_topic = "/zed2/zed_node/pose";
   const std::string left_img_topic = "/zed2/zed_node/left_raw/image_raw_color";
   const std::string right_img_topic = "/zed2/zed_node/right_raw/image_raw_color";
-  const std::string camera_config_path = "/home/roger/disinfect-slam/configs/zed_SN28498913_l515.yaml";
+  const std::string camera_config_path =
+      "/home/roger/disinfect-slam/configs/zed_SN28498913_l515.yaml";
   const std::string vocab_path = "/home/roger/Downloads/orb_vocab.dbow2";
 
   const static int width = 640;
@@ -155,19 +155,19 @@ class rosbag_reader : public offline_data_provider {
    *
    * @param my_bag_ loaded ROSBag
    */
-  void process_metadata(const rosbag::Bag &my_bag_);
+  void process_metadata(const rosbag::Bag& my_bag_);
 
   /**
    * @brief Process camera streaming data contained in ROSBag
    *
    * @param my_bag_ loaded ROSBag
    */
-  void process_streamdata(const rosbag::Bag &my_bag_);
+  void process_streamdata(const rosbag::Bag& my_bag_);
 
   /**
    * @brief Process stereo data from ZED camera and serialize them as camera poses
-   * 
+   *
    * @param my_bag_ loaded ROSBag
    */
-  void process_stereodata(const rosbag::Bag &my_bag_);
+  void process_stereodata(const rosbag::Bag& my_bag_);
 };

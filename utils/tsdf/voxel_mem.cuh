@@ -17,9 +17,9 @@
 #define BLOCK_LEN_BITS 3
 #define BLOCK_AREA_BITS (BLOCK_LEN_BITS * 2)
 #define BLOCK_VOLUME_BITS (BLOCK_LEN_BITS * 3)
-#define BLOCK_LEN (1 << BLOCK_LEN_BITS)         // length
-#define BLOCK_AREA (1 << BLOCK_AREA_BITS)       // square
-#define BLOCK_VOLUME (1 << BLOCK_VOLUME_BITS)   // cubic
+#define BLOCK_LEN (1 << BLOCK_LEN_BITS)        // length
+#define BLOCK_AREA (1 << BLOCK_AREA_BITS)      // square
+#define BLOCK_VOLUME (1 << BLOCK_VOLUME_BITS)  // cubic
 
 /**
  * @brief convert voxel coordinate to block coordinate
