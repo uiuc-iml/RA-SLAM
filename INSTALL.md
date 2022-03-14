@@ -197,10 +197,4 @@ make -j4
 
 ## Testing examples
 
-This is still WIP, but try running
-
-```
-./main/offline_eval
-```
-
-and you should see argparser working and sending you a list of arguments to put it.
+Check back [README.md](./README.md) for examples!
