@@ -5,6 +5,7 @@
 #include <mutex>
 #include <queue>
 #include <thread>
+#include <fstream>
 
 #include "utils/cuda/camera.cuh"
 #include "utils/cuda/errors.cuh"
