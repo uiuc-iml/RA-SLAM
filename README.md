@@ -14,12 +14,16 @@ a local directory such as `~/.local` instead of the system path `/usr/local`. Th
 be easily achieved by adding `-DCMAKE_INSTALL_PREFIX=$HOME/.local` option to a CMake command.
 Another benifit of this is that `sudo` privilege is not needed for the installation, which may be desirable on multi-user servers.
 
-## Running Reconstruction
+## Running Example ScanNet reconstruction
 
-This is still WIP, but try running
+The last step before running example reconstruction is obtaining sample camera footage and trained network weights.
+
+As the ScanNet imposes certain limitations of data usage, users should obtain ScanNet samples from the [official page](http://www.scan-net.org/). But [here](https://drive.google.com/file/d/1FtSU9z8hpwNy5x9BptIsy6Q85SjHu4WQ/view?usp=sharing) we provide a sample example for convenience of testing build (this will be removed in the future).
+
+The binary high-touch segmentation model from our paper can be found [here](https://drive.google.com/file/d/19T1htg-KdhLOOagh_f0xlFJOi0nkVV-o/view?usp=sharing).
 
 ```bash
-./main/offline_eval
+./main/offline_eval --model ~/disinfect-slam/segmentation/ht_lt.pt --sens "/media/roger/My Book/data/scannet_v2/scans/scene0249_00/scene0249_00.sens" --download --render --debug
 ```
 
 and you should see argparser working and sending you a list of arguments to put it.

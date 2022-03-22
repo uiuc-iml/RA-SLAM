@@ -4,7 +4,7 @@ Note: though our project supports ROS integration, it is not included in the cur
 
 ## Dependancies
 * Build System
-    * C++17
+    * C++14
     * CMake >= 3.18
     * CUDA >= 10.0
 * Externel Libraries
@@ -184,6 +184,35 @@ cmake \
 make -j4
 sudo make install
 ```
+
+## Installing PyTorch
+
+At the time of writing this doc, the repo is using libtorch (C++ version of PyTorch) for inference.
+We provide instructions for X86/64 (PC) and Nvidia Jetson (ARM) users.
+
+### X86/64 users
+
+Go to the [PyTorch installation page](https://pytorch.org/get-started/locally/) to install a CUDA-enabled PyTorch first.
+Then, on the same page, click C++/Java and download pre-built libtorch release. Note that there are two versions of libtorch:
+one with pre-cxx11 ABI and one with cxx11 ABI. Download the one with cxx11 ABI and unzip to the `third_party/` folder
+under project folder.
+
+```
+cd ~/dep
+wget https://download.pytorch.org/libtorch/cu102/libtorch-cxx11-abi-shared-with-deps-1.11.0%2Bcu102.zip
+unzip libtorch-cxx11-abi-shared-with-deps-1.11.0+cu102.zip
+cd ~/RA-SLAM/third_party
+ln -s ~/dep/libtorch libtorch
+```
+
+The CMake file is hinted to look for libtorch under third_party.
+
+### Nvidia Jetson TX2/XAVIER
+
+We assume that Jetson users use images provided by Nvidia official with Jetpack.
+In this case, pre-built PyTorch and libtorch packages are available at [this forum page](https://forums.developer.nvidia.com/t/pytorch-for-jetson-version-1-10-now-available/72048).
+Installing the pre-built wheel will install **both** PyTorch and libtorch to the default python package folder.
+We hint the CMake file to look for commonly used python3 installation path, but in case that fails you can modify the CMake file and point the hint to correct path.
 
 ## Building RA-SLAM
 
