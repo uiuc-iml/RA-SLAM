@@ -26,6 +26,9 @@ The binary high-touch segmentation model from our paper can be found [here](http
 ./main/offline_eval --model ~/disinfect-slam/segmentation/ht_lt.pt --sens "/media/roger/My Book/data/scannet_v2/scans/scene0249_00/scene0249_00.sens" --download --render --debug
 ```
 
+On a machine with GUI, you can expect to see a OpenGL window pops up with ray-casting view of the reconstructed scene.
+The behavior is yet to be tested if the program is run on a remote server with no GUI, but with the download flag, at the end of the example several binary files will be created at the current folder (e.g., mesh_vertices.bin).
+
 and you should see argparser working and sending you a list of arguments to put it.
 
 ## TODO
