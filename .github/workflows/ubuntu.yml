@@ -25,7 +25,7 @@ jobs:
         key: cuda-toolkit-11-0
     # download CUDA toolchain
     - name: download cuda-toolkit-11-0
-      if: steps.cache-cuda.outputs.cache-hit != 'true'
+      if: steps.cache-cuda.outputs.cache-hit != 'false'
       run: |
         wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-ubuntu1804.pin
         sudo mv cuda-ubuntu1804.pin /etc/apt/preferences.d/cuda-repository-pin-600
@@ -58,7 +58,7 @@ jobs:
         path: ~/.local
         key: local-deps-build-v1.0
     - name: local dependencies build
-      if: steps.cache-local.outputs.cache-hit != 'true'
+      if: steps.cache-local.outputs.cache-hit != 'false'
       run: |
         # Eigen3
         git clone https://gitlab.com/libeigen/eigen.git ~/eigen && cd ~/eigen
