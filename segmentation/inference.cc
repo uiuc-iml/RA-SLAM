@@ -81,3 +81,34 @@ std::vector<cv::Mat> inference_engine::infer_one(const cv::Mat& rgb_img) {
 
   return ret;
 }
+
+torch::Tensor inference_engine::infer_one(const cv::Mat& rgb_img) {
+  std::vector<cv::Mat> ret;
+
+  if (!running_) {
+    cv::Mat ret_img = cv::Mat::ones(this->height_, this->width_, CV_32FC1);
+    ret.push_back(ret_img);
+    ret.push_back(ret_img);
+    return ret;
+  }
+  cv::Mat rescaled_rgb_img;
+
+  spdlog::debug("[SEGM] Input rgb image rows: {} cols: {}", rgb_img.rows, rgb_img.cols);
+
+  // TODO: use multi-scale model that does not require size to be multiples of 32
+  cv::resize(rgb_img, rescaled_rgb_img, cv::Size(this->whole_width_, this->whole_height_));
+
+  torch::Tensor rescaled_rgb_img_tensor = mat_to_tensor(rescaled_rgb_img);
+  torch::Tensor rescaled_rgb_img_tensor_cuda = rescaled_rgb_img_tensor.to(torch::kCUDA);
+
+  this->input_buffer_.clear();
+  this->input_buffer_.push_back(rescaled_rgb_img_tensor_cuda);
+
+  const auto start_cp = GetTimestamp<std::chrono::milliseconds>();
+  torch::Tensor ht_lt_prob_map =
+      this->engine_.forward(this->input_buffer_).toTensor().squeeze().detach();
+  const auto end_cp = GetTimestamp<std::chrono::milliseconds>();
+  spdlog::debug("[SEGM] Engine forward pass took {} ms", end_cp - start_cp);
+
+  return ht_lt_prob_map;
+}

@@ -16,6 +16,8 @@ class inference_engine {
   // ret[1]: lt map
   std::vector<cv::Mat> infer_one(const cv::Mat& rgb_img);
 
+  torch::Tensor infer_one(const cv::Mat& rgb_img);
+
  private:
   torch::Tensor mat_to_tensor(cv::Mat& my_mat);
 
