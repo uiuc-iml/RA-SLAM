@@ -74,7 +74,7 @@ void run(const std::string& segm_model_path, const std::string& data_path, bool 
       img_depth.convertTo(img_depth, CV_32FC1, 1. / my_datareader->get_depth_map_factor());
       // use seg engine to get ht/lt img
       cv::imshow("bgr", img_rgb);
-      std::vector<cv::Mat> prob_map = my_seg.infer_one(img_rgb, false);
+      std::vector<cv::Mat> prob_map = my_seg.infer_one(img_rgb);
       my_tsdf->Integrate(cam_T_world, img_rgb, img_depth, prob_map[0], prob_map[1]);
       img_depth.convertTo(img_depth, CV_32FC1, 1. / 4);
       cv::imshow("depth", img_depth);

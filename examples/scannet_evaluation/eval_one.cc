@@ -66,7 +66,7 @@ class DatasetEvaluator {
       spdlog::debug("Image IO takes {} ms", end_img - st_img);
       // 2. infer RGB image
       const auto st_segm = GetTimestamp<std::chrono::milliseconds>();
-      std::vector<cv::Mat> prob_map = segm_.infer_one(img_rgb, false);
+      std::vector<cv::Mat> prob_map = segm_.infer_one(img_rgb);
       const auto end_segm = GetTimestamp<std::chrono::milliseconds>();
       spdlog::debug("Segmentation takes {} ms", end_segm - st_segm);
       // 3. TSDF integration

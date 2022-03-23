@@ -57,7 +57,7 @@ void reconstruct(const ZEDNative& zed_native, const L515& l515,
       cv::resize(img_rgb, img_rgb, cv::Size(), .5, .5);
       cv::resize(img_depth, img_depth, cv::Size(), .5, .5);
       img_depth.convertTo(img_depth, CV_32FC1, 1. / l515.DepthScale());
-      std::vector<cv::Mat> prob_map = segmentation_engine->infer_one(img_rgb, false);
+      std::vector<cv::Mat> prob_map = segmentation_engine->infer_one(img_rgb);
       TSDF->Integrate(posecam_P_world, img_rgb, img_depth, prob_map[0], prob_map[1]);
       spdlog::debug("[Main] Frame integration takes {} ms",
                     GetTimestamp<std::chrono::milliseconds>() - timestamp);

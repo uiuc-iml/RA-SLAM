@@ -17,20 +17,19 @@ int main() {
                              image_bgr.rows);
 
   // Test inference and uint8 conversion
-  const auto start = std::chrono::steady_clock::now();
-  std::vector<cv::Mat> ret_prob_map = my_engine.infer_one(image_rgb, true);
-  const auto now = std::chrono::steady_clock::now();
-  auto time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-  std::cout << "Time elapsed (in milliseconds): " << time_elapsed << std::endl;
-  std::cout << "Test image feeded." << std::endl;
-  std::cout << "Saving prob maps to current directory." << std::endl;
-  cv::imwrite("ht_prob.png", ret_prob_map[0]);
-  cv::imwrite("lt_prob.png", ret_prob_map[1]);
+  // const auto start = std::chrono::steady_clock::now();
+  // std::vector<cv::Mat> ret_prob_map = my_engine.infer_one(image_rgb, true);
+  // const auto now = std::chrono::steady_clock::now();
+  // auto time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
+  // std::cout << "Time elapsed (in milliseconds): " << time_elapsed << std::endl;
+  // std::cout << "Test image feeded." << std::endl;
+  // std::cout << "Saving prob maps to current directory." << std::endl;
+  // cv::imwrite("ht_prob.png", ret_prob_map[0]);
+  // cv::imwrite("lt_prob.png", ret_prob_map[1]);
 
   // Test inference and float conversion
   const auto n_start = std::chrono::steady_clock::now();
-  ret_prob_map.clear();
-  ret_prob_map = my_engine.infer_one(image_rgb, false);
+  std::vector<cv::Mat> ret_prob_map = my_engine.infer_one(image_rgb);
   const auto n_now = std::chrono::steady_clock::now();
   auto n_time_elapsed =
       std::chrono::duration_cast<std::chrono::milliseconds>(n_now - n_start).count();
@@ -50,7 +49,7 @@ int main() {
   const auto loop_start = std::chrono::steady_clock::now();
   for (int i = 0; i < num_trials; ++i) {
     ret_prob_map.clear();
-    ret_prob_map = my_engine.infer_one(image_rgb, true);
+    ret_prob_map = my_engine.infer_one(image_rgb);
   }
   const auto loop_end = std::chrono::steady_clock::now();
   auto loop_total =

@@ -119,7 +119,7 @@ class ImageRenderer : public RendererBase {
         tsdf_rgba_.BindImage(img_depth_.rows, img_depth_.cols, nullptr);
         tsdf_normal_.BindImage(img_depth_.rows, img_depth_.cols, nullptr);
       }
-      std::vector<cv::Mat> prob_map = segm_.infer_one(img_rgb_, false);
+      std::vector<cv::Mat> prob_map = segm_.infer_one(img_rgb_);
       const auto st = GetTimestamp<std::chrono::milliseconds>();
       tsdf_.Integrate(img_rgb_, img_depth_, prob_map[0], prob_map[1], 5, intrinsics_, cam_T_world_);
       const auto end = GetTimestamp<std::chrono::milliseconds>();

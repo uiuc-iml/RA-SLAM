@@ -14,14 +14,12 @@ class inference_engine {
 
   // ret[0]: ht map
   // ret[1]: lt map
-  std::vector<cv::Mat> infer_one(const cv::Mat& rgb_img, bool ret_uint8_flag);
+  std::vector<cv::Mat> infer_one(const cv::Mat& rgb_img);
 
  private:
   torch::Tensor mat_to_tensor(cv::Mat& my_mat);
 
   cv::Mat float_tensor_to_float_mat(const torch::Tensor& my_tensor);
-
-  cv::Mat float_tensor_to_uint8_mat(const torch::Tensor& my_tensor);
 
   torch::jit::script::Module engine_;
   std::vector<torch::jit::IValue> input_buffer_;

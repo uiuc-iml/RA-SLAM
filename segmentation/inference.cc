@@ -29,17 +29,6 @@ cv::Mat inference_engine::float_tensor_to_float_mat(const torch::Tensor& my_tens
   return ret;
 }
 
-// (CPU) float32 tensor to uint8 mat
-cv::Mat inference_engine::float_tensor_to_uint8_mat(const torch::Tensor& my_tensor) {
-  torch::Tensor temp_tensor;
-  temp_tensor = my_tensor.mul(255).clamp(0, 255).to(torch::kU8);
-  temp_tensor = temp_tensor.to(torch::kCPU);
-  cv::Mat ret(temp_tensor.sizes()[0], temp_tensor.sizes()[1], CV_8UC1);
-  // copy the data from out_tensor to resultImg
-  std::memcpy((void*)ret.data, temp_tensor.data_ptr(), sizeof(uint8_t) * temp_tensor.numel());
-  return ret;
-}
-
 inference_engine::inference_engine(const std::string& compiled_engine_path, int width, int height) {
   this->width_ = width;
   this->height_ = height;
@@ -59,7 +48,7 @@ inference_engine::inference_engine(const std::string& compiled_engine_path, int 
   }
 }
 
-std::vector<cv::Mat> inference_engine::infer_one(const cv::Mat& rgb_img, bool ret_uint8_flag) {
+std::vector<cv::Mat> inference_engine::infer_one(const cv::Mat& rgb_img) {
   std::vector<cv::Mat> ret;
 
   if (!running_) {
@@ -87,13 +76,8 @@ std::vector<cv::Mat> inference_engine::infer_one(const cv::Mat& rgb_img, bool re
   const auto end_cp = GetTimestamp<std::chrono::milliseconds>();
   spdlog::debug("[SEGM] Engine forward pass took {} ms", end_cp - start_cp);
 
-  if (ret_uint8_flag) {
-    ret.push_back(float_tensor_to_uint8_mat(ht_lt_prob_map[0]));
-    ret.push_back(float_tensor_to_uint8_mat(ht_lt_prob_map[1]));
-  } else {
-    ret.push_back(float_tensor_to_float_mat(ht_lt_prob_map[0]));
-    ret.push_back(float_tensor_to_float_mat(ht_lt_prob_map[1]));
-  }
+  ret.push_back(float_tensor_to_float_mat(ht_lt_prob_map[0]));
+  ret.push_back(float_tensor_to_float_mat(ht_lt_prob_map[1]));
 
   return ret;
 }

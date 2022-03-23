@@ -37,7 +37,7 @@ int main(int argc, char* argv[]) {
   my_reader.get_color_frame_by_id(&rgb_img, 243);
   std::cout << "Rgb image cols: " << rgb_img.cols << std::endl;
   std::cout << "Rgb image rows: " << rgb_img.rows << std::endl;
-  std::vector<cv::Mat> ret_prob_map = my_engine.infer_one(rgb_img, false);
+  std::vector<cv::Mat> ret_prob_map = my_engine.infer_one(rgb_img);
   cv::Mat vis_ht, vis_lt;
   ret_prob_map[0].convertTo(vis_ht, CV_8UC1,
                             255);  // scale range from 0-1 to 0-255
