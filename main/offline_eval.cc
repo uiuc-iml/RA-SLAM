@@ -24,7 +24,6 @@
 #include "utils/cuda/vector.cuh"
 #include "utils/offline_data_provider/folder_reader.h"
 #include "utils/offline_data_provider/offline_data_provider.h"
-#include "utils/offline_data_provider/rosbag_reader.h"
 #include "utils/offline_data_provider/scannet_sens_reader.h"
 #include "utils/rotation_math/pose_manager.h"
 #include "utils/time.hpp"
@@ -41,8 +40,6 @@ void run(const std::string& segm_model_path, const std::string& data_path, bool 
   std::unique_ptr<offline_data_provider> my_datareader;
   if (str_ends_with(data_path, ".sens")) {
     my_datareader = std::make_unique<scannet_sens_reader>(data_path);
-  } else if (str_ends_with(data_path, ".bag")) {
-    my_datareader = std::make_unique<rosbag_reader>(data_path);
   } else {
     my_datareader = std::make_unique<folder_reader>(data_path);
   }
@@ -54,7 +51,7 @@ void run(const std::string& segm_model_path, const std::string& data_path, bool 
       - Empirically, 6x voxel size gives good performance
     3rd param: Depth camera maximum range cutoff
   */
-  float voxel_size = 0.05;
+  float voxel_size = 0.01;
   auto my_tsdf = std::make_shared<TSDFSystem>(voxel_size, voxel_size * 6, 6,
                                               my_datareader->get_camera_intrinsics(),
                                               my_datareader->get_camera_extrinsics());
