@@ -66,13 +66,13 @@ class DatasetEvaluator {
       spdlog::debug("Image IO takes {} ms", end_img - st_img);
       // 2. infer RGB image
       const auto st_segm = GetTimestamp<std::chrono::milliseconds>();
-      std::vector<cv::Mat> prob_map = segm_.infer_one(img_rgb);
+      torch::Tensor prob_map = segm_.infer_one(img_rgb);
       const auto end_segm = GetTimestamp<std::chrono::milliseconds>();
       spdlog::debug("Segmentation takes {} ms", end_segm - st_segm);
       // 3. TSDF integration
       const auto st = GetTimestamp<std::chrono::milliseconds>();
       SE3<float> cam_T_world = sens_reader_.get_camera_pose_by_id(frame_idx);
-      tsdf_.Integrate(img_rgb, img_depth, prob_map[0], prob_map[1], 4, intrinsics_, cam_T_world);
+      tsdf_.Integrate(img_rgb, img_depth, prob_map, 4, intrinsics_, cam_T_world);
       CUDA_SAFE_CALL(cudaDeviceSynchronize());
       const auto end = GetTimestamp<std::chrono::milliseconds>();
       spdlog::debug("Integration takes {} ms", end - st);

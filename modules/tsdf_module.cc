@@ -20,20 +20,13 @@ TSDFSystem::TSDFSystem(float voxel_size, float truncation, float max_depth,
 TSDFSystem::~TSDFSystem() { this->terminate(); }
 
 void TSDFSystem::Integrate(const SE3<float>& posecam_T_world, const cv::Mat& img_rgb,
-                           const cv::Mat& img_depth, const cv::Mat& img_ht, const cv::Mat& img_lt) {
+                           const cv::Mat& img_depth, const torch::Tensor& prob_map) {
   std::unique_lock<std::mutex> pause_lock(mtx_pause_);
   while (pause_) cv_pause_.wait(pause_lock);
   std::lock_guard<std::mutex> lock(mtx_queue_);
-  if (img_ht.empty() || img_lt.empty()) {
-    inputs_.push(std::make_unique<TSDFSystemInput>(
-        cam_T_posecam_ * posecam_T_world, img_rgb.clone(), img_depth.clone(),
-        cv::Mat::ones(img_depth.rows, img_depth.cols, img_depth.type()),
-        cv::Mat::ones(img_depth.rows, img_depth.cols, img_depth.type())));
-  } else {
-    inputs_.push(std::make_unique<TSDFSystemInput>(cam_T_posecam_ * posecam_T_world,
-                                                   img_rgb.clone(), img_depth.clone(),
-                                                   img_ht.clone(), img_lt.clone()));
-  }
+  inputs_.push(std::make_unique<TSDFSystemInput>(
+      cam_T_posecam_ * posecam_T_world, img_rgb.clone(), img_depth.clone(),
+      prob_map.clone()));
 }
 
 std::vector<VoxelSpatialTSDF> TSDFSystem::Query(const BoundingCube<float>& volumn) {
@@ -106,7 +99,7 @@ void TSDFSystem::Run() {
     {
       std::lock_guard<std::mutex> lock(mtx_read_);
       const auto st = GetTimestamp<std::chrono::milliseconds>();
-      tsdf_.Integrate(input->img_rgb, input->img_depth, input->img_ht, input->img_lt, max_depth_,
+      tsdf_.Integrate(input->img_rgb, input->img_depth, input->prob_map, max_depth_,
                       intrinsics_, input->cam_T_world);
       const auto end = GetTimestamp<std::chrono::milliseconds>();
       spdlog::debug("[TSDF Module] Integration took: {} ms", end - st);

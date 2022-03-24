@@ -28,28 +28,27 @@ int main() {
   // cv::imwrite("lt_prob.png", ret_prob_map[1]);
 
   // Test inference and float conversion
-  const auto n_start = std::chrono::steady_clock::now();
-  std::vector<cv::Mat> ret_prob_map = my_engine.infer_one(image_rgb);
-  const auto n_now = std::chrono::steady_clock::now();
-  auto n_time_elapsed =
-      std::chrono::duration_cast<std::chrono::milliseconds>(n_now - n_start).count();
-  std::cout << "Time elapsed (in milliseconds): " << n_time_elapsed << std::endl;
-  std::cout << "Test image feeded." << std::endl;
-  std::cout << "Saving prob maps to current directory." << std::endl;
-  cv::Mat vis_ht, vis_lt;
-  ret_prob_map[0].convertTo(vis_ht, CV_8UC1,
-                            255);  // scale range from 0-1 to 0-255
-  ret_prob_map[1].convertTo(vis_lt, CV_8UC1,
-                            255);  // scale range from 0-1 to 0-255
-  cv::imwrite("float_ht_prob.png", vis_ht);
-  cv::imwrite("float_lt_prob.png", vis_lt);
+  // const auto n_start = std::chrono::steady_clock::now();
+  // std::vector<cv::Mat> ret_prob_map = my_engine.infer_one(image_rgb);
+  // const auto n_now = std::chrono::steady_clock::now();
+  // auto n_time_elapsed =
+  //     std::chrono::duration_cast<std::chrono::milliseconds>(n_now - n_start).count();
+  // std::cout << "Time elapsed (in milliseconds): " << n_time_elapsed << std::endl;
+  // std::cout << "Test image feeded." << std::endl;
+  // std::cout << "Saving prob maps to current directory." << std::endl;
+  // cv::Mat vis_ht, vis_lt;
+  // ret_prob_map[0].convertTo(vis_ht, CV_8UC1,
+  //                           255);  // scale range from 0-1 to 0-255
+  // ret_prob_map[1].convertTo(vis_lt, CV_8UC1,
+  //                           255);  // scale range from 0-1 to 0-255
+  // cv::imwrite("float_ht_prob.png", vis_ht);
+  // cv::imwrite("float_lt_prob.png", vis_lt);
 
   // Benchmark performance
   int num_trials = 1000;
   const auto loop_start = std::chrono::steady_clock::now();
   for (int i = 0; i < num_trials; ++i) {
-    ret_prob_map.clear();
-    ret_prob_map = my_engine.infer_one(image_rgb);
+    auto ret_prob_map = my_engine.infer_one(image_rgb);
   }
   const auto loop_end = std::chrono::steady_clock::now();
   auto loop_total =

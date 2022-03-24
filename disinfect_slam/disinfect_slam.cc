@@ -38,8 +38,8 @@ void DISINFSystem::feed_rgbd_frame(const cv::Mat& img_rgb, const cv::Mat& img_de
   cv::resize(img_depth, my_img_depth, cv::Size(tsdf_width_, tsdf_height_));
   my_img_depth.convertTo(my_img_depth, CV_32FC1,
                          1. / depthmap_factor_);  // depth scale
-  std::vector<cv::Mat> prob_map = SEG_->infer_one(my_img_rgb);
-  TSDF_->Integrate(posecam_P_world, my_img_rgb, my_img_depth, prob_map[0], prob_map[1]);
+  torch::Tensor prob_map = SEG_->infer_one(my_img_rgb);
+  TSDF_->Integrate(posecam_P_world, my_img_rgb, my_img_depth, prob_map);
 }
 
 void DISINFSystem::feed_stereo_frame(const cv::Mat& img_left, const cv::Mat& img_right,

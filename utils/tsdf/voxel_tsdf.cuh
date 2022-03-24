@@ -1,9 +1,11 @@
 #pragma once
 
+#include <assert.h>
 #include <cuda_runtime.h>
 
 #include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
+#include <torch/script.h>
 
 #include "utils/cuda/camera.cuh"
 #include "utils/cuda/lie_group.cuh"
@@ -62,8 +64,8 @@ class TSDFGrid {
    * @param intrinsics  camera intrinsics
    * @param cam_T_world transformation from camera to world
    */
-  void Integrate(const cv::Mat& img_rgb, const cv::Mat& img_depth, const cv::Mat& img_ht,
-                 const cv::Mat& img_lt, float max_depth, const CameraIntrinsics<float>& intrinsics,
+  void Integrate(const cv::Mat& img_rgb, const cv::Mat& img_depth, const torch::Tensor& prob_map,
+                 float max_depth, const CameraIntrinsics<float>& intrinsics,
                  const SE3<float>& cam_T_world);
 
   /**

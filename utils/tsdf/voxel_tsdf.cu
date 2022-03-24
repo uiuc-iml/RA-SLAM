@@ -162,8 +162,9 @@ __global__ static void block_allocate_kernel(VoxelHashTable hash_table, const fl
   for (int i = 0; i <= step_grid; ++i, pos_grid += ray_step_grid) {
     const Eigen::Matrix<short, 3, 1> pos_block =
         PointToBlock(pos_grid.unaryExpr([](const float x) { return roundf(x); }).cast<short>());
-    if (is_block_visible(pos_block, cam_T_world, cam_params, voxel_size))
+    if (is_block_visible(pos_block, cam_T_world, cam_params, voxel_size)) {
       hash_table.Allocate(pos_block);
+    }
   }
 }
 
@@ -413,19 +414,22 @@ TSDFGrid::~TSDFGrid() {
   CUDA_SAFE_CALL(cudaStreamDestroy(stream2_));
 }
 
-void TSDFGrid::Integrate(const cv::Mat& img_rgb, const cv::Mat& img_depth, const cv::Mat& img_ht,
-                         const cv::Mat& img_lt, float max_depth,
+void TSDFGrid::Integrate(const cv::Mat& img_rgb, const cv::Mat& img_depth, const torch::Tensor& prob_map,
+                         float max_depth,
                          const CameraIntrinsics<float>& intrinsics, const SE3<float>& cam_T_world) {
+  // check rgb/depth type and shape
   assert(img_rgb.type() == CV_8UC3);
   assert(img_depth.type() == CV_32FC1);
-  assert(img_ht.type() == CV_32FC1);
-  assert(img_lt.type() == CV_32FC1);
   assert(img_rgb.cols == img_depth.cols);
   assert(img_rgb.rows == img_depth.rows);
-  assert(img_depth.cols == img_ht.cols);
-  assert(img_depth.rows == img_ht.rows);
-  assert(img_depth.cols == img_lt.cols);
-  assert(img_depth.rows == img_lt.rows);
+  // check prob map type and shape
+  assert(prob_map.dtype() == torch::kFloat32);
+  assert(img_depth.cols == prob_map.sizes()[2]);
+  assert(img_depth.rows == prob_map.sizes()[1]);
+  assert(img_rgb.rows < MAX_IMG_H);
+  assert(img_rgb.cols < MAX_IMG_W);
+
+  int64_t spatial_size = prob_map.sizes()[2] * prob_map.sizes()[1];
 
   const CameraParams cam_params(intrinsics, img_rgb.rows, img_rgb.cols);
 
@@ -434,10 +438,10 @@ void TSDFGrid::Integrate(const cv::Mat& img_rgb, const cv::Mat& img_depth, const
                                  cudaMemcpyHostToDevice, stream_));
   CUDA_SAFE_CALL(cudaMemcpyAsync(img_depth_, img_depth.data, sizeof(float) * img_depth.total(),
                                  cudaMemcpyHostToDevice, stream_));
-  CUDA_SAFE_CALL(cudaMemcpyAsync(img_ht_, img_ht.data, sizeof(float) * img_ht.total(),
-                                 cudaMemcpyHostToDevice, stream2_));
-  CUDA_SAFE_CALL(cudaMemcpyAsync(img_lt_, img_lt.data, sizeof(float) * img_lt.total(),
-                                 cudaMemcpyHostToDevice, stream2_));
+  CUDA_SAFE_CALL(cudaMemcpyAsync(img_ht_, prob_map[0].data_ptr(), sizeof(float) * spatial_size,
+                                 cudaMemcpyDeviceToDevice, stream2_));
+  CUDA_SAFE_CALL(cudaMemcpyAsync(img_lt_, prob_map[1].data_ptr(), sizeof(float) * spatial_size,
+                                 cudaMemcpyDeviceToDevice, stream2_));
   // compute
   spdlog::debug("[TSDF] pre integrate: {} active blocks", hash_table_.NumActiveBlock());
   Allocate(img_rgb, img_depth, max_depth, cam_params, cam_T_world);
