@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "segmentation/inference.h"
+#include "utils/tensor_helper/libtorch_helper.h"
 
 int main() {
   // Load image for test run
@@ -17,32 +18,15 @@ int main() {
                              image_bgr.rows);
 
   // Test inference and uint8 conversion
-  // const auto start = std::chrono::steady_clock::now();
-  // std::vector<cv::Mat> ret_prob_map = my_engine.infer_one(image_rgb, true);
-  // const auto now = std::chrono::steady_clock::now();
-  // auto time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
-  // std::cout << "Time elapsed (in milliseconds): " << time_elapsed << std::endl;
-  // std::cout << "Test image feeded." << std::endl;
-  // std::cout << "Saving prob maps to current directory." << std::endl;
-  // cv::imwrite("ht_prob.png", ret_prob_map[0]);
-  // cv::imwrite("lt_prob.png", ret_prob_map[1]);
-
-  // Test inference and float conversion
-  // const auto n_start = std::chrono::steady_clock::now();
-  // std::vector<cv::Mat> ret_prob_map = my_engine.infer_one(image_rgb);
-  // const auto n_now = std::chrono::steady_clock::now();
-  // auto n_time_elapsed =
-  //     std::chrono::duration_cast<std::chrono::milliseconds>(n_now - n_start).count();
-  // std::cout << "Time elapsed (in milliseconds): " << n_time_elapsed << std::endl;
-  // std::cout << "Test image feeded." << std::endl;
-  // std::cout << "Saving prob maps to current directory." << std::endl;
-  // cv::Mat vis_ht, vis_lt;
-  // ret_prob_map[0].convertTo(vis_ht, CV_8UC1,
-  //                           255);  // scale range from 0-1 to 0-255
-  // ret_prob_map[1].convertTo(vis_lt, CV_8UC1,
-  //                           255);  // scale range from 0-1 to 0-255
-  // cv::imwrite("float_ht_prob.png", vis_ht);
-  // cv::imwrite("float_lt_prob.png", vis_lt);
+  const auto start = std::chrono::steady_clock::now();
+  torch::Tensor ret_prob_map = my_engine.infer_one(image_rgb);
+  const auto now = std::chrono::steady_clock::now();
+  auto time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
+  std::cout << "Time elapsed (in milliseconds): " << time_elapsed << std::endl;
+  std::cout << "Test image feeded." << std::endl;
+  std::cout << "Saving prob maps to current directory." << std::endl;
+  cv::imwrite("ht_prob.png", float_tensor_to_uint8_mat(ret_prob_map[0]));
+  cv::imwrite("lt_prob.png", float_tensor_to_uint8_mat(ret_prob_map[1]));
 
   // Benchmark performance
   int num_trials = 1000;

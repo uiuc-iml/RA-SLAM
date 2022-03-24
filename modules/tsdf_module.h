@@ -1,12 +1,13 @@
 #pragma once
 
+#include <torch/script.h>
+
 #include <condition_variable>
 #include <fstream>
 #include <memory>
 #include <mutex>
 #include <queue>
 #include <thread>
-#include <torch/script.h>
 
 #include "utils/cuda/camera.cuh"
 #include "utils/cuda/errors.cuh"
@@ -25,10 +26,7 @@ struct TSDFSystemInput {
 
   TSDFSystemInput(const SE3<float>& cam_T_world, const cv::Mat& img_rgb, const cv::Mat& img_depth,
                   const torch::Tensor& prob_map)
-      : cam_T_world(cam_T_world),
-        img_rgb(img_rgb),
-        img_depth(img_depth),
-        prob_map(prob_map) {}
+      : cam_T_world(cam_T_world), img_rgb(img_rgb), img_depth(img_depth), prob_map(prob_map) {}
 };
 
 /**
@@ -54,7 +52,7 @@ class TSDFSystem {
    * @brief stop the integration thread
    */
   ~TSDFSystem();
-  
+
   /**
    * @brief integrate a single frame of data into the TSDF grid
    *

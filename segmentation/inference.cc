@@ -1,10 +1,11 @@
 #include "inference.h"
 
 #include <spdlog/spdlog.h>
-#include <string>
-#include <iostream>
-#include "utils/cuda/errors.cuh"
 
+#include <iostream>
+#include <string>
+
+#include "utils/cuda/errors.cuh"
 #include "utils/time.hpp"
 
 inference_engine::inference_engine(const std::string& compiled_engine_path, int width, int height) {
@@ -30,10 +31,8 @@ torch::Tensor inference_engine::infer_one(const cv::Mat& rgb_img) {
   std::vector<cv::Mat> ret;
 
   if (!running_) {
-    return torch::zeros(
-      {2, this->height_, this->width_},
-      torch::TensorOptions().dtype(torch::kFloat32).device(torch::kCUDA)
-    );
+    return torch::zeros({2, this->height_, this->width_},
+                        torch::TensorOptions().dtype(torch::kFloat32).device(torch::kCUDA));
   }
   spdlog::debug("[SEGM] Input rgb image rows: {} cols: {}", rgb_img.rows, rgb_img.cols);
 

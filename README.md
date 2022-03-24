@@ -1,4 +1,4 @@
-# Real-time Semantic Reconstruction
+# RA-SLAM: Real-time Semantic Reconstruction
 
 This project is built for the perception system of an autonomous disinfection robot. The core
 components of this module is a real-time 3D semantic reconstruction algorithm, with an efficient GPU implementation of Voxel Hashing which supports semmantic integration.

@@ -2,10 +2,10 @@
 
 #include <assert.h>
 #include <cuda_runtime.h>
+#include <torch/script.h>
 
 #include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
-#include <torch/script.h>
 
 #include "utils/cuda/camera.cuh"
 #include "utils/cuda/lie_group.cuh"

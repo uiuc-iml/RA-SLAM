@@ -145,7 +145,7 @@ int main(int argc, char* argv[]) {
   }
 
   std::string model_path;
-  if(model->is_set()) {
+  if (model->is_set()) {
     model_path = model->value();
   } else {
     model_path = "";

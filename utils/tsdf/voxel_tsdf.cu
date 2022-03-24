@@ -414,8 +414,8 @@ TSDFGrid::~TSDFGrid() {
   CUDA_SAFE_CALL(cudaStreamDestroy(stream2_));
 }
 
-void TSDFGrid::Integrate(const cv::Mat& img_rgb, const cv::Mat& img_depth, const torch::Tensor& prob_map,
-                         float max_depth,
+void TSDFGrid::Integrate(const cv::Mat& img_rgb, const cv::Mat& img_depth,
+                         const torch::Tensor& prob_map, float max_depth,
                          const CameraIntrinsics<float>& intrinsics, const SE3<float>& cam_T_world) {
   // check rgb/depth type and shape
   assert(img_rgb.type() == CV_8UC3);

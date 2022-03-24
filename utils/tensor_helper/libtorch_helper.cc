@@ -11,13 +11,14 @@ cv::Mat float_tensor_to_uint8_mat(const torch::Tensor& my_tensor) {
 }
 
 // mat to tensor
-torch::Tensor mat_to_tensor(const cv::Mat& my_mat) {\
+torch::Tensor mat_to_tensor(const cv::Mat& my_mat) {
   cv::Mat float_mat;
   // sizes: (1, C, H, W)
   // normalization
   my_mat.convertTo(float_mat, CV_32FC3, 1.0f / 255.0f);
   // opencv format H*W*C
-  auto input_tensor = torch::from_blob(float_mat.data, {1, float_mat.rows, float_mat.cols, 3}).clone();
+  auto input_tensor =
+      torch::from_blob(float_mat.data, {1, float_mat.rows, float_mat.cols, 3}).clone();
   // pytorch format N*C*H*W
   input_tensor = input_tensor.permute({0, 3, 1, 2});
   return input_tensor;
