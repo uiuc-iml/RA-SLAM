@@ -131,7 +131,7 @@ int main(int argc, char* argv[]) {
     spdlog::set_level(spdlog::level::info);
 
   if (!sens->is_set()) {
-    spdlog::error("Invalid arguments");
+    spdlog::error("Invalid arguments! A stream must be provided.");
     std::cerr << op << std::endl;
     return EXIT_FAILURE;
   }
@@ -144,7 +144,14 @@ int main(int argc, char* argv[]) {
     download_flag = true;
   }
 
-  run(model->value(), sens->value(), rendering_flag, download_flag);
+  std::string model_path;
+  if(model->is_set()) {
+    model_path = model->value();
+  } else {
+    model_path = "";
+  }
+
+  run(model_path, sens->value(), rendering_flag, download_flag);
 
   return EXIT_SUCCESS;
 }

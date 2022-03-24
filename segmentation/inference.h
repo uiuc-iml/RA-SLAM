@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include "utils/tensor_helper/libtorch_helper.h"
+
 class inference_engine {
  public:
   inference_engine(const std::string& compiled_engine_path, int width, int height);
@@ -15,10 +17,6 @@ class inference_engine {
   torch::Tensor infer_one(const cv::Mat& rgb_img);
 
  private:
-  torch::Tensor mat_to_tensor(const cv::Mat& my_mat);
-
-  cv::Mat float_tensor_to_float_mat(const torch::Tensor& my_tensor);
-
   torch::jit::script::Module engine_;
   std::vector<torch::jit::IValue> input_buffer_;
 

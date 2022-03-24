@@ -10,3 +10,5 @@ add_subdirectory(tests)
 
 add_subdirectory(rotation_math)
 add_subdirectory(offline_data_provider)
+
+add_subdirectory(tensor_helper)
