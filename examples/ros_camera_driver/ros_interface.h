@@ -102,4 +102,6 @@ private:
   std::shared_ptr<DISINFSystem> my_sys;
   std::shared_ptr<ZEDNative> zed_native;
   std::shared_ptr<L515> l515;
+
+  shape_msgs::Mesh::Ptr mMeshMsg;
 };

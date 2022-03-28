@@ -32,6 +32,7 @@ RosInterface::RosInterface() {
   mPubZEDImgL = mNh.advertise<sensor_msgs::Image>("/zed_left_rgb", 1);
   mPubZEDImgR = mNh.advertise<sensor_msgs::Image>("/zed_right_rgb", 1);
 
+  mMeshMsg = boost::make_shared<shape_msgs::Mesh>();
   ros::ServiceServer meshServ = mNh.advertiseService("/meshserv", &RosInterface::meshServCb, this);
 
   // cv bridges
@@ -64,6 +65,7 @@ RosInterface::RosInterface() {
 }
 
 bool RosInterface::meshServCb(semantic_reconstruction::Mesh::Request& request, semantic_reconstruction::Mesh::Response& response) {
+  response.value = *mMeshMsg;
   return true;
 }
 
@@ -114,7 +116,6 @@ void RosInterface::tsdfCb(std::vector<VoxelSpatialTSDF> & SemanticReconstr)
     std::cout<<"trisSize: "<<trisSize<<std::endl;
     const auto end = (int64_t)(GetSystemTimestamp<std::chrono::milliseconds>());
     // std::cout<<"mesh processing time: "<<end-st<<" ms"<<std::endl;
-    shape_msgs::Mesh::Ptr mMeshMsg = boost::make_shared<shape_msgs::Mesh>();
     // geometry_msgs/Point[] 
     mMeshMsg->vertices.resize(vertsSize);
     // shape_msgs/MeshTriangle[] 
@@ -133,7 +134,7 @@ void RosInterface::tsdfCb(std::vector<VoxelSpatialTSDF> & SemanticReconstr)
         mMeshMsg->triangles[i].vertex_indices[2] = mesh.tris[i].c;
         // std::cout<<mesh.tris[i].a<<std::endl;
     }
-    meshPub.publish(mMeshMsg);
+    // meshPub.publish(mMeshMsg);
     visual_tools_->publishMesh(T_ws, *mMeshMsg, rviz_visual_tools::ORANGE, 1, "mesh", 1); // rviz_visual_tools::TRANSLUCENT_LIGHT
     // Don't forget to trigger the publisher!
     visual_tools_->trigger();
@@ -147,11 +148,14 @@ void RosInterface::run() {
     ros::Time ros_stamp;
     while (ros::ok()) {
       const int64_t timestamp = zed_native->GetStereoFrame(&img_left, &img_right);
-      cv::imshow("zed_left", img_left);
-      cv::waitKey(1);
       zed_mask_lock.lock();
       zedLeftMaskL = zedLeftMask.clone();
       zed_mask_lock.unlock();
+      cv::imshow("zed_left", img_left);
+      // try {
+      //   cv::imshow("zedMask", zedLeftMaskL);
+      // } catch (cv_bridge::Exception& e) {}
+      cv::waitKey(1);
       // my_sys->feed_stereo_frame(img_left, img_right, timestamp);
       my_sys->feed_stereo_frame(img_left, img_right, timestamp, zedLeftMaskL);
       ros_stamp.sec = timestamp / 1000;
@@ -304,15 +308,15 @@ void RosInterface::zedMaskCb(const sensor_msgs::ImageConstPtr& msg)
   zed_mask_lock.lock();
   zedLeftMask = cv_bridge::toCvShare(msg, "8UC1")->image.clone();
   zed_mask_lock.unlock();
-  // try
-  // {
-  //   cv::imshow("zedMask", zedLeftMask);
-  //   cv::waitKey(1);
-  // }
-  // catch (cv_bridge::Exception& e)
-  // {
-  //   ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
-  // }
+  try
+  {
+    cv::imshow("zedMaskCb", zedLeftMask);
+    cv::waitKey(1);
+  }
+  catch (cv_bridge::Exception& e)
+  {
+    ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
+  }
 }
 
 void RosInterface::l515MaskCb(const sensor_msgs::ImageConstPtr& msg)
