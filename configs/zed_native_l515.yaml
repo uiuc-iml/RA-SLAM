@@ -31,7 +31,7 @@ Camera.fx: 456.8617
 Camera.fy: 456.77127
 Camera.cx: 322.1042
 Camera.cy: 187.79485
-depthmap_factor: 4000
+depthmap_factor: 4000 # 1/depth units in realsense-viewer
 
 # Raw Camera Calibration
 Calibration.left.fx: 3.487076003817052e+02
