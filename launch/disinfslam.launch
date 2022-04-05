@@ -1,11 +1,11 @@
 <launch>
-    <node pkg="tf2_ros" type="static_transform_publisher" name="word_slam" args="0 0 0  0 0 0 1  world slam" />
+    <node pkg="tf2_ros" type="static_transform_publisher" name="word_slam" args="0 0 0  0.5, -0.5, 0.5, -0.5  world slam" />
 
     <node pkg="semantic_reconstruction" type="ros_disinf_slam" name="ros_disinf_slam"  output="screen" >
         <param name="model_path"                value="/home/motion/tools/ht_lt.pt" />
         <param name="calib_path"                value="/home/motion/nairen_ws/src/RA-SLAM/configs/zed_native_l515.yaml" />
         <param name="orb_vocab_path"            value="/home/motion/tools/orb_vocab.dbow2" />
-        <param name="devid"     type="int"      value="2" />
+        <param name="devid"     type="int"      value="0" />
         <param name="renderer"  type="bool"     value="false" />
         <param name="global_mesh" type="bool" value="true" />
         <param name="bbox_xy"   type="double"   value="8.0" />
