@@ -33,30 +33,39 @@
 #define TRUNCATION_DISTANCE -0.1
 #define CELL_SIZE 0.05
 
+/*
+ * TODOs
+ * 1. Calibrate ZED Cameras
+ * 2. Figure out why Ctrl^C is not killing this
+ * 3. Use TRINA pose to fix pose estimations
+ * 4. Figure out how to identify points faster.
+ * 	It may be a procedure thing, show an interesting scene
+ * 	and strafe TRINA
+ */
+
 class Test {
 public:
-    Test();
+  Test();
 
-    void reconstruct();
-
-    void generate_mesh();
-
-    bool serve_mesh(semantic_reconstruction::Mesh::Request& request, semantic_reconstruction::Mesh::Response& response);
+  bool serve_mesh(semantic_reconstruction::Mesh::Request& request, semantic_reconstruction::Mesh::Response& response);
 
 private:
-    ros::NodeHandle mNh;
-    ros::Publisher meshPub;
-    // rviz_visual_tools::RvizVisualToolsPtr visual_tools_;
+  ros::NodeHandle mNh;
+  ros::Publisher meshPub;
+  // rviz_visual_tools::RvizVisualToolsPtr visual_tools_;
 
-    // tf2_ros::Buffer tfBuffer;
-    // Eigen::Isometry3d T_ws;
+  // Cameras
+  std::shared_ptr<ZEDNative>	zed_native;
+  std::shared_ptr<L515>		l515;
 
-    std::shared_ptr<ZEDNative> zed_native;
-    std::shared_ptr<L515> l515;
+  // Systems
+  std::shared_ptr<SLAMSystem>	SLAM;
+  std::shared_ptr<TSDFSystem>	TSDF;
+  std::shared_ptr<pose_manager>	POSE_MANAGER;
 
-    std::shared_ptr<SLAMSystem> SLAM;
-    std::shared_ptr<TSDFSystem> TSDF;
-    std::shared_ptr<pose_manager> POSE_MANAGER;
+  // Output Mesh
+  shape_msgs::Mesh::Ptr mesh_msg;
 
-    shape_msgs::Mesh::Ptr mesh_msg;
+  void reconstruct();
+  void generate_mesh();
 };
