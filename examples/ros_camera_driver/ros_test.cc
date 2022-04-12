@@ -83,17 +83,14 @@ void Test::generate_mesh() {
   static BoundingCube<float> volume = { -4, 4, -4, 4, -8, 8 };
   auto reconstruction	= TSDF->Query(volume);
   int numPoints		= reconstruction.size();
-  float minValue        = 1e100, maxValue = -1e100;
+  float minValue        = 0, maxValue = 0;
   Math3D::AABB3D bbox;
 
   for (int i = 0; i < numPoints; i++) {
-    minValue = Min(minValue, reconstruction[i].tsdf);
-    maxValue = Max(maxValue, reconstruction[i].tsdf);
-    bbox.expand(Math3D::Vector3(
-      reconstruction[i].position[0],
-      reconstruction[i].position[1],
-      reconstruction[i].position[2]
-    ));
+    const auto& point	= reconstruction[i];
+    minValue = Min(minValue, point.tsdf);
+    maxValue = Max(maxValue, point.tsdf);
+    bbox.expand(Math3D::Vector3(point.position[0], point.position[1], point.position[2]));
   }
 
   printf("Read %d points with distance in range [%g,%g]\n", numPoints, minValue, maxValue);
@@ -107,12 +104,15 @@ void Test::generate_mesh() {
   // Class Conversion
   Geometry::SparseTSDFReconstruction tsdf(Math3D::Vector3(CELL_SIZE), truncation_distance);
   tsdf.tsdf.defaultValue[0] = truncation_distance;
-  Math3D::Vector3 ofs(CELL_SIZE * 0.5);
+  Math3D::Vector3 offset(CELL_SIZE * 0.5);
+
   for (int i = 0; i < numPoints; i++) {
+    const auto& point = reconstruction[i];
     tsdf.tsdf.SetValue(Math3D::Vector3(
-      reconstruction[i].position[0],
-      reconstruction[i].position[1],
-      reconstruction[i].position[2]) + ofs,reconstruction[i].tsdf
+      point.position[0],
+      point.position[1],
+      point.position[2]) + offset,
+      point.tsdf
     );
   }
 
