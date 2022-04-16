@@ -12,6 +12,8 @@
 #include "utils/gl/image.h"
 #include "utils/tsdf/voxel_hash.cuh"
 
+#define NUM_CLASSES 2 // multi-class segmentation
+
 template <typename T>
 using CubeVertices = Eigen::Matrix<T, 3, 1>[3];
 
@@ -138,10 +140,11 @@ class TSDFGrid {
   // image data buffer
   uchar3* img_rgb_;
   float* img_depth_;
-  float* img_ht_;
-  float* img_lt_;
+  float* prob_map_;
   float* img_depth_to_range_;
   // renderer buffer
   uchar4* img_tsdf_rgba_;
   uchar4* img_tsdf_normal_;
+  int width_;
+  int height_;
 };

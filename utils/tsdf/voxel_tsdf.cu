@@ -172,7 +172,7 @@ __global__ static void tsdf_integrate_kernel(
     VoxelBlock* blocks, VoxelMemPool voxel_mem, const SE3<float> cam_T_world,
     const CameraParams cam_params, const int num_visible_blocks, const float max_depth,
     const float truncation, const float voxel_size, const uchar3* img_rgb, const float* img_depth,
-    const float* img_ht, const float* img_lt, const float* img_depth_to_range) {
+    const float* prob_map, const float* img_depth_to_range, const int height, const int width) {
   if (blockIdx.x >= num_visible_blocks) {
     // If voxel block idx is not visible, return.
     return;
@@ -201,6 +201,8 @@ __global__ static void tsdf_integrate_kernel(
 
   // corresponding pixel index in camera height
   const int v = roundf(pos_img[1]);
+
+  const int class_offset = width * height;
 
   // update if visible
   if (u >= 0 && u < cam_params.img_w && v >= 0 && v < cam_params.img_h) {
@@ -241,10 +243,10 @@ __global__ static void tsdf_integrate_kernel(
           rgb_combined.unaryExpr([](const float x) { return roundf(x); }).cast<unsigned char>();
       // high touch / low touch
       const float positive =
-          expf((weight_old * logf(voxel_segm.probability) + weight_new * logf(img_ht[img_idx])) /
+          expf((weight_old * logf(voxel_segm.probability) + weight_new * logf(prob_map[img_idx])) /
                weight_combined);
       const float negative = expf(
-          (weight_old * logf(1 - voxel_segm.probability) + weight_new * logf(img_lt[img_idx])) /
+          (weight_old * logf(1 - voxel_segm.probability) + weight_new * logf(prob_map[img_idx + class_offset])) /
           weight_combined);
       voxel_segm.probability = positive / (positive + negative);
     }
@@ -385,8 +387,7 @@ TSDFGrid::TSDFGrid(float voxel_size, float truncation)
                  sizeof(VoxelBlock) * NUM_ENTRY));  // TODO(roger): change to NUM_BLOCKS and test
   CUDA_SAFE_CALL(cudaMalloc(&img_rgb_, sizeof(uint3) * MAX_IMG_SIZE));
   CUDA_SAFE_CALL(cudaMalloc(&img_depth_, sizeof(float) * MAX_IMG_SIZE));
-  CUDA_SAFE_CALL(cudaMalloc(&img_ht_, sizeof(float) * MAX_IMG_SIZE));
-  CUDA_SAFE_CALL(cudaMalloc(&img_lt_, sizeof(float) * MAX_IMG_SIZE));
+  CUDA_SAFE_CALL(cudaMalloc(&prob_map_, sizeof(float) * MAX_IMG_SIZE * NUM_CLASSES));
   CUDA_SAFE_CALL(cudaMalloc(&img_depth_to_range_, sizeof(float) * MAX_IMG_SIZE));
   CUDA_SAFE_CALL(cudaMalloc(&img_tsdf_rgba_, sizeof(uchar4) * MAX_IMG_SIZE));
   CUDA_SAFE_CALL(cudaMalloc(&img_tsdf_normal_, sizeof(uchar4) * MAX_IMG_SIZE));
@@ -404,8 +405,7 @@ TSDFGrid::~TSDFGrid() {
   CUDA_SAFE_CALL(cudaFree(visible_blocks_));
   CUDA_SAFE_CALL(cudaFree(img_rgb_));
   CUDA_SAFE_CALL(cudaFree(img_depth_));
-  CUDA_SAFE_CALL(cudaFree(img_ht_));
-  CUDA_SAFE_CALL(cudaFree(img_lt_));
+  CUDA_SAFE_CALL(cudaFree(prob_map_));
   CUDA_SAFE_CALL(cudaFree(img_depth_to_range_));
   CUDA_SAFE_CALL(cudaFree(img_tsdf_rgba_));
   CUDA_SAFE_CALL(cudaFree(img_tsdf_normal_));
@@ -420,6 +420,10 @@ void TSDFGrid::Integrate(const cv::Mat& img_rgb, const cv::Mat& img_depth,
   // check rgb/depth type and shape
   assert(img_rgb.type() == CV_8UC3);
   assert(img_depth.type() == CV_32FC1);
+  width_ = img_rgb.cols;
+  height_ = img_rgb.rows;
+  assert(img_rgb.cols == width_);
+  assert(img_rgb.rows == height_);
   assert(img_rgb.cols == img_depth.cols);
   assert(img_rgb.rows == img_depth.rows);
   // check prob map type and shape
@@ -428,8 +432,9 @@ void TSDFGrid::Integrate(const cv::Mat& img_rgb, const cv::Mat& img_depth,
   assert(img_depth.rows == prob_map.sizes()[1]);
   assert(img_rgb.rows < MAX_IMG_H);
   assert(img_rgb.cols < MAX_IMG_W);
-
-  int64_t spatial_size = prob_map.sizes()[2] * prob_map.sizes()[1];
+  assert(prob_map.shape[1] == height_);
+  assert(prob_map.shape[2] == width_);
+  assert(prob_map.shape[0] == NUM_CLASSES);
 
   const CameraParams cam_params(intrinsics, img_rgb.rows, img_rgb.cols);
 
@@ -438,9 +443,8 @@ void TSDFGrid::Integrate(const cv::Mat& img_rgb, const cv::Mat& img_depth,
                                  cudaMemcpyHostToDevice, stream_));
   CUDA_SAFE_CALL(cudaMemcpyAsync(img_depth_, img_depth.data, sizeof(float) * img_depth.total(),
                                  cudaMemcpyHostToDevice, stream_));
-  CUDA_SAFE_CALL(cudaMemcpyAsync(img_ht_, prob_map[0].data_ptr(), sizeof(float) * spatial_size,
-                                 cudaMemcpyDeviceToDevice, stream2_));
-  CUDA_SAFE_CALL(cudaMemcpyAsync(img_lt_, prob_map[1].data_ptr(), sizeof(float) * spatial_size,
+                                 // ht is 0
+  CUDA_SAFE_CALL(cudaMemcpyAsync(prob_map_, prob_map.data_ptr(), sizeof(float) * width_ * height_ * NUM_CLASSES,
                                  cudaMemcpyDeviceToDevice, stream2_));
   // compute
   spdlog::debug("[TSDF] pre integrate: {} active blocks", hash_table_.NumActiveBlock());
@@ -875,7 +879,7 @@ void TSDFGrid::UpdateTSDF(int num_visible_blocks, float max_depth, const CameraP
   const dim3 VOXEL_BLOCK_DIM(BLOCK_LEN, BLOCK_LEN, BLOCK_LEN);
   tsdf_integrate_kernel<<<num_visible_blocks, VOXEL_BLOCK_DIM, 0, stream_>>>(
       visible_blocks_, hash_table_.mem, cam_T_world, cam_params, num_visible_blocks, max_depth,
-      truncation_, voxel_size_, img_rgb_, img_depth_, img_ht_, img_lt_, img_depth_to_range_);
+      truncation_, voxel_size_, img_rgb_, img_depth_, prob_map_, img_depth_to_range_, height_, width_);
   CUDA_STREAM_CHECK_ERROR(stream_);
 }
 
