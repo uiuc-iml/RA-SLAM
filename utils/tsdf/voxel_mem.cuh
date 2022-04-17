@@ -6,6 +6,7 @@
 #include <cassert>
 
 #include "utils/tsdf/voxel_types.cuh"
+#include "utils/tsdf/voxel_semantic.cuh"
 
 // total number of voxel blocks available
 #define NUM_BLOCK_BITS 18

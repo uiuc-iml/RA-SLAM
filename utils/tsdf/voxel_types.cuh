@@ -35,11 +35,11 @@ class VoxelTSDF {
  */
 class VoxelSEGM {
  public:
-  float probability;
+  float prob_vec[NUM_CLASSES];
 
  public:
   __device__ __host__ VoxelSEGM();
-  __device__ __host__ VoxelSEGM(float probability);
+  __device__ __host__ VoxelSEGM(float prob_vec_[NUM_CLASSES]);
 };
 
 /**
@@ -63,9 +63,9 @@ class VoxelSpatialTSDFSEGM {
  public:
   Eigen::Vector3f position;
   float tsdf;
-  float probability;
+  float prob_vec[NUM_CLASSES];
 
  public:
   __device__ __host__ VoxelSpatialTSDFSEGM();
-  __device__ __host__ VoxelSpatialTSDFSEGM(const Eigen::Vector3f& position, float tsdf, float prob);
+  __device__ __host__ VoxelSpatialTSDFSEGM(const Eigen::Vector3f& position, const float tsdf, const float prob_vec_[NUM_CLASSES]);
 };

@@ -7,6 +7,7 @@
 #include "utils/cuda/errors.cuh"
 #include "utils/tsdf/mcube_table.cuh"
 #include "utils/tsdf/voxel_tsdf.cuh"
+#include "utils/tsdf/voxel_semantic.cuh"
 
 #define MAX_IMG_H 1920
 #define MAX_IMG_W 1080
@@ -58,7 +59,7 @@ __global__ static void download_semantic_kernel(const VoxelHashTable hash_table,
   const int idx = blockIdx.x * BLOCK_VOLUME + thread_idx;
   const VoxelTSDF& tsdf = hash_table.mem.GetVoxel<VoxelTSDF>(thread_idx, block);
   const VoxelSEGM& segm = hash_table.mem.GetVoxel<VoxelSEGM>(thread_idx, block);
-  voxel_pos_tsdf[idx] = VoxelSpatialTSDFSEGM(pos_world, tsdf.tsdf, segm.probability);
+  voxel_pos_tsdf[idx] = VoxelSpatialTSDFSEGM(pos_world, tsdf.tsdf, segm.prob_vec);
 }
 
 __device__ static bool is_voxel_visible(const Eigen::Matrix<short, 3, 1>& pos_grid,
@@ -241,14 +242,18 @@ __global__ static void tsdf_integrate_kernel(
       voxel_rgbw.weight = fminf(roundf(weight_combined), 40);
       voxel_rgbw.rgb =
           rgb_combined.unaryExpr([](const float x) { return roundf(x); }).cast<unsigned char>();
-      // high touch / low touch
-      const float positive =
-          expf((weight_old * logf(voxel_segm.probability) + weight_new * logf(prob_map[img_idx])) /
-               weight_combined);
-      const float negative = expf(
-          (weight_old * logf(1 - voxel_segm.probability) + weight_new * logf(prob_map[img_idx + class_offset])) /
-          weight_combined);
-      voxel_segm.probability = positive / (positive + negative);
+      // multi-class recursive Bayesian update
+      float norm_coeff = 0;
+      #pragma unroll
+      for (int i = 0; i < NUM_CLASSES; ++i) {
+        float new_prob = voxel_segm.prob_vec[i] * prob_map[img_idx + class_offset * i];
+        voxel_segm.prob_vec[i] = new_prob;
+        norm_coeff += new_prob;
+      }
+      #pragma unroll
+      for (int i = 0; i < NUM_CLASSES; ++i) {
+        voxel_segm.prob_vec[i] /= norm_coeff;
+      }
     }
   }
 }
@@ -350,13 +355,26 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
                                           hash_table.Retrieve<VoxelTSDF>(z_pos, cache).tsdf -
                                               hash_table.Retrieve<VoxelTSDF>(z_neg, cache).tsdf);
       const float diffusivity = fmaxf(norm_raw_grid.dot(-ray_dir_world) / norm_raw_grid.norm(), 0);
-      const float alpha = fmaxf(voxel_segm.probability - 0.5, 0) / .5;
+      // find max class
+      int max_cls = 0;
+      float max_prob = voxel_segm.prob_vec[0];
+      # pragma unroll
+      for (int i = 0; i < NUM_CLASSES; ++i) {
+        if (voxel_segm.prob_vec[i] > max_prob) {
+          max_cls = i;
+          max_prob = voxel_segm.prob_vec[i];
+        }
+      }
+      float alpha = 0;
+      if (max_cls != 0) alpha = 0.5; // alpha for non-background classes
       img_tsdf_rgba[idx] =
-          make_uchar4(alpha * 255 + (1 - alpha) * voxel_rgbw.rgb[0],
-                      (1 - alpha) * voxel_rgbw.rgb[1], (1 - alpha) * voxel_rgbw.rgb[2], 255);
+          make_uchar4(alpha * label_color_palette[max_cls][0] + (1 - alpha) * voxel_rgbw.rgb[0],
+                      alpha * label_color_palette[max_cls][1] + (1 - alpha) * voxel_rgbw.rgb[1],
+                      alpha * label_color_palette[max_cls][2] + (1 - alpha) * voxel_rgbw.rgb[2], 255);
       img_tsdf_normal[idx] =
-          make_uchar4(alpha * 255 + (1 - alpha) * diffusivity * 255,
-                      (1 - alpha) * diffusivity * 255, (1 - alpha) * diffusivity * 255, 255);
+          make_uchar4(alpha * label_color_palette[max_cls][0] + (1 - alpha) * diffusivity * 255,
+                      alpha * label_color_palette[max_cls][1] + (1 - alpha) * diffusivity * 255,
+                      alpha * label_color_palette[max_cls][2] + (1 - alpha) * diffusivity * 255, 255);
       return;
     }
     tsdf_prev = tsdf_curr;
@@ -607,8 +625,10 @@ __global__ static void marching_cube_kernel(const VoxelHashTable hash_table,
               hash_table.mem.GetVoxel<VoxelTSDF>(offset_idx, cube_blocks[i][j][k]);
           const int weight =
               hash_table.mem.GetVoxel<VoxelRGBW>(offset_idx, cube_blocks[i][j][k]).weight;
+          // FIXME!!!
+          // TODO(roger): maintain only the maximum class. Use TSDF to choose the nearest one as predicted class
           const float segm_prob =
-              hash_table.mem.GetVoxel<VoxelSEGM>(offset_idx, cube_blocks[i][j][k]).probability;
+              hash_table.mem.GetVoxel<VoxelSEGM>(offset_idx, cube_blocks[i][j][k]).prob_vec[0];
           if (weight > 10) {
             // if mutliple measurement, plug in tsdf
             cube_tsdf[i * BLOCK_LEN + threadIdx.z][j * BLOCK_LEN + threadIdx.y]

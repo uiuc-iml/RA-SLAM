@@ -15,7 +15,7 @@ torch::Tensor mat_to_tensor(const cv::Mat& my_mat) {
   cv::Mat float_mat;
   // sizes: (1, C, H, W)
   // normalization
-  my_mat.convertTo(float_mat, CV_32FC3, 1.0f / 255.0f);
+  my_mat.convertTo(float_mat, CV_32FC3, 1.0f);
   // opencv format H*W*C
   auto input_tensor =
       torch::from_blob(float_mat.data, {1, float_mat.rows, float_mat.cols, 3}).clone();

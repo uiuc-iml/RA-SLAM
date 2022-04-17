@@ -12,8 +12,6 @@
 #include "utils/gl/image.h"
 #include "utils/tsdf/voxel_hash.cuh"
 
-#define NUM_CLASSES 2 // multi-class segmentation
-
 template <typename T>
 using CubeVertices = Eigen::Matrix<T, 3, 1>[3];
 
@@ -60,8 +58,7 @@ class TSDFGrid {
    *
    * @param img_rgb     RGB image
    * @param img_depth   depth image in [m]
-   * @param img_ht      high touch probability image
-   * @param img_lt      low touch probability image
+   * @param prob_map    probability map of shape CHW
    * @param max_depth   maximum depth in [m]
    * @param intrinsics  camera intrinsics
    * @param cam_T_world transformation from camera to world
