@@ -52,13 +52,18 @@ public:
 private:
   ros::NodeHandle mNh;
   ros::Publisher meshPub;
-  // rviz_visual_tools::RvizVisualToolsPtr visual_tools_;
+  rviz_visual_tools::RvizVisualToolsPtr visual_tools_;
+
+  tf2_ros::Buffer tfBuffer;
+  Eigen::Isometry3d world_T_slam;
 
   // Cameras
   std::shared_ptr<ZEDNative>	zed_native;
   std::shared_ptr<L515>		l515;
 
   // Systems
+  bool is_tracking; // TODO Needs a mutex
+
   std::shared_ptr<SLAMSystem>	SLAM;
   std::shared_ptr<TSDFSystem>	TSDF;
   std::shared_ptr<pose_manager>	POSE_MANAGER;

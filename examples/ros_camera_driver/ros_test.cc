@@ -21,16 +21,22 @@ Test::Test() {
   std::string vocab_file_path;
   std::string config_file_path;
   std::string device_id;
+  int devid;
 
   mNh.getParam("/ros_disinf_slam/calib_path", config_file_path); 
   mNh.getParam("/ros_disinf_slam/orb_vocab_path", vocab_file_path);
+  mNh.getParam("/ros_disinf_slam/devid", devid);
 
   meshPub = mNh.advertise<shape_msgs::Mesh>("/mesh", 1);
   ros::ServiceServer meshServ = mNh.advertiseService("/meshserv", &Test::serve_mesh, this);
 
-  // visual_tools_.reset(new rviz_visual_tools::RvizVisualTools("world","/mesh_visual", mNh));
-  // visual_tools_->setPsychedelicMode(false);
-  // visual_tools_->loadMarkerPub();
+  auto tfListener = std::make_shared<tf2_ros::TransformListener>(tfBuffer);
+  geometry_msgs::TransformStamped transformStampedInit = tfBuffer.lookupTransform("world", "slam", ros::Time::now(), ros::Duration(5));
+  world_T_slam = tf2::transformToEigen(transformStampedInit);
+
+  visual_tools_.reset(new rviz_visual_tools::RvizVisualTools("world","/mesh_visual", mNh));
+  visual_tools_->setPsychedelicMode(false);
+  visual_tools_->loadMarkerPub();
 
   std::shared_ptr<openvslam::config> cfg;
   try {
@@ -41,7 +47,7 @@ Test::Test() {
   }
 
   // Initialize cameras
-  zed_native = std::make_shared<ZEDNative>(*cfg, 0);
+  zed_native = std::make_shared<ZEDNative>(*cfg, devid);
   l515 = std::make_shared<L515>();
   // l515->SetDepthSensorOption(rs2_option::RS2_OPTION_CONFIDENCE_THRESHOLD, 3);
   // l515->SetDepthSensorOption(rs2_option::RS2_OPTION_LASER_POWER, 100);
@@ -145,9 +151,9 @@ void Test::generate_mesh() {
   }
 
   // meshPub.publish(mesh_msg);
-  // visual_tools_->publishMesh(*mesh_msg, rviz_visual_tools::ORANGE, 1, "mesh", 1); // rviz_visual_tools::TRANSLUCENT_LIGHT
+  visual_tools_->publishMesh(world_T_slam, *mesh_msg, rviz_visual_tools::ORANGE, 1, "mesh", 1);
   // Don't forget to trigger the publisher!
-  // visual_tools_->trigger();
+  visual_tools_->trigger();
 }
 
 void Test::reconstruct() {
@@ -160,7 +166,6 @@ void Test::reconstruct() {
   std::thread t_slam([&]() {
     while (ros::ok()) {
       cv::Mat img_left, img_right;
-      if (SLAM->terminate_is_requested()) break;
       // get sensor readings
       const int64_t timestamp = zed_native->GetStereoFrame(&img_left, &img_right);
 
@@ -175,6 +180,14 @@ void Test::reconstruct() {
       // TODO This should be fixed with camera calibration
       SE3<float> pose(posecam_P_world.GetR(), posecam_P_world.GetT() * 7.8);
 
+      std::cout << std::setw(5) << "|T: "
+          << std::setprecision(3)
+          << std::setw(12) << pose.GetT().x() << " "
+          << std::setw(12) << pose.GetT().y() << " "
+          << std::setw(12) << pose.GetT().z() << " "
+          << std::endl;
+
+      is_tracking = m.second;
       if (m.second) POSE_MANAGER->register_valid_pose(timestamp, pose);
       ros::spinOnce();
     }
@@ -187,14 +200,24 @@ void Test::reconstruct() {
    * 3. Scale and integrate the depth image at that pose into the TSDF
    */
   std::thread t_tsdf([&]() {
-    while (ros::ok()) {
+    static bool has_started = false;
+    while (ros::ok()) {      
       cv::Mat img_rgb, img_depth;
-      if (SLAM->terminate_is_requested()) break;
       const int64_t timestamp = l515->GetRGBDFrame(&img_rgb, &img_depth);
 
+      // if (POSE_MANAGER->query_pose(timestamp) == SE3<float>::Identity()) {
+      if (!is_tracking) {
+        continue;
+      }
+
+      if (!has_started) {
+        has_started = true;
+        std::cout << "TSDF started!" << std::endl;
+      }
+
       // DEBUG
-      cv::imshow("depth", img_depth);
-      cv::waitKey(1);
+      // cv::imshow("depth", img_depth);
+      // cv::waitKey(1);
 
       const SE3<float> posecam_P_world = POSE_MANAGER->query_pose(timestamp);
       cv::resize(img_rgb, img_rgb, cv::Size(), .5, .5);
