@@ -32,6 +32,7 @@
 
 #define TRUNCATION_DISTANCE -0.1
 #define CELL_SIZE 0.05
+#define MAX_DEPTH 2.5
 
 /*
  * TODOs
@@ -51,7 +52,6 @@ public:
 
 private:
   ros::NodeHandle mNh;
-  ros::Publisher meshPub;
   rviz_visual_tools::RvizVisualToolsPtr visual_tools_;
 
   tf2_ros::Buffer tfBuffer;

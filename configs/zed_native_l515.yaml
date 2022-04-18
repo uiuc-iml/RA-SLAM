@@ -6,7 +6,7 @@ Camera.name: "ZED Rev 1"
 Camera.setup: "stereo"
 Camera.model: "perspective"
 
-Camera.fps: 60
+Camera.fps: 100
 Camera.cols: 672
 Camera.rows: 376
 
@@ -68,3 +68,14 @@ PangolinViewer.viewpoint_f: 400
 
 # Initializer Parameters
 Initializer.num_min_triangulated_pts: 50
+
+# L515 Settings
+L515.DigitalGain: 1
+L515.LaserPower: 100
+L515.ConfidenceThreshold: 3
+L515.MinDistance: 200
+L515.ReceiverGain: 8
+L515.PostProcSharp: 3
+L515.PreProcSharp: 5
+L515.NoiseFiltering: 6
+

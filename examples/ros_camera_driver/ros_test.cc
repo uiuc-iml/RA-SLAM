@@ -16,18 +16,20 @@
 #include <std_msgs/Float32MultiArray.h>
 #include <std_msgs/Float32MultiArray.h>
 #include <std_msgs/String.h>
+#include <yaml-cpp/yaml.h>
 
 Test::Test() {
   std::string vocab_file_path;
   std::string config_file_path;
   std::string device_id;
   int devid;
+  float max_depth;
 
   mNh.getParam("/ros_disinf_slam/calib_path", config_file_path); 
   mNh.getParam("/ros_disinf_slam/orb_vocab_path", vocab_file_path);
   mNh.getParam("/ros_disinf_slam/devid", devid);
+  mNh.getParam("/ros_disinf_slam/max_depth", max_depth);
 
-  meshPub = mNh.advertise<shape_msgs::Mesh>("/mesh", 1);
   ros::ServiceServer meshServ = mNh.advertiseService("/meshserv", &Test::serve_mesh, this);
 
   auto tfListener = std::make_shared<tf2_ros::TransformListener>(tfBuffer);
@@ -49,9 +51,15 @@ Test::Test() {
   // Initialize cameras
   zed_native = std::make_shared<ZEDNative>(*cfg, devid);
   l515 = std::make_shared<L515>();
-  l515->SetDepthSensorOption(rs2_option::RS2_OPTION_CONFIDENCE_THRESHOLD, 2);
-  // l515->SetDepthSensorOption(rs2_option::RS2_OPTION_LASER_POWER, 100);
-  // l515->SetDepthSensorOption(rs2_option::RS2_OPTION_DIGITAL_GAIN, 1);
+  YAML::Node yaml_node = YAML::LoadFile(config_file_path);
+  l515->SetDepthSensorOption(rs2_option::RS2_OPTION_DIGITAL_GAIN, yaml_node["L515.DigitalGain"].as<int>());                 // [0,1]
+  l515->SetDepthSensorOption(rs2_option::RS2_OPTION_LASER_POWER, yaml_node["L515.LaserPower"].as<int>());                   // [0,100]
+  l515->SetDepthSensorOption(rs2_option::RS2_OPTION_CONFIDENCE_THRESHOLD, yaml_node["L515.ConfidenceThreshold"].as<int>()); // [0,3]
+  l515->SetDepthSensorOption(rs2_option::RS2_OPTION_MIN_DISTANCE, yaml_node["L515.MinDistance"].as<int>());
+  l515->SetDepthSensorOption(rs2_option::RS2_OPTION_RECEIVER_SENSITIVITY, yaml_node["L515.ReceiverGain"].as<int>());        // [8,18]
+  l515->SetDepthSensorOption(rs2_option::RS2_OPTION_POST_PROCESSING_SHARPENING, yaml_node["L515.PostProcSharp"].as<int>()); // [0,3]
+  l515->SetDepthSensorOption(rs2_option::RS2_OPTION_PRE_PROCESSING_SHARPENING, yaml_node["L515.PreProcSharp"].as<int>());   // [0,5]
+  l515->SetDepthSensorOption(rs2_option::RS2_OPTION_NOISE_FILTERING, yaml_node["L515.NoiseFiltering"].as<int>());           // [0,6]
 
   // TODO Initialize poses
 
@@ -59,7 +67,7 @@ Test::Test() {
   TSDF = std::make_shared<TSDFSystem>(
     CELL_SIZE,
     CELL_SIZE * 6,
-    4,
+    max_depth,
     GetIntrinsicsFromFile(config_file_path),
     GetExtrinsicsFromFile(config_file_path)
   );
@@ -150,7 +158,6 @@ void Test::generate_mesh() {
     // std::cout<<mesh.tris[i].a<<std::endl;
   }
 
-  // meshPub.publish(mesh_msg);
   visual_tools_->publishMesh(world_T_slam, *mesh_msg, rviz_visual_tools::ORANGE, 1, "mesh", 1);
   // Don't forget to trigger the publisher!
   visual_tools_->trigger();
