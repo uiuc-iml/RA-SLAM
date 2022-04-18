@@ -49,7 +49,7 @@ Test::Test() {
   // Initialize cameras
   zed_native = std::make_shared<ZEDNative>(*cfg, devid);
   l515 = std::make_shared<L515>();
-  // l515->SetDepthSensorOption(rs2_option::RS2_OPTION_CONFIDENCE_THRESHOLD, 3);
+  l515->SetDepthSensorOption(rs2_option::RS2_OPTION_CONFIDENCE_THRESHOLD, 2);
   // l515->SetDepthSensorOption(rs2_option::RS2_OPTION_LASER_POWER, 100);
   // l515->SetDepthSensorOption(rs2_option::RS2_OPTION_DIGITAL_GAIN, 1);
 
@@ -174,11 +174,11 @@ void Test::reconstruct() {
       cv::waitKey(1);
 
       // visual slam
-      const pose_valid_tuple m = SLAM->feed_stereo_images_w_feedback(img_left, img_right, timestamp / 1e3);
-      const SE3<float> posecam_P_world(m.first.cast<float>().eval());
+      const pose_valid_tuple m = SLAM->feed_stereo_images_w_feedback(img_left, img_right, timestamp * 1e3); // TODO Unsure units
+      const SE3<float> pose(m.first.cast<float>().eval());
 
       // TODO This should be fixed with camera calibration
-      SE3<float> pose(posecam_P_world.GetR(), posecam_P_world.GetT() * 7.8);
+      // SE3<float> pose(posecam_P_world.GetR(), posecam_P_world.GetT() * 10);
 
       std::cout << std::setw(5) << "|T: "
           << std::setprecision(3)
@@ -201,6 +201,7 @@ void Test::reconstruct() {
    */
   std::thread t_tsdf([&]() {
     static bool has_started = false;
+    static int64_t start_time = 0;
     while (ros::ok()) {      
       cv::Mat img_rgb, img_depth;
       const int64_t timestamp = l515->GetRGBDFrame(&img_rgb, &img_depth);
@@ -210,6 +211,15 @@ void Test::reconstruct() {
         continue;
       }
 
+      if (start_time == 0) {
+        start_time = GetTimestamp<std::chrono::milliseconds>() + 3000;
+        continue;
+      }
+
+      if (GetTimestamp<std::chrono::milliseconds>() < start_time) {
+        continue;
+      }
+      
       if (!has_started) {
         has_started = true;
         std::cout << "TSDF started!" << std::endl;
