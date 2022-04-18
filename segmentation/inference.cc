@@ -31,7 +31,7 @@ torch::Tensor inference_engine::infer_one(const cv::Mat& rgb_img) {
   std::vector<cv::Mat> ret;
 
   if (!running_) {
-    return torch::zeros({2, this->height_, this->width_},
+    return torch::zeros({NUM_CLASSES, this->height_, this->width_},
                         torch::TensorOptions().dtype(torch::kFloat32).device(torch::kCUDA));
   }
   spdlog::debug("[SEGM] Input rgb image rows: {} cols: {}", rgb_img.rows, rgb_img.cols);

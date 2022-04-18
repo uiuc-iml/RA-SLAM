@@ -52,7 +52,7 @@ void run(const std::string& segm_model_path, const std::string& data_path, bool 
     3rd param: Depth camera maximum range cutoff
   */
   float voxel_size = 0.01;
-  auto my_tsdf = std::make_shared<TSDFSystem>(voxel_size, voxel_size * 6, 6,
+  auto my_tsdf = std::make_shared<TSDFSystem>(voxel_size, voxel_size * 6, 4,
                                               my_datareader->get_camera_intrinsics(),
                                               my_datareader->get_camera_extrinsics());
   pose_manager camera_pose_manager;

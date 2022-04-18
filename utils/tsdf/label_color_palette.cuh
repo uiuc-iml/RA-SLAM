@@ -2,8 +2,6 @@
 
 #include <cuda_runtime.h>
 
-#define NUM_CLASSES 21 // multi-class segmentation
-
 // class color palette from imgviz
 __constant__ int label_color_palette[256][3] = {
   {0, 0, 0},

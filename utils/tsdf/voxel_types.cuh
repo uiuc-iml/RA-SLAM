@@ -4,6 +4,8 @@
 
 #include <Eigen/Dense>
 
+#define NUM_CLASSES 21 // multi-class segmentation
+
 /**
  * @brief voxel data packed with RGB and TSDF weight
  */

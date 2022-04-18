@@ -7,7 +7,8 @@
 #include "utils/cuda/errors.cuh"
 #include "utils/tsdf/mcube_table.cuh"
 #include "utils/tsdf/voxel_tsdf.cuh"
-#include "utils/tsdf/voxel_semantic.cuh"
+#include "utils/tsdf/label_color_palette.cuh"
+#include "utils/time.hpp"
 
 #define MAX_IMG_H 1920
 #define MAX_IMG_W 1080
@@ -450,25 +451,26 @@ void TSDFGrid::Integrate(const cv::Mat& img_rgb, const cv::Mat& img_depth,
   assert(img_depth.rows == prob_map.sizes()[1]);
   assert(img_rgb.rows < MAX_IMG_H);
   assert(img_rgb.cols < MAX_IMG_W);
-  assert(prob_map.shape[1] == height_);
-  assert(prob_map.shape[2] == width_);
-  assert(prob_map.shape[0] == NUM_CLASSES);
+  assert(prob_map.sizes()[1] == height_);
+  assert(prob_map.sizes()[2] == width_);
+  assert(prob_map.sizes()[0] == NUM_CLASSES);
 
   const CameraParams cam_params(intrinsics, img_rgb.rows, img_rgb.cols);
 
   // data transfer
+  CUDA_SAFE_CALL(cudaMemcpyAsync(prob_map_, prob_map.data_ptr(), sizeof(float) * width_ * height_ * NUM_CLASSES,
+                                 cudaMemcpyDeviceToDevice, stream2_));
   CUDA_SAFE_CALL(cudaMemcpyAsync(img_rgb_, img_rgb.data, sizeof(uchar3) * img_rgb.total(),
                                  cudaMemcpyHostToDevice, stream_));
   CUDA_SAFE_CALL(cudaMemcpyAsync(img_depth_, img_depth.data, sizeof(float) * img_depth.total(),
                                  cudaMemcpyHostToDevice, stream_));
                                  // ht is 0
-  CUDA_SAFE_CALL(cudaMemcpyAsync(prob_map_, prob_map.data_ptr(), sizeof(float) * width_ * height_ * NUM_CLASSES,
-                                 cudaMemcpyDeviceToDevice, stream2_));
   // compute
   spdlog::debug("[TSDF] pre integrate: {} active blocks", hash_table_.NumActiveBlock());
   Allocate(img_rgb, img_depth, max_depth, cam_params, cam_T_world);
   const int num_visible_blocks = GatherVisible(max_depth, cam_params, cam_T_world);
   CUDA_SAFE_CALL(cudaStreamSynchronize(stream2_));  // synchronize ht / lt img copy
+  // it takes ~2ms from first async memcpy to get here
   UpdateTSDF(num_visible_blocks, max_depth, cam_params, cam_T_world);
 
   // Deallocate empty voxels
