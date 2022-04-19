@@ -7,13 +7,6 @@ components of this module is a real-time 3D semantic reconstruction algorithm, w
 
 Please refer to [INSTALL.md](./INSTALL.md)
 
-For convenience, the installation instruction we wrote assumes installation to `/usr/local` with root access.
-In reality, to avoid collision with existing system packages, it is
-recommended to install all packages (including the ones that OpenVSLAM depends on) into
-a local directory such as `~/.local` instead of the system path `/usr/local`. This can
-be easily achieved by adding `-DCMAKE_INSTALL_PREFIX=$HOME/.local` option to a CMake command.
-Another benifit of this is that `sudo` privilege is not needed for the installation, which may be desirable on multi-user servers.
-
 ## Running Example ScanNet reconstruction
 
 The last step before running example reconstruction is obtaining sample camera footage and trained network weights.
