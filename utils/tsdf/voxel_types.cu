@@ -11,10 +11,10 @@ __device__ __host__ VoxelTSDF::VoxelTSDF(float tsdf) : tsdf(tsdf) {}
 __device__ __host__ VoxelSEGM::VoxelSEGM() {
     #pragma unroll
     for (int i = 0; i < NUM_CLASSES; ++i) {
-        prob_vec[i] = 1. / NUM_CLASSES;
+        prob_vec[i] = __float2half(1. / NUM_CLASSES);
     }
 }
-__device__ __host__ VoxelSEGM::VoxelSEGM(float prob_vec_[NUM_CLASSES]) {
+__device__ __host__ VoxelSEGM::VoxelSEGM(__half prob_vec_[NUM_CLASSES]) {
     #pragma unroll
     for (int i = 0; i < NUM_CLASSES; ++i) {
         prob_vec[i] = prob_vec_[i];
@@ -29,7 +29,7 @@ __device__ __host__ VoxelSpatialTSDF::VoxelSpatialTSDF(const Eigen::Vector3f& po
 
 __device__ __host__ VoxelSpatialTSDFSEGM::VoxelSpatialTSDFSEGM(){};
 __device__ __host__ VoxelSpatialTSDFSEGM::VoxelSpatialTSDFSEGM(const Eigen::Vector3f& position,
-                                                               const float tsdf, const float prob_vec_[NUM_CLASSES])
+                                                               const float tsdf, const __half prob_vec_[NUM_CLASSES])
     : position(position), tsdf(tsdf) {
         #pragma unroll
         for (int i = 0; i < NUM_CLASSES; ++i) {

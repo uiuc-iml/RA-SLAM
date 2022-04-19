@@ -6,7 +6,11 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -expt-relaxed-constexpr")
 set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -G -g")
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
-# set(CMAKE_CUDA_ARCHITECTURES 61 72 75 80)
+
+# FP16 operation requires SM_53 or higher
+# if you run into problem (e.g., some versions of CUDA 10 does not support SM_86 for RTX3090),
+# try getting rid of some architectures here.
+set(CMAKE_CUDA_ARCHITECTURES 61 72 75 80 86)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

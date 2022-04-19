@@ -4,6 +4,8 @@
 
 #include <Eigen/Dense>
 
+#include <cuda_fp16.h>
+
 #define NUM_CLASSES 21 // multi-class segmentation
 
 /**
@@ -37,11 +39,11 @@ class VoxelTSDF {
  */
 class VoxelSEGM {
  public:
-  float prob_vec[NUM_CLASSES];
+  __half prob_vec[NUM_CLASSES];
 
  public:
   __device__ __host__ VoxelSEGM();
-  __device__ __host__ VoxelSEGM(float prob_vec_[NUM_CLASSES]);
+  __device__ __host__ VoxelSEGM(__half prob_vec_[NUM_CLASSES]);
 };
 
 /**
@@ -65,9 +67,9 @@ class VoxelSpatialTSDFSEGM {
  public:
   Eigen::Vector3f position;
   float tsdf;
-  float prob_vec[NUM_CLASSES];
+  __half prob_vec[NUM_CLASSES];
 
  public:
   __device__ __host__ VoxelSpatialTSDFSEGM();
-  __device__ __host__ VoxelSpatialTSDFSEGM(const Eigen::Vector3f& position, const float tsdf, const float prob_vec_[NUM_CLASSES]);
+  __device__ __host__ VoxelSpatialTSDFSEGM(const Eigen::Vector3f& position, const float tsdf, const __half prob_vec_[NUM_CLASSES]);
 };

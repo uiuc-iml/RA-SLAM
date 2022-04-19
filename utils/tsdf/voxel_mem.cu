@@ -49,7 +49,7 @@ __device__ int VoxelMemPool::AquireBlock() {
     voxel_tsdf.tsdf = -1;
     #pragma unroll
     for (int i = 0; i < NUM_CLASSES; ++i) {
-      voxel_segm.prob_vec[i] = 1. / NUM_CLASSES;
+      voxel_segm.prob_vec[i] = __float2half(1. / NUM_CLASSES);
     }
   }
 
