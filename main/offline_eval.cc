@@ -93,7 +93,8 @@ void run(const std::string& segm_model_path, const std::string& data_path, bool 
 
   // thread exit
   if (download_flag) {
-    spdlog::info("Downloading Mesh...");
+    spdlog::info("Downloading TSDF and Mesh...");
+    my_tsdf->DownloadAll("raw_tsdf.bin");
     my_tsdf->DownloadAllMesh("mesh_vertices.bin", "mesh_indices.bin", "mesh_vertices_prob.bin");
   }
 }
