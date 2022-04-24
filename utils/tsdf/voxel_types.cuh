@@ -67,9 +67,9 @@ class VoxelSpatialTSDFSEGM {
  public:
   Eigen::Vector3f position;
   float tsdf;
-  __half prob_vec[NUM_CLASSES];
+  int predicted_class;
 
  public:
   __device__ __host__ VoxelSpatialTSDFSEGM();
-  __device__ __host__ VoxelSpatialTSDFSEGM(const Eigen::Vector3f& position, const float tsdf, const __half prob_vec_[NUM_CLASSES]);
+  __device__ __host__ VoxelSpatialTSDFSEGM(const Eigen::Vector3f& position, const float tsdf, const int predicted_class_);
 };

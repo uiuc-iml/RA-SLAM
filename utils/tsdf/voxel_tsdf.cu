@@ -61,8 +61,18 @@ __global__ static void download_semantic_kernel(const VoxelHashTable hash_table,
 
   const int idx = blockIdx.x * BLOCK_VOLUME + thread_idx;
   const VoxelTSDF& tsdf = hash_table.mem.GetVoxel<VoxelTSDF>(thread_idx, block);
-  const VoxelSEGM& segm = hash_table.mem.GetVoxel<VoxelSEGM>(thread_idx, block);
-  voxel_pos_tsdf[idx] = VoxelSpatialTSDFSEGM(pos_world, tsdf.tsdf, segm.prob_vec);
+  const VoxelSEGM& voxel_segm = hash_table.mem.GetVoxel<VoxelSEGM>(thread_idx, block);
+  // find max class
+  int max_cls = 0;
+  __half max_prob = voxel_segm.prob_vec[0];
+  # pragma unroll
+  for (int i = 0; i < NUM_CLASSES; ++i) {
+    if (__hgt(voxel_segm.prob_vec[i], max_prob)) {
+      max_cls = i;
+      max_prob = voxel_segm.prob_vec[i];
+    }
+  }
+  voxel_pos_tsdf[idx] = VoxelSpatialTSDFSEGM(pos_world, tsdf.tsdf, max_cls);
 }
 
 __device__ static bool is_voxel_visible(const Eigen::Matrix<short, 3, 1>& pos_grid,

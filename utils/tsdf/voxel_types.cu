@@ -29,10 +29,6 @@ __device__ __host__ VoxelSpatialTSDF::VoxelSpatialTSDF(const Eigen::Vector3f& po
 
 __device__ __host__ VoxelSpatialTSDFSEGM::VoxelSpatialTSDFSEGM(){};
 __device__ __host__ VoxelSpatialTSDFSEGM::VoxelSpatialTSDFSEGM(const Eigen::Vector3f& position,
-                                                               const float tsdf, const __half prob_vec_[NUM_CLASSES])
-    : position(position), tsdf(tsdf) {
-        #pragma unroll
-        for (int i = 0; i < NUM_CLASSES; ++i) {
-            prob_vec[i] = prob_vec_[i];
-        }
+                                                               const float tsdf, const int predicted_class_)
+    : position(position), tsdf(tsdf), predicted_class(predicted_class_) {
     }
