@@ -190,12 +190,12 @@ void Test::reconstruct() {
       // TODO This should be fixed with camera calibration
       SE3<float> pose(posecam_P_world.GetR(), posecam_P_world.GetT() * 10);
 
-      // std::cout << std::setw(5) << "|T: "
-      //     << std::setprecision(3)
-      //     << std::setw(12) << pose.GetT().x() << " "
-      //     << std::setw(12) << pose.GetT().y() << " "
-      //     << std::setw(12) << pose.GetT().z() << " "
-      //     << std::endl;
+      std::cout << std::setw(5) << "|T: "
+          << std::setprecision(3)
+          << std::setw(12) << pose.GetT().x() << " "
+          << std::setw(12) << pose.GetT().y() << " "
+          << std::setw(12) << pose.GetT().z() << " "
+          << std::endl;
 
       is_tracking = m.second;
       if (m.second) POSE_MANAGER->register_valid_pose(timestamp, pose);
@@ -259,7 +259,8 @@ void Test::reconstruct() {
         for (auto v : json_q) {
           q.push_back(v);
         }
-        std::cout << q[0] << " " << q[1] << " " << q[2] << std::endl;
+        std::cout << "BASE: " << q[0] << " " << q[1] << " " << q[2] << std::endl;
+        // 0 is -z, forward, 1 is +x, left is positive
       }
       ros::spinOnce();
       rate.sleep();
