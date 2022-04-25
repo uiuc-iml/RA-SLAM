@@ -56,7 +56,6 @@ Test::Test() {
   l515->SetDepthSensorOption(rs2_option::RS2_OPTION_LASER_POWER, yaml_node["L515.LaserPower"].as<int>());                   // [0,100]
   l515->SetDepthSensorOption(rs2_option::RS2_OPTION_CONFIDENCE_THRESHOLD, yaml_node["L515.ConfidenceThreshold"].as<int>()); // [0,3]
   l515->SetDepthSensorOption(rs2_option::RS2_OPTION_MIN_DISTANCE, yaml_node["L515.MinDistance"].as<int>());
-  l515->SetDepthSensorOption(rs2_option::RS2_OPTION_RECEIVER_SENSITIVITY, yaml_node["L515.ReceiverGain"].as<int>());        // [8,18]
   l515->SetDepthSensorOption(rs2_option::RS2_OPTION_POST_PROCESSING_SHARPENING, yaml_node["L515.PostProcSharp"].as<int>()); // [0,3]
   l515->SetDepthSensorOption(rs2_option::RS2_OPTION_PRE_PROCESSING_SHARPENING, yaml_node["L515.PreProcSharp"].as<int>());   // [0,5]
   l515->SetDepthSensorOption(rs2_option::RS2_OPTION_NOISE_FILTERING, yaml_node["L515.NoiseFiltering"].as<int>());           // [0,6]
@@ -182,10 +181,10 @@ void Test::reconstruct() {
 
       // visual slam
       const pose_valid_tuple m = SLAM->feed_stereo_images_w_feedback(img_left, img_right, timestamp * 1e3); // TODO Unsure units
-      const SE3<float> pose(m.first.cast<float>().eval());
+      const SE3<float> posecam_P_world(m.first.cast<float>().eval());
 
       // TODO This should be fixed with camera calibration
-      // SE3<float> pose(posecam_P_world.GetR(), posecam_P_world.GetT() * 10);
+      SE3<float> pose(posecam_P_world.GetR(), posecam_P_world.GetT() * 10);
 
       std::cout << std::setw(5) << "|T: "
           << std::setprecision(3)

@@ -3,7 +3,7 @@
 
     <node pkg="semantic_reconstruction" type="ros_disinf_slam" name="ros_disinf_slam"  output="screen" >
         <param name="model_path"                value="/home/motion/tools/ht_lt.pt" />
-        <param name="calib_path"                value="/home/motion/slam_ws/src/RA-SLAM/configs/zed_native_l515.yaml" />
+        <param name="calib_path"                value="/home/motion/slam_ws/src/RA-SLAM/configs/trina.yaml" />
         <param name="orb_vocab_path"            value="/home/motion/tools/orb_vocab.dbow2" />
         <param name="devid"     type="int"      value="2" />
         <param name="max_depth" type="double"    value="2.5" />

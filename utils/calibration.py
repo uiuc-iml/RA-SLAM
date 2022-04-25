@@ -26,9 +26,11 @@ def svo_to_png(input_path, output_dir):
     l_img = sl.Mat()
     r_img = sl.Mat()
     i = 0
+    step = 10
 
     while zed.grab() == sl.ERROR_CODE.SUCCESS:
         # Read side by side frames stored in the SVO
+        zed.set_svo_position(i * step)
         zed.retrieve_image(l_img, sl.VIEW.LEFT)
         zed.retrieve_image(r_img, sl.VIEW.RIGHT)
 
