@@ -47,7 +47,7 @@
 
 #define CELL_SIZE 0.05
 #define TRUNCATION_DISTANCE -0.1
-using namespace std;
+// using namespace std;
 
 class RosInterface
 {

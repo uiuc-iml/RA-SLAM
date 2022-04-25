@@ -30,6 +30,11 @@
 #include "utils/time.hpp"
 #include "semantic_reconstruction/Mesh.h"
 
+// Retrieving poses
+#include <sw/redis++/redis++.h>
+
+using namespace sw::redis;
+
 #define TRUNCATION_DISTANCE -0.1
 #define CELL_SIZE 0.05
 #define MAX_DEPTH 2.5
@@ -51,6 +56,8 @@ public:
   bool serve_mesh(semantic_reconstruction::Mesh::Request& request, semantic_reconstruction::Mesh::Response& response);
 
 private:
+  Redis redis = Redis("tcp://127.0.0.1:6379"); // TODO Should not be hardcoded
+
   ros::NodeHandle mNh;
   rviz_visual_tools::RvizVisualToolsPtr visual_tools_;
 

@@ -90,6 +90,11 @@ else()
         ${GLUT_INCLUDE_DIRS}
         ${KLAMPT_INCLUDE_DIRS}
     )
+
+    # TODO Figure out why find_package is not working
+    include_directories(/home/motion/.local/redis-plus-plus/include)
+    include_directories(/home/motion/.local/json/include)
+    include_directories(/home/motion/.local/hiredis/include)
 endif()
 
 # Interface wrapper lib for OpenVSLAM

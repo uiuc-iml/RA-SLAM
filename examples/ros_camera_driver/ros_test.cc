@@ -1,3 +1,5 @@
+#include <nlohmann/json.hpp>
+
 #include "ros_test.h"
 
 #include <geometry_msgs/Point.h>
@@ -17,6 +19,8 @@
 #include <std_msgs/Float32MultiArray.h>
 #include <std_msgs/String.h>
 #include <yaml-cpp/yaml.h>
+
+using json = nlohmann::json;
 
 Test::Test() {
   std::string vocab_file_path;
@@ -186,12 +190,12 @@ void Test::reconstruct() {
       // TODO This should be fixed with camera calibration
       SE3<float> pose(posecam_P_world.GetR(), posecam_P_world.GetT() * 10);
 
-      std::cout << std::setw(5) << "|T: "
-          << std::setprecision(3)
-          << std::setw(12) << pose.GetT().x() << " "
-          << std::setw(12) << pose.GetT().y() << " "
-          << std::setw(12) << pose.GetT().z() << " "
-          << std::endl;
+      // std::cout << std::setw(5) << "|T: "
+      //     << std::setprecision(3)
+      //     << std::setw(12) << pose.GetT().x() << " "
+      //     << std::setw(12) << pose.GetT().y() << " "
+      //     << std::setw(12) << pose.GetT().z() << " "
+      //     << std::endl;
 
       is_tracking = m.second;
       if (m.second) POSE_MANAGER->register_valid_pose(timestamp, pose);
@@ -218,7 +222,7 @@ void Test::reconstruct() {
       }
 
       if (start_time == 0) {
-        start_time = GetTimestamp<std::chrono::milliseconds>() + 3000;
+        start_time = GetTimestamp<std::chrono::milliseconds>() + 3000; // Wait 3s after acquiring
         continue;
       }
 
@@ -242,6 +246,23 @@ void Test::reconstruct() {
       TSDF->Integrate(posecam_P_world, img_rgb, img_depth);
 
       ros::spinOnce();
+    }
+  });
+
+  ros::Rate rate(30);
+  std::thread t_base_pose([&]() {
+    while (ros::ok()) {
+      auto t_val = redis.command<OptionalString>("JSON.GET", "ROBOT_STATE");
+      if (t_val) {
+        auto json_q = json::parse(*t_val)["Position"]["Robotq"];
+        std::vector<double> q;
+        for (auto v : json_q) {
+          q.push_back(v);
+        }
+        std::cout << q[0] << " " << q[1] << " " << q[2] << std::endl;
+      }
+      ros::spinOnce();
+      rate.sleep();
     }
   });
 

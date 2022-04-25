@@ -13,6 +13,15 @@ So the current one I am working on is Test.
 Rebuilt with `catkin build`.
 Setup environment with `source devel/setup.bash`
 Run with `roslaunch semantic_reconstruction disinfslam.launch
+
+Due to some jankiness, startup procedure is weird: to be fixed
+Start redrun, since we need redis server to be started
+Immediately start ra_slam, otherwise trina will acquire the camera first and things will fail
+
+There is still a bunch to do:
+Correcting pose using base pose
+Confidence threshold for each individual point
+Fix issue with close points -> Seem to be a TSDF issue
 */
 
 int main(int argc, char* argv[])
