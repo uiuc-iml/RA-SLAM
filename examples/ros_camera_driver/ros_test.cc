@@ -7,6 +7,7 @@
 #include <image_transport/image_transport.h>
 #include <KrisLibrary/geometry/TSDFReconstruction.h>
 #include <KrisLibrary/math3d/AABB3D.h>
+#include <KrisLibrary/math3d/rotation.h>
 #include <KrisLibrary/meshing/IO.h>
 #include <KrisLibrary/meshing/TriMeshOperators.h>
 #include <KrisLibrary/utils.h>
@@ -23,6 +24,8 @@
 using json = nlohmann::json;
 
 Test::Test() {
+  diff_pose = SE3<float>::Identity();
+
   std::string vocab_file_path;
   std::string config_file_path;
   std::string device_id;
@@ -100,7 +103,7 @@ void Test::generate_mesh() {
   static BoundingCube<float> volume = { -4, 4, -4, 4, -8, 8 };
   auto reconstruction	= TSDF->Query(volume);
   int numPoints		= reconstruction.size();
-  float minValue        = 0, maxValue = 0;
+  float minValue        = 100, maxValue = -100;
   Math3D::AABB3D bbox;
 
   for (int i = 0; i < numPoints; i++) {
@@ -189,13 +192,22 @@ void Test::reconstruct() {
 
       // TODO This should be fixed with camera calibration
       SE3<float> pose(posecam_P_world.GetR(), posecam_P_world.GetT() * 10);
+      slam_pose = pose; // TODO Medium we will have to update robot_state to return time last updated
+      pose = diff_pose * pose;
+      // pose = SE3<float>(pose.GetR() * diff_pose.GetR(), pose.GetT() + pose.GetT());
 
-      std::cout << std::setw(5) << "|T: "
-          << std::setprecision(3)
-          << std::setw(12) << pose.GetT().x() << " "
-          << std::setw(12) << pose.GetT().y() << " "
-          << std::setw(12) << pose.GetT().z() << " "
-          << std::endl;
+      if (has_started) {
+        auto euler = pose.GetR().toRotationMatrix().eulerAngles(0, 1, 2);
+        std::cout << std::setw(5) << "|T: "
+            << std::setprecision(3)
+            << std::setw(12) << pose.GetT().x() << " "
+            << std::setw(12) << pose.GetT().y() << " "
+            << std::setw(12) << pose.GetT().z() << " "
+            << std::setw(12) << euler[0] << " "
+            << std::setw(12) << euler[1] << " "
+            << std::setw(12) << euler[2] << " "
+            << std::endl;
+      }
 
       is_tracking = m.second;
       if (m.second) POSE_MANAGER->register_valid_pose(timestamp, pose);
@@ -210,9 +222,9 @@ void Test::reconstruct() {
    * 3. Scale and integrate the depth image at that pose into the TSDF
    */
   std::thread t_tsdf([&]() {
-    static bool has_started = false;
+    has_started = false;
     static int64_t start_time = 0;
-    while (ros::ok()) {      
+    while (ros::ok()) {
       cv::Mat img_rgb, img_depth;
       const int64_t timestamp = l515->GetRGBDFrame(&img_rgb, &img_depth);
 
@@ -222,7 +234,8 @@ void Test::reconstruct() {
       }
 
       if (start_time == 0) {
-        start_time = GetTimestamp<std::chrono::milliseconds>() + 3000; // Wait 3s after acquiring
+        // TODO should have a better strategy, e.g. wait for no tracking loss in 5 s
+        start_time = GetTimestamp<std::chrono::milliseconds>() + 5000; // Wait 3s after acquiring
         continue;
       }
 
@@ -252,15 +265,30 @@ void Test::reconstruct() {
   ros::Rate rate(30);
   std::thread t_base_pose([&]() {
     while (ros::ok()) {
+      if (!has_started) continue;
+
       auto t_val = redis.command<OptionalString>("JSON.GET", "ROBOT_STATE");
       if (t_val) {
+        // std::cout << *t_val << std::endl;
         auto json_q = json::parse(*t_val)["Position"]["Robotq"];
-        std::vector<double> q;
-        for (auto v : json_q) {
-          q.push_back(v);
-        }
-        std::cout << "BASE: " << q[0] << " " << q[1] << " " << q[2] << std::endl;
-        // 0 is -z, forward, 1 is +x, left is positive
+        Eigen::Vector3f trans(json_q[1], json_q[2], - (float) json_q[0]);
+        Eigen::Quaternionf rot(Eigen::AngleAxisf(json_q[3], Eigen::Vector3f(0, 1, 0))); // TODO MAJOR Will need to include the other axes, the ground may be sloped
+        // std::cout << "BASE: " << json_q[0] << " " << json_q[1] << " " << json_q[2] << " " << json_q[3] << std::endl;
+        SE3<float> base_pose(rot, trans);
+        // diff_pose = SE3<float>(slam_pose.GetR().inverse() * base_pose.GetR(), base_pose.GetT() - slam_pose.GetT());
+        diff_pose = slam_pose.Inverse() * base_pose; // TODO translation correction is wrong, but rotation at 0, 0 is correct
+
+        // auto euler = diff_pose.GetR().toRotationMatrix().eulerAngles(0, 1, 2);
+        // std::cout << std::setw(5) << "|T: "
+        //     << std::setprecision(5)
+        //     << std::setw(12) << diff_pose.GetT().x() << " "
+        //     << std::setw(12) << diff_pose.GetT().y() << " "
+        //     << std::setw(12) << diff_pose.GetT().z() << " "
+        //     << std::setw(12) << euler[0] << " "
+        //     << std::setw(12) << euler[1] << " "
+        //     << std::setw(12) << euler[2] << " "
+        //     << std::endl;
+        // 0 is -z, forward, 1 is +x, left is positive, 2 is up down, 3 is rotation, left is positive
       }
       ros::spinOnce();
       rate.sleep();
@@ -271,6 +299,7 @@ void Test::reconstruct() {
 
   t_slam.join();
   t_tsdf.join();
+  t_base_pose.join();
   SLAM->shutdown();
 }
 
