@@ -10,8 +10,6 @@
 #include "utils/tsdf/label_color_palette.cuh"
 #include "utils/time.hpp"
 
-#include <cuda_fp16.h>
-
 #define MAX_IMG_H 1920
 #define MAX_IMG_W 1080
 #define MAX_IMG_SIZE (MAX_IMG_H * MAX_IMG_W)
@@ -63,15 +61,7 @@ __global__ static void download_semantic_kernel(const VoxelHashTable hash_table,
   const VoxelTSDF& tsdf = hash_table.mem.GetVoxel<VoxelTSDF>(thread_idx, block);
   const VoxelSEGM& voxel_segm = hash_table.mem.GetVoxel<VoxelSEGM>(thread_idx, block);
   // find max class
-  int max_cls = 0;
-  __half max_prob = voxel_segm.prob_vec[0];
-  # pragma unroll
-  for (int i = 0; i < NUM_CLASSES; ++i) {
-    if (__hgt(voxel_segm.prob_vec[i], max_prob)) {
-      max_cls = i;
-      max_prob = voxel_segm.prob_vec[i];
-    }
-  }
+  int max_cls = voxel_segm.semantic_rep.get_max_class();
   voxel_pos_tsdf[idx] = VoxelSpatialTSDFSEGM(pos_world, tsdf.tsdf, max_cls);
 }
 
@@ -256,17 +246,7 @@ __global__ static void tsdf_integrate_kernel(
       voxel_rgbw.rgb =
           rgb_combined.unaryExpr([](const float x) { return roundf(x); }).cast<unsigned char>();
       // multi-class recursive Bayesian update
-      __half norm_coeff = 0;
-      #pragma unroll
-      for (int i = 0; i < NUM_CLASSES; ++i) {
-        __half new_prob = __hmul(voxel_segm.prob_vec[i], __float2half(prob_map[img_idx + class_offset * i]));
-        voxel_segm.prob_vec[i] = new_prob;
-        norm_coeff = __hadd(norm_coeff, new_prob);
-      }
-      #pragma unroll
-      for (int i = 0; i < NUM_CLASSES; ++i) {
-        voxel_segm.prob_vec[i] = __hdiv(voxel_segm.prob_vec[i], norm_coeff);
-      }
+      voxel_segm.semantic_rep.update(prob_map, img_idx, class_offset);
     }
   }
 }
@@ -369,15 +349,7 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
                                               hash_table.Retrieve<VoxelTSDF>(z_neg, cache).tsdf);
       const float diffusivity = fmaxf(norm_raw_grid.dot(-ray_dir_world) / norm_raw_grid.norm(), 0);
       // find max class
-      int max_cls = 0;
-      __half max_prob = voxel_segm.prob_vec[0];
-      # pragma unroll
-      for (int i = 0; i < NUM_CLASSES; ++i) {
-        if (__hgt(voxel_segm.prob_vec[i], max_prob)) {
-          max_cls = i;
-          max_prob = voxel_segm.prob_vec[i];
-        }
-      }
+      int max_cls = voxel_segm.semantic_rep.get_max_class();
       float alpha = 0;
       if (max_cls != 0) alpha = 0.5; // alpha for non-background classes
       img_tsdf_rgba[idx] =
@@ -641,8 +613,9 @@ __global__ static void marching_cube_kernel(const VoxelHashTable hash_table,
               hash_table.mem.GetVoxel<VoxelRGBW>(offset_idx, cube_blocks[i][j][k]).weight;
           // FIXME!!!
           // TODO(roger): maintain only the maximum class. Use TSDF to choose the nearest one as predicted class
-          const float segm_prob =
-              __half2float(hash_table.mem.GetVoxel<VoxelSEGM>(offset_idx, cube_blocks[i][j][k]).prob_vec[0]);
+          // const float segm_prob =
+          //     __half2float(hash_table.mem.GetVoxel<VoxelSEGM>(offset_idx, cube_blocks[i][j][k]).prob_vec[0]);
+          const float segm_prob = 0;
           if (weight > 10) {
             // if mutliple measurement, plug in tsdf
             cube_tsdf[i * BLOCK_LEN + threadIdx.z][j * BLOCK_LEN + threadIdx.y]

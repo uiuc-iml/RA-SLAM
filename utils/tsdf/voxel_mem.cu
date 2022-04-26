@@ -47,10 +47,7 @@ __device__ int VoxelMemPool::AquireBlock() {
     VoxelSEGM& voxel_segm = GetVoxel<VoxelSEGM>(i, block);
     voxel_rgbw.weight = 1;
     voxel_tsdf.tsdf = -1;
-    #pragma unroll
-    for (int i = 0; i < NUM_CLASSES; ++i) {
-      voxel_segm.prob_vec[i] = __float2half(1. / NUM_CLASSES);
-    }
+    voxel_segm.semantic_rep.uniform_init();
   }
 
   return block.idx;

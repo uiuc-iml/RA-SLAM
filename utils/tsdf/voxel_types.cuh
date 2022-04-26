@@ -8,6 +8,18 @@
 
 #define NUM_CLASSES 21 // multi-class segmentation
 
+struct MultiClsSemantics {
+  __half prob_vec[NUM_CLASSES];
+
+  __device__ __host__ MultiClsSemantics();
+
+  __device__ __host__ void uniform_init();
+
+  __device__ int get_max_class() const;
+
+  __device__ void update(const float* prob_map, const int img_idx, const int class_offset);
+};
+
 /**
  * @brief voxel data packed with RGB and TSDF weight
  */
@@ -39,11 +51,10 @@ class VoxelTSDF {
  */
 class VoxelSEGM {
  public:
-  __half prob_vec[NUM_CLASSES];
+  MultiClsSemantics semantic_rep;
 
  public:
   __device__ __host__ VoxelSEGM();
-  __device__ __host__ VoxelSEGM(__half prob_vec_[NUM_CLASSES]);
 };
 
 /**
