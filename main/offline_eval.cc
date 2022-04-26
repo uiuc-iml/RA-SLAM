@@ -86,12 +86,16 @@ void run(const std::string& segm_model_path, const std::string& data_path, bool 
     if (!my_tsdf->is_terminated()) my_tsdf->terminate();
   });
 
+  const auto stream_st = GetTimestamp<std::chrono::milliseconds>();
   if (rendering_flag) {
     my_renderer.Run();
   }
   if (t_tsdf.joinable()) t_tsdf.join();
 
   // thread exit
+  const auto stream_end = GetTimestamp<std::chrono::milliseconds>();
+  spdlog::info("[OFFLINE EVAL] Processing {} frames took {} ms", my_datareader->get_size(),
+               stream_end - stream_st);
   if (download_flag) {
     spdlog::info("Downloading TSDF and Mesh...");
     my_tsdf->DownloadAll("raw_tsdf.bin");

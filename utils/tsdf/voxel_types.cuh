@@ -1,12 +1,11 @@
 #pragma once
 
+#include <cuda_fp16.h>
 #include <cuda_runtime.h>
 
 #include <Eigen/Dense>
 
-#include <cuda_fp16.h>
-
-#define NUM_CLASSES 21 // multi-class segmentation
+#define NUM_CLASSES 21  // multi-class segmentation
 
 struct MultiClsSemantics {
   __half prob_vec[NUM_CLASSES];
@@ -82,5 +81,6 @@ class VoxelSpatialTSDFSEGM {
 
  public:
   __device__ __host__ VoxelSpatialTSDFSEGM();
-  __device__ __host__ VoxelSpatialTSDFSEGM(const Eigen::Vector3f& position, const float tsdf, const int predicted_class_);
+  __device__ __host__ VoxelSpatialTSDFSEGM(const Eigen::Vector3f& position, const float tsdf,
+                                           const int predicted_class_);
 };

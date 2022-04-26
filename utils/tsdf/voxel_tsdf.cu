@@ -5,10 +5,10 @@
 
 #include "utils/cuda/arithmetic.cuh"
 #include "utils/cuda/errors.cuh"
+#include "utils/time.hpp"
+#include "utils/tsdf/label_color_palette.cuh"
 #include "utils/tsdf/mcube_table.cuh"
 #include "utils/tsdf/voxel_tsdf.cuh"
-#include "utils/tsdf/label_color_palette.cuh"
-#include "utils/time.hpp"
 
 #define MAX_IMG_H 1920
 #define MAX_IMG_W 1080
@@ -351,15 +351,15 @@ __global__ static void ray_cast_kernel(const VoxelHashTable hash_table,
       // find max class
       int max_cls = voxel_segm.semantic_rep.get_max_class();
       float alpha = 0;
-      if (max_cls != 0) alpha = 0.5; // alpha for non-background classes
-      img_tsdf_rgba[idx] =
-          make_uchar4(alpha * label_color_palette[max_cls][0] + (1 - alpha) * voxel_rgbw.rgb[0],
-                      alpha * label_color_palette[max_cls][1] + (1 - alpha) * voxel_rgbw.rgb[1],
-                      alpha * label_color_palette[max_cls][2] + (1 - alpha) * voxel_rgbw.rgb[2], 255);
-      img_tsdf_normal[idx] =
-          make_uchar4(alpha * label_color_palette[max_cls][0] + (1 - alpha) * diffusivity * 255,
-                      alpha * label_color_palette[max_cls][1] + (1 - alpha) * diffusivity * 255,
-                      alpha * label_color_palette[max_cls][2] + (1 - alpha) * diffusivity * 255, 255);
+      if (max_cls != 0) alpha = 0.5;  // alpha for non-background classes
+      img_tsdf_rgba[idx] = make_uchar4(
+          alpha * label_color_palette[max_cls][0] + (1 - alpha) * voxel_rgbw.rgb[0],
+          alpha * label_color_palette[max_cls][1] + (1 - alpha) * voxel_rgbw.rgb[1],
+          alpha * label_color_palette[max_cls][2] + (1 - alpha) * voxel_rgbw.rgb[2], 255);
+      img_tsdf_normal[idx] = make_uchar4(
+          alpha * label_color_palette[max_cls][0] + (1 - alpha) * diffusivity * 255,
+          alpha * label_color_palette[max_cls][1] + (1 - alpha) * diffusivity * 255,
+          alpha * label_color_palette[max_cls][2] + (1 - alpha) * diffusivity * 255, 255);
       return;
     }
     tsdf_prev = tsdf_curr;
@@ -442,13 +442,14 @@ void TSDFGrid::Integrate(const cv::Mat& img_rgb, const cv::Mat& img_depth,
   const CameraParams cam_params(intrinsics, img_rgb.rows, img_rgb.cols);
 
   // data transfer
-  CUDA_SAFE_CALL(cudaMemcpyAsync(prob_map_, prob_map.data_ptr(), sizeof(float) * width_ * height_ * NUM_CLASSES,
+  CUDA_SAFE_CALL(cudaMemcpyAsync(prob_map_, prob_map.data_ptr(),
+                                 sizeof(float) * width_ * height_ * NUM_CLASSES,
                                  cudaMemcpyDeviceToDevice, stream2_));
   CUDA_SAFE_CALL(cudaMemcpyAsync(img_rgb_, img_rgb.data, sizeof(uchar3) * img_rgb.total(),
                                  cudaMemcpyHostToDevice, stream_));
   CUDA_SAFE_CALL(cudaMemcpyAsync(img_depth_, img_depth.data, sizeof(float) * img_depth.total(),
                                  cudaMemcpyHostToDevice, stream_));
-                                 // ht is 0
+  // ht is 0
   // compute
   spdlog::debug("[TSDF] pre integrate: {} active blocks", hash_table_.NumActiveBlock());
   Allocate(img_rgb, img_depth, max_depth, cam_params, cam_T_world);
@@ -612,9 +613,10 @@ __global__ static void marching_cube_kernel(const VoxelHashTable hash_table,
           const int weight =
               hash_table.mem.GetVoxel<VoxelRGBW>(offset_idx, cube_blocks[i][j][k]).weight;
           // FIXME!!!
-          // TODO(roger): maintain only the maximum class. Use TSDF to choose the nearest one as predicted class
-          // const float segm_prob =
-          //     __half2float(hash_table.mem.GetVoxel<VoxelSEGM>(offset_idx, cube_blocks[i][j][k]).prob_vec[0]);
+          // TODO(roger): maintain only the maximum class. Use TSDF to choose the nearest one as
+          // predicted class const float segm_prob =
+          //     __half2float(hash_table.mem.GetVoxel<VoxelSEGM>(offset_idx,
+          //     cube_blocks[i][j][k]).prob_vec[0]);
           const float segm_prob = 0;
           if (weight > 10) {
             // if mutliple measurement, plug in tsdf
@@ -886,7 +888,8 @@ void TSDFGrid::UpdateTSDF(int num_visible_blocks, float max_depth, const CameraP
   const dim3 VOXEL_BLOCK_DIM(BLOCK_LEN, BLOCK_LEN, BLOCK_LEN);
   tsdf_integrate_kernel<<<num_visible_blocks, VOXEL_BLOCK_DIM, 0, stream_>>>(
       visible_blocks_, hash_table_.mem, cam_T_world, cam_params, num_visible_blocks, max_depth,
-      truncation_, voxel_size_, img_rgb_, img_depth_, prob_map_, img_depth_to_range_, height_, width_);
+      truncation_, voxel_size_, img_rgb_, img_depth_, prob_map_, img_depth_to_range_, height_,
+      width_);
   CUDA_STREAM_CHECK_ERROR(stream_);
 }
 

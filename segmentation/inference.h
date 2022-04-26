@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "utils/tensor_helper/libtorch_helper.h"
-#include "utils/tsdf/voxel_types.cuh" // for NUM_CLASSES
+#include "utils/tsdf/voxel_types.cuh"  // for NUM_CLASSES
 
 class inference_engine {
  public:
