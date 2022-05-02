@@ -15,7 +15,7 @@ Setup environment with `source devel/setup.bash`
 Run with `roslaunch semantic_reconstruction disinfslam.launch
 
 Due to some jankiness, startup procedure is weird: to be fixed
-Start redrun, since we need redis server to be started
+Start redrun, since we need redis server to be started as the base_pose will be polling the server. TODO MAJOR make it either wait for the server to be up/ignore base_pose until successfully conncted to the server
 Immediately start ra_slam, otherwise trina will acquire the camera first and things will fail
 
 There is still a bunch to do:

@@ -1,4 +1,4 @@
-#include <nlohmann/json.hpp>
+#include <nlohmann/json.hpp> // This has to be here. Some included file has `using namespace std`, which will conflict with this file
 
 #include "ros_test.h"
 
