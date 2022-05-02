@@ -37,6 +37,7 @@ There is a bunch of improvements that can be made.
 0. Calibrate the extrinsics of the camera, and the intrinsics.
 1. For some reason, points closer than around 0.5m to the camera will not be added to the TSDF (I'm pretty sure they are detected by the L515).
 2. Make masking work again. Changes to KrisLibrary has broken some stuff, you may need to rewrite some portions of the `mask_robot` library (or reinstall a previous version of KrislLibrary). Ask Patrick for more information.
-2. Figuring out how to use the robot pose to reduce slam pose estimation error. The basic structure is already in place, just need to figure out how to find the difference matrix. This would also require making some changes to the robot state, to include a last updated timestamp.
-3. Integrate with Dynamic Mesh Server. However, I'm not exactly sure if this is required - you can already query the TSDF for a specific region of the world. It is currently hardcoded to some bounding box `bbox`, but one can definitely add arguments to `meshsrv` to specify the bounding box (or maybe even just create a bounding box centered around the pose).
-4. There are quite a few TODOs lying around, classified as MAJOR, EASY etc.
+3. Confidence thresholds for points.
+4. Figuring out how to use the robot pose to reduce slam pose estimation error. The basic structure is already in place, just need to figure out how to find the difference matrix. This would also require making some changes to the robot state, to include a last updated timestamp.
+5. Integrate with Dynamic Mesh Server. However, I'm not exactly sure if this is required - you can already query the TSDF for a specific region of the world. It is currently hardcoded to some bounding box `bbox`, but one can definitely add arguments to `meshsrv` to specify the bounding box (or maybe even just create a bounding box centered around the pose).
+6. There are quite a few TODOs lying around, classified as MAJOR, EASY etc.

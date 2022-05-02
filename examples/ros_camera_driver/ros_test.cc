@@ -193,7 +193,7 @@ void Test::reconstruct() {
       // TODO This should be fixed with camera calibration
       SE3<float> pose(posecam_P_world.GetR(), posecam_P_world.GetT() * 10);
       slam_pose = pose; // TODO Medium we will have to update robot_state to return time last updated
-      pose = diff_pose * pose;
+      // pose = diff_pose * pose;
       // pose = SE3<float>(pose.GetR() * diff_pose.GetR(), pose.GetT() + pose.GetT());
 
       if (has_started) {
