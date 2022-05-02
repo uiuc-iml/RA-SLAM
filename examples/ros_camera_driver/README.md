@@ -7,7 +7,7 @@
 ## Running
 0. If you are running on the `TRINA` PC, this currently resides in `~/<my name>_ws`.
 1. Run `catkin build` to build the files. You may need to run `source <ws>/devel/setup.bash`. `catkin clean` is a useful command if you need to reset your workspace (does not affect `src` files).
-2. In `~/TRINA`, run `redrun redrun_config.json`.
+2. In `~/TRINA`, using `<my name>_slam_conversion` branch, run `redrun redrun_config.json`.
 2. Run `roslaunch semantic_reconstruction disinfslam.launch`. Refer to `examples/ros_camera_driver/main.cc` for the nuances.
 3. There are a few errors that might occur here, mainly that the cameras may not be connected properly. Use `realsense-viewer` for the L515 and `ZED_Explorer` for the ZED2 to verify they are connected properly. The ZED2 camera is fairly finicky. We are currently using the `devid` in `launch/disinfslam.launch` (which is the same as `/dev/videoX`). May require some unplug/replugs. Note that we are using another ZEDMini as the eyes, so make sure that `RA_SLAM` is using the slam ZED2.
 4. Once the cameras have started up, you will want to rotate `Trina` a few degrees to aid in finding initiaization keypoints. You should start seeing a steady stream of pose values in the terminal, followed by a `TSDF Started!` message. If the message appears before you are properly tracking, the `TSDF` may get messy. In that case, either move `Trina` more/start moving earlier, or increase the delay between finding tracking and starting `t_tsdf`.
