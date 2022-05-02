@@ -48,7 +48,6 @@ int64_t L515::GetRGBDFrame(cv::Mat* color_img, cv::Mat* depth_img) const {
   // int64_t timestamp = (int64_t)(depth_frame.get_frame_metadata(RS2_FRAME_METADATA_BACKEND_TIMESTAMP));
   // TODO MAJOR frame_metadata is 0 for some reason
   int64_t timestamp = (int64_t) (GetSystemTimestamp<std::chrono::milliseconds>());
-  // std::cout << "CAMERA:    " << timestamp << std::endl;
   return timestamp;
 }
 

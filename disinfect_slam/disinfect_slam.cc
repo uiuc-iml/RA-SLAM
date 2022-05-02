@@ -55,7 +55,6 @@ void DISINFSystem::feed_rgbd_frame(const cv::Mat& img_rgb, const cv::Mat& img_de
                          1. / depthmap_factor_);  // depth scale
   if (!mask.empty())
   {
-    // std::cout<<"mask is not empty!"<<std::endl;
     cv::resize(mask, my_mask, cv::Size(), .5, .5);
     cv::Size s   = my_img_depth.size();
     int num_rows = s.height;
@@ -73,10 +72,6 @@ void DISINFSystem::feed_rgbd_frame(const cv::Mat& img_rgb, const cv::Mat& img_de
         }
       }
     }
-    // std::cout<<"mask count: "<<cnt<<std::endl;
-    // cv::imshow("mask_depth", my_img_depth);
-    // cv::waitKey(1);
-
   }
 //   std::vector<cv::Mat> prob_map = SEG_->infer_one(my_img_rgb, false);
 TSDF_->Integrate(posecam_P_world, my_img_rgb, my_img_depth);

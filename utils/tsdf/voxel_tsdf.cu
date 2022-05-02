@@ -442,11 +442,6 @@ void TSDFGrid::Integrate(const cv::Mat& img_rgb, const cv::Mat& img_depth, const
   Allocate(img_rgb, img_depth, max_depth, cam_params, cam_T_world);
   const int num_visible_blocks = GatherVisible(max_depth, cam_params, cam_T_world);
   CUDA_SAFE_CALL(cudaStreamSynchronize(stream2_));  // synchronize ht / lt img copy
-  // std::cout << std::setprecision(5)
-  //       // << std::setw(12) << cam_T_world.GetT()(0, 0) << " "
-  //       // << std::setw(12) << cam_T_world.GetT()(1, 0) << " "
-  //       << std::setw(12) << cam_T_world.GetT()(2, 0) << " | "
-  //       << img_depth.at<float>(img_depth.rows / 2, img_depth.cols / 2) << std::endl;
   UpdateTSDF(num_visible_blocks, max_depth, cam_params, cam_T_world);
 
   // Deallocate empty voxels
