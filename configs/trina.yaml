@@ -73,8 +73,8 @@ Initializer.num_min_triangulated_pts: 50
 L515.DigitalGain: 1
 L515.LaserPower: 100
 L515.ConfidenceThreshold: 2
-L515.MinDistance: 200
+L515.MinDistance: 20
 L515.ReceiverGain: 8
 L515.PostProcSharp: 3
-L515.PreProcSharp: 5
+L515.PreProcSharp: 2
 L515.NoiseFiltering: 6
