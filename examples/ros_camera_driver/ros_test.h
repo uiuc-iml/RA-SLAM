@@ -58,7 +58,7 @@ public:
 private:
   bool has_started;
 
-  Redis redis = Redis("tcp://127.0.0.1:6379"); // TODO Should not be hardcoded
+  // Redis redis = Redis("tcp://127.0.0.1:6379"); // TODO Should not be hardcoded
   SE3<float> slam_pose;
   SE3<float> diff_pose;
 
