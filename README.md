@@ -3,9 +3,11 @@
 This project is built for the perception system of an autonomous disinfection robot. The core
 components of this module is a real-time 3D semantic reconstruction algorithm, with an efficient GPU implementation of Voxel Hashing which supports semmantic integration.
 
-## Instllation
+## Setting up
 
-Please refer to [INSTALL.md](./INSTALL.md)
+For installling dependencies and running examples, please refer to [INSTALL.md](./docs/INSTALL.md).
+
+For calibrating camera intrinsics for live application, please refer to [this instruction](./docs/calibrate_stereo_camera.md).
 
 ## Running Example ScanNet reconstruction
 
