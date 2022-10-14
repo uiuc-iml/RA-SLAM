@@ -6,7 +6,6 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import open3d as o3d
-from open3d import JVisualizer
 from pykdtree.kdtree import KDTree
 from utils import LabelParser
 import pymesh

@@ -8,7 +8,8 @@
 #define NUM_CLASSES 21  // multi-class segmentation
 
 struct MultiClsSemantics {
-  __half prob_vec[NUM_CLASSES];
+  int max_cls;
+  int observation_cnt;
 
   __device__ __host__ MultiClsSemantics();
 

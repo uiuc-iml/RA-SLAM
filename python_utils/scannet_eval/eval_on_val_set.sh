@@ -7,7 +7,7 @@ while IFS= read -r line; do
   split_name_arr+=("$line")
 done < ${val_txt_path}
 
-SUBSET_SIZE=10 # eval on only a part of subset for efficiency; use 312 for full evaluation
+SUBSET_SIZE=50 # eval on only a part of subset for efficiency; use 312 for full evaluation
 
 for (( i = 0 ; i < ${SUBSET_SIZE} ; i++))
 do
