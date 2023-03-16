@@ -13,7 +13,7 @@ Another benifit of this is that `sudo` privilege is not needed for the installat
 * Build System
     * C++14
     * CMake >= 3.18
-    * CUDA >= 10.0
+    * CUDA >= 11.0
 * Externel Libraries
     * A previous build of [OpenVSLAM](https://arxiv.org/pdf/1910.01122.pdf). The project has not been tested on the newest version of OpenVSLAM and depends on a custom build of OpenVSLAM, which we provide [here](https://drive.google.com/file/d/1DayZLNd8hTMVM02SGUwFVS30Jlv-Zjuc/view?usp=sharing). We have to use this custom build to expose certain critical private variables for our usage. However, **NOTE THAT THIS BUILD OF OPENVSLAM CARRIES AN INCORRECT LICENSE** (details [here](https://github.com/OpenVSLAM-Community/openvslam/issues/249)). Therefore, when building the OpenVSLAM library, please change the license to GPL license.
     * [LibRealSense](https://github.com/IntelRealSense/librealsense)
@@ -77,10 +77,10 @@ Download and install Eigen from source
 
 ```
 cd ~/dep
-wget -q https://gitlab.com/libeigen/eigen/-/archive/3.3.7/eigen-3.3.7.tar.bz2
-tar xf eigen-3.3.7.tar.bz2
-rm -rf eigen-3.3.7.tar.bz2
-cd eigen-3.3.7
+wget -q https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+tar xvf eigen-3.4.0.tar.gz
+rm eigen-3.4.0.tar.gz
+cd eigen-3.4.0
 mkdir -p build && cd build
 cmake \
     -DCMAKE_BUILD_TYPE=Release \

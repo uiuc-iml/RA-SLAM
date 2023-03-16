@@ -138,7 +138,7 @@ template <typename T>
 void prefix_sum(T* input, T* output, T* auxout, int64_t len, cudaStream_t stream = NULL) {
   // cannot handle more than (1 << 22) elements
   assert((int)len >= 0);
-  assert((long)len <= ((long)SCAN_BLOCK_SIZE) * SCAN_BLOCK_SIZE * SCAN_BLOCK_SIZE * 8);
+  assert((uint64_t)len <= uint64_t(SCAN_BLOCK_SIZE) * SCAN_BLOCK_SIZE * SCAN_BLOCK_SIZE * 8);
   const int num_aux1 = ceil((float)len / (2 * SCAN_BLOCK_SIZE));
   const int num_aux2 = ceil((float)num_aux1 / (2 * SCAN_BLOCK_SIZE));
 
