@@ -62,7 +62,7 @@ class TSDFSystem {
    * @param prob_map        generic multi-class prob tensor
    */
   void Integrate(const SE3<float>& posecam_T_world, const cv::Mat& img_rgb,
-                 const cv::Mat& img_depth, const torch::Tensor&);
+                 const cv::Mat& img_depth, const torch::Tensor& prob_map);
 
   /**
    * @brief download valid voxels within a certain bound
